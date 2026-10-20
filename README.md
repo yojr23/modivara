@@ -36,3 +36,14 @@ domains/<d>/{api,web,contracts}   d ∈ core, hospitality, commerce, analytics
 ```
 
 Dentro de cada `domains/<d>/api/src`: `domain/`, `application/` (casos de uso + `ports/`), `infrastructure/`, `presentation/` (TECH-001 §5 v1.3).
+
+## Convenciones de arquitectura (TECH-001 §5 v1.4)
+
+- **Capas por dominio:** `presentation`/`infrastructure` → `application` → `domain`. `domain/` no importa Nest, Prisma ni esquemas Zod (puede usar constantes y tipos de contracts).
+- **Separabilidad:** un dominio solo depende de `*-contracts` de otros; nunca de rutas internas. `pnpm check:separability` lo verifica.
+- **Kernel compartido** (`core-contracts`): `DomainError` y errores comunes con `code` estable; `AggregateRoot` + `pullEvents()`; `toEventEnvelope`; `findActiveLocation`; `newId()` (UUIDv7, generado en la app).
+- **Tenant:** contexto del actor `{ organizationId, locationId?, actorUserId }`, siempre del servidor. Búsquedas por id con parámetro objeto y acotadas por negocio/local; si no coincide → `NotFoundError` (sin revelar existencia).
+- **Transacciones:** Repository por agregado; si una operación abarca varios agregados o necesita bloqueo, **puerto transaccional acotado** (`withDeviceLock`, `withLockedBalance`), nunca UnitOfWork genérico.
+- **Eventos:** internos en camelCase (`eventType`, `eventVersion`); un único mapeo al sobre snake_case; outbox en la misma transacción.
+- **Tiempo:** sin puerto `Clock`; `new Date()` y temporizadores falsos de Vitest en pruebas.
+- **Base de datos:** un esquema y un rol PostgreSQL por dominio; sin FK entre esquemas; FK compuestas `(x_id, location_id)` dentro del esquema.
