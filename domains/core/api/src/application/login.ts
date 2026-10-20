@@ -1,4 +1,4 @@
-import { newId, usernameSchema } from '@modivara/core-contracts';
+import { isValidUsername, newId } from '@modivara/core-contracts';
 import { AccountLockedError, InvalidCredentialsError, Session } from '../domain/index.js';
 import type { ActorContext } from './actor.js';
 import type { OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './ports/index.js';
@@ -30,9 +30,9 @@ export class Login {
 
   async execute(input: LoginInput): Promise<LoginOutput> {
     const now = new Date();
-    const parsed = usernameSchema.safeParse(input.username);
+    const username = input.username.trim().toLowerCase();
     const org = await this.organizations.findBySlug(input.slug.trim().toLowerCase());
-    const user = org?.isActive && parsed.success ? await this.users.findActiveByUsername(org.id, parsed.data) : null;
+    const user = org?.isActive && isValidUsername(username) ? await this.users.findActiveByUsername(org.id, username) : null;
 
     if (!org || !user) {
       // Trabajo equivalente al camino real para no delatar por tiempo si el usuario existe.

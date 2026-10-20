@@ -28,7 +28,7 @@ export const loginRequestSchema = z.object({
   slug: slugSchema,
   username: usernameSchema,
   // En el login no se aplica la política: solo se compara contra el hash.
-  password: z.string().min(1).max(128),
+  password: z.string().min(1).max(PASSWORD_MAX),
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 

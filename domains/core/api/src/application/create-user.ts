@@ -1,4 +1,4 @@
-import { ConflictError, newId, NotFoundError, usernameSchema, ValidationError } from '@modivara/core-contracts';
+import { ConflictError, newId, NotFoundError, isValidUsername, ValidationError } from '@modivara/core-contracts';
 import { AppUser, assertPasswordPolicy, PermissionDeniedError } from '../domain/index.js';
 import { assertCanManageUsers, effectiveOrganizationId, type ActorContext } from './actor.js';
 import type { MembershipRepository, OrganizationRepository, PasswordHasher, UserRepository } from './ports/index.js';
@@ -34,15 +34,15 @@ export class CreateUser {
     // OPEN: ¿puede un admin (no dueño) crear un dueño? Por ahora solo el superadmin.
     if (input.isOwner && !actor.isPlatform) throw new PermissionDeniedError('Only platform users can create owners');
 
-    const username = usernameSchema.safeParse(input.username);
-    if (!username.success) throw new ValidationError(`Invalid username: ${input.username}`);
+    const username = input.username.trim().toLowerCase();
+    if (!isValidUsername(username)) throw new ValidationError(`Invalid username: ${input.username}`);
     assertPasswordPolicy(input.password);
-    if (await this.users.findActiveByUsername(org.id, username.data)) throw new ConflictError('Username already in use');
+    if (await this.users.findActiveByUsername(org.id, username)) throw new ConflictError('Username already in use');
 
     const user = AppUser.create({
       id: newId(),
       organizationId: org.id,
-      username: username.data,
+      username,
       displayName: input.displayName,
       passwordHash: await this.hasher.hash(input.password),
       isOwner: input.isOwner,

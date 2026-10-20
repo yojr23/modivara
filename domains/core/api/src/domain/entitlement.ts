@@ -1,25 +1,28 @@
-import { MODULES, type ModuleName } from '@modivara/core-contracts';
-import { ValidationError } from '@modivara/core-contracts';
+import { MODULES, ValidationError, type ModuleName } from '@modivara/core-contracts';
+
+export interface EntitlementProps {
+  organizationId: string;
+  module: ModuleName;
+  enabled: boolean;
+}
 
 export class Entitlement {
-  private constructor(
-    readonly organizationId: string,
-    readonly module: ModuleName,
-    private _enabled: boolean,
-  ) {}
+  private constructor(private props: EntitlementProps) {}
 
   static create(input: { organizationId: string; module: string; enabled?: boolean }): Entitlement {
     if (!(MODULES as readonly string[]).includes(input.module)) throw new ValidationError(`Unknown module: ${input.module}`);
-    return new Entitlement(input.organizationId, input.module as ModuleName, input.enabled ?? true);
+    return new Entitlement({ organizationId: input.organizationId, module: input.module as ModuleName, enabled: input.enabled ?? true });
   }
 
-  static restore(props: { organizationId: string; module: ModuleName; enabled: boolean }): Entitlement {
-    return new Entitlement(props.organizationId, props.module, props.enabled);
+  static restore(props: EntitlementProps): Entitlement {
+    return new Entitlement({ ...props });
   }
 
-  get enabled() { return this._enabled; }
+  get organizationId() { return this.props.organizationId; }
+  get module() { return this.props.module; }
+  get enabled() { return this.props.enabled; }
 
   setEnabled(enabled: boolean): void {
-    this._enabled = enabled;
+    this.props.enabled = enabled;
   }
 }
