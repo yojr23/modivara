@@ -63,7 +63,7 @@ export class MovementRecorder {
 export class RegisterMovement {
   constructor(private readonly recorder: MovementRecorder) {}
 
-  execute(input: RegisterMovementCommand): Promise<RecordedMovement> {
+  async execute(input: RegisterMovementCommand): Promise<RecordedMovement> {
     const quantity = Quantity.parse(input.quantity);
     const change: MovementChange =
       input.direction === 'adjust' ? { kind: 'adjust', delta: quantity } : { kind: input.direction, quantity };

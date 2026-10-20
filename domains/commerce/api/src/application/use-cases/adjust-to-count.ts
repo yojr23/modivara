@@ -10,7 +10,7 @@ export interface AdjustToCountCommand extends MovementTarget {
 export class AdjustToCount {
   constructor(private readonly recorder: MovementRecorder) {}
 
-  execute(input: AdjustToCountCommand): Promise<RecordedMovement> {
+  async execute(input: AdjustToCountCommand): Promise<RecordedMovement> {
     return this.recorder.record(input, { kind: 'count', counted: Quantity.parse(input.countedQuantity) });
   }
 }
