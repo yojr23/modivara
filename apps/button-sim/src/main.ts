@@ -34,8 +34,17 @@ const send = (res: ServerResponse, status: number, body: unknown) => {
   res.end(JSON.stringify(body));
 };
 
+/** Bloquea POST entre sitios: JSON obligatorio (fuerza preflight) y mismo origen que el host. */
+function isSameOriginJson(req: IncomingMessage): boolean {
+  if (!req.headers['content-type']?.startsWith('application/json')) return false;
+  const origin = req.headers.origin;
+  return !origin || URL.parse(origin)?.host === req.headers.host;
+}
+
+// OPEN: al publicar la demo en un VPS, proteger /sim (p. ej. basic_auth en Caddy); hoy cualquiera con la URL puede pulsar.
 createServer(async (req, res) => {
   try {
+    if (req.method === 'POST' && !isSameOriginJson(req)) return send(res, 403, { error: 'Origen no permitido' });
     if (req.method === 'GET' && (req.url === '/' || req.url === '')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       return res.end(renderPage(sim.devices, sim.transport));
