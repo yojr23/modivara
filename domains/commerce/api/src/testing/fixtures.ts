@@ -14,8 +14,8 @@ export async function setup(overrides: { unit?: Unit } = {}) {
   const h = createHarness();
   h.core.add({ id: LOC, organizationId: ORG });
   h.core.add({ id: OTHER_LOC, organizationId: OTHER_ORG });
-  const actor = { organizationId: ORG, actorUserId: USER };
-  const stockLocation = await h.ensureDefaultStockLocation.execute({ ...actor, locationId: LOC });
+  const actor = { organizationId: ORG, actorUserId: USER, locationId: LOC };
+  const stockLocation = await h.ensureDefaultStockLocation.execute(actor);
   await h.seedMovementReasons.execute(actor);
   const product = await h.createProduct.execute({ ...actor, name: 'Cerveza', unit: overrides.unit ?? 'bottle' });
   const reason = async (name: string) => {

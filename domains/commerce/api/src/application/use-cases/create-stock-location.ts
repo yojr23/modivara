@@ -3,7 +3,7 @@ import { StockLocation } from '../../domain/stock-location.js';
 import { ConflictError } from '../errors.js';
 import type { IdGenerator } from '../ports/id-generator.port.js';
 import type { StockLocationRepository } from '../ports/stock-location.repository.js';
-import { type ActorContext, requireLocation } from './shared.js';
+import { type StockContext, requireLocation } from './shared.js';
 
 export class CreateStockLocation {
   constructor(
@@ -12,7 +12,7 @@ export class CreateStockLocation {
     private readonly ids: IdGenerator,
   ) {}
 
-  async execute(input: ActorContext & { locationId: string; name: string }): Promise<StockLocation> {
+  async execute(input: StockContext & { name: string }): Promise<StockLocation> {
     await requireLocation(this.core, input.organizationId, input.locationId);
     const created = StockLocation.create({
       id: this.ids.next(),

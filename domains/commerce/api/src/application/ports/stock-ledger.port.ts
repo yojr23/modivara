@@ -21,6 +21,8 @@ export interface StockLedger {
 
 export interface BalanceQuery {
   organizationId: string;
+  /** Obligatorio: las lecturas de stock son por local (DATA-001 §1). */
+  locationId: string;
   stockLocationId?: string;
   productId?: string;
 }

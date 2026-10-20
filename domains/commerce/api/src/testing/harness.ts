@@ -38,7 +38,7 @@ export function createHarness() {
     deactivateMovementReason: new DeactivateMovementReason(reasons),
     registerMovement: new RegisterMovement(recorder),
     adjustToCount: new AdjustToCount(recorder),
-    getBalances: new GetBalances(ledger),
-    listMovements: new ListMovements(ledger),
+    getBalances: new GetBalances(ledger, core),
+    listMovements: new ListMovements(ledger, core),
   };
 }

@@ -95,7 +95,7 @@ describe('movimientos', () => {
   it('entrada, salida y saldo con decimales exactos', async () => {
     const s = await stocked('0.1');
     await s.h.registerMovement.execute({ ...s.target, direction: 'in', reasonId: s.compra.id, quantity: '0.2', idempotencyKey: s.idem() });
-    const [balance] = await s.h.getBalances.execute({ organizationId: ORG });
+    const [balance] = await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC });
     expect(balance?.quantity.toString()).toBe('0.300');
     const { movement } = await s.h.registerMovement.execute({ ...s.target, direction: 'out', reasonId: s.venta.id, quantity: '0.3', idempotencyKey: s.idem() });
     expect(movement.delta.toString()).toBe('-0.300');
@@ -112,8 +112,8 @@ describe('movimientos', () => {
       s.h.registerMovement.execute({ ...s.target, direction: 'out', reasonId: s.venta.id, quantity: '5.001', idempotencyKey: s.idem() }),
     ).rejects.toThrow(InsufficientStockError);
     expect(s.h.ledger.outbox).toHaveLength(before);
-    expect(await s.h.listMovements.execute({ organizationId: ORG })).toHaveLength(1);
-    expect((await s.h.getBalances.execute({ organizationId: ORG }))[0]?.quantity.toString()).toBe('5.000');
+    expect(await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC })).toHaveLength(1);
+    expect((await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC }))[0]?.quantity.toString()).toBe('5.000');
   });
 
   it('es idempotente por (negocio, key): devuelve el original y no aplica dos veces', async () => {
@@ -125,7 +125,7 @@ describe('movimientos', () => {
     expect(first.replayed).toBe(false);
     expect(second.replayed).toBe(true);
     expect(second.movement.id).toBe(first.movement.id);
-    expect((await s.h.getBalances.execute({ organizationId: ORG }))[0]?.quantity.toString()).toBe('7.000');
+    expect((await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC }))[0]?.quantity.toString()).toBe('7.000');
     expect(s.h.ledger.outbox).toHaveLength(outboxSize);
   });
 
@@ -172,7 +172,7 @@ describe('movimientos', () => {
 
   it('aísla negocios: no ve ni mueve stock ajeno, y la misma key en otro negocio es independiente', async () => {
     const s = await stocked('5');
-    const intruder = { organizationId: OTHER_ORG, actorUserId: USER };
+    const intruder = { organizationId: OTHER_ORG, actorUserId: USER, locationId: OTHER_LOC };
     await expect(
       s.h.registerMovement.execute({ ...intruder, stockLocationId: s.stockLocation.id, productId: s.product.id, direction: 'in', reasonId: s.compra.id, quantity: '1', idempotencyKey: s.idem() }),
     ).rejects.toThrow(NotFoundError);
@@ -182,7 +182,7 @@ describe('movimientos', () => {
     // mismo uuid de key en un segundo negocio con su propio stock
     s.h.core.add({ id: OTHER_LOC, organizationId: OTHER_ORG });
     await s.h.seedMovementReasons.execute(intruder);
-    const sl = await s.h.ensureDefaultStockLocation.execute({ ...intruder, locationId: OTHER_LOC });
+    const sl = await s.h.ensureDefaultStockLocation.execute(intruder);
     const p = await s.h.createProduct.execute({ ...intruder, name: 'Cerveza', unit: 'bottle' });
     const compra = (await s.h.reasons.findActiveByName(OTHER_ORG, 'Compra'))!;
     const key = s.idem();
@@ -190,6 +190,30 @@ describe('movimientos', () => {
     const theirs = await s.h.registerMovement.execute({ ...intruder, stockLocationId: sl.id, productId: p.id, direction: 'in', reasonId: compra.id, quantity: '9', idempotencyKey: key });
     expect(theirs.replayed).toBe(false);
     expect(theirs.movement.id).not.toBe(mine.movement.id);
+  });
+
+  it('acota por local: un usuario del local A no mueve ni lista stock del local B del mismo negocio', async () => {
+    const s = await stocked('5');
+    const LOC_B = '66666666-6666-4666-8666-666666666666';
+    s.h.core.add({ id: LOC_B, organizationId: ORG });
+    const ctxB = { ...s.actor, locationId: LOC_B };
+    const bodegaB = await s.h.createStockLocation.execute({ ...ctxB, name: 'Bodega B' });
+    await s.h.registerMovement.execute({ ...ctxB, stockLocationId: bodegaB.id, productId: s.product.id, direction: 'in', reasonId: s.compra.id, quantity: '3', idempotencyKey: s.idem() });
+    // actor autorizado solo en A envía la bodega de B
+    await expect(
+      s.h.registerMovement.execute({ ...s.target, stockLocationId: bodegaB.id, direction: 'in', reasonId: s.compra.id, quantity: '1', idempotencyKey: s.idem() }),
+    ).rejects.toThrow(NotFoundError);
+    await expect(
+      s.h.adjustToCount.execute({ ...s.target, stockLocationId: bodegaB.id, reasonId: s.conteo.id, countedQuantity: '0', idempotencyKey: s.idem() }),
+    ).rejects.toThrow(NotFoundError);
+    // lecturas solo del local autorizado
+    const balances = await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC });
+    expect(balances.map((b) => b.locationId)).toEqual([LOC]);
+    const moves = await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC });
+    expect(moves.every((m) => m.locationId === LOC)).toBe(true);
+    expect(await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC_B })).toHaveLength(1);
+    // un local de otro negocio no se acepta en lecturas
+    await expect(s.h.getBalances.execute({ organizationId: ORG, locationId: OTHER_LOC })).rejects.toThrow(LocationUnavailableError);
   });
 
   it('un local inactivo bloquea los movimientos', async () => {
@@ -204,8 +228,8 @@ describe('movimientos', () => {
     const s = await stocked('10');
     await s.h.registerMovement.execute({ ...s.target, direction: 'out', reasonId: s.venta.id, quantity: '1', idempotencyKey: s.idem() });
     await s.h.registerMovement.execute({ ...s.target, direction: 'out', reasonId: s.venta.id, quantity: '2', idempotencyKey: s.idem() });
-    const all = await s.h.listMovements.execute({ organizationId: ORG, productId: s.product.id });
+    const all = await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC, productId: s.product.id });
     expect(all.map((m) => m.delta.toString())).toEqual(['-2.000', '-1.000', '10.000']);
-    expect(await s.h.listMovements.execute({ organizationId: ORG, limit: 1 })).toHaveLength(1);
+    expect(await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC, limit: 1 })).toHaveLength(1);
   });
 });

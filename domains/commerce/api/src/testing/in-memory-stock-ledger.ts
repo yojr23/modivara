@@ -50,7 +50,7 @@ export class InMemoryStockLedger implements StockLedger, StockQueries {
 
   async listBalances(q: BalanceQuery): Promise<StockBalance[]> {
     return [...this.balances.values()]
-      .filter((b) => b.organizationId === q.organizationId)
+      .filter((b) => b.organizationId === q.organizationId && b.locationId === q.locationId)
       .filter((b) => !q.stockLocationId || b.stockLocationId === q.stockLocationId)
       .filter((b) => !q.productId || b.productId === q.productId)
       .map((b) => StockBalance.restore(b.toProps()));
@@ -58,7 +58,7 @@ export class InMemoryStockLedger implements StockLedger, StockQueries {
 
   async listMovements(q: MovementQuery): Promise<StockMovement[]> {
     return this.movements
-      .filter((m) => m.organizationId === q.organizationId)
+      .filter((m) => m.organizationId === q.organizationId && m.locationId === q.locationId)
       .filter((m) => !q.stockLocationId || m.stockLocationId === q.stockLocationId)
       .filter((m) => !q.productId || m.productId === q.productId)
       .reverse() // inserción = orden cronológico

@@ -11,6 +11,11 @@ export interface ActorContext {
   actorUserId: string;
 }
 
+/** Contexto de las operaciones de stock, que son por local (permisos `commerce.stock.*`): también viene del contexto autorizado. */
+export interface StockContext extends ActorContext {
+  locationId: string;
+}
+
 /** Valida el local con Core (DATA-001 §1): existe, está activo y es del negocio. */
 export async function requireLocation(core: CoreAccessPort, organizationId: string, locationId: string): Promise<LocationRef> {
   const location = await core.getLocation(locationId);
@@ -30,8 +35,10 @@ export async function requireStockLocation(
   repo: StockLocationRepository,
   organizationId: string,
   id: string,
+  locationId?: string,
 ): Promise<StockLocation> {
   const found = await repo.findById(organizationId, id);
-  if (!found) throw new NotFoundError('Lugar de stock no encontrado');
+  // Un lugar de otro local se trata como inexistente: no se revela que existe.
+  if (!found || (locationId !== undefined && found.locationId !== locationId)) throw new NotFoundError('Lugar de stock no encontrado');
   return found;
 }

@@ -8,9 +8,9 @@ import type { MovementReasonRepository } from '../ports/movement-reason.reposito
 import type { ProductRepository } from '../ports/product.repository.js';
 import type { RecordedMovement, StockLedger } from '../ports/stock-ledger.port.js';
 import type { StockLocationRepository } from '../ports/stock-location.repository.js';
-import { type ActorContext, requireLocation, requireProduct, requireStockLocation } from './shared.js';
+import { type StockContext, requireLocation, requireProduct, requireStockLocation } from './shared.js';
 
-export interface MovementTarget extends ActorContext {
+export interface MovementTarget extends StockContext {
   stockLocationId: string;
   productId: string;
   reasonId: string;
@@ -36,9 +36,9 @@ export class MovementRecorder {
   ) {}
 
   async record(target: MovementTarget, change: MovementChange): Promise<RecordedMovement> {
-    const { organizationId } = target;
-    const stockLocation = await requireStockLocation(this.stockLocations, organizationId, target.stockLocationId);
-    await requireLocation(this.core, organizationId, stockLocation.locationId);
+    const { organizationId, locationId } = target;
+    await requireLocation(this.core, organizationId, locationId);
+    const stockLocation = await requireStockLocation(this.stockLocations, organizationId, target.stockLocationId, locationId);
     const product = await requireProduct(this.products, organizationId, target.productId);
     const reason = await this.reasons.findById(organizationId, target.reasonId);
     if (!reason) throw new NotFoundError('Motivo no encontrado');
