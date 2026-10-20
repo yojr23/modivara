@@ -76,11 +76,17 @@ describe('acceso a locales', () => {
 
   describe('CoreAccessService (CoreAccessPort)', () => {
     it('devuelve LocationRef o null', async () => {
-      const port = new CoreAccessService(w.locations);
+      const port = new CoreAccessService(w.locations, w.organizations);
       expect(await port.getLocation(w.solCenter.id)).toEqual({ id: w.solCenter.id, organizationId: w.sol.id, timezone: 'America/Bogota', active: true });
       w.solCenter.deactivate(new Date());
       expect((await port.getLocation(w.solCenter.id))?.active).toBe(false);
       expect(await port.getLocation('x')).toBeNull();
+    });
+
+    it('local activo de un negocio desactivado: active false', async () => {
+      const port = new CoreAccessService(w.locations, w.organizations);
+      w.sol.deactivate(new Date());
+      expect((await port.getLocation(w.solCenter.id))?.active).toBe(false);
     });
   });
 });
