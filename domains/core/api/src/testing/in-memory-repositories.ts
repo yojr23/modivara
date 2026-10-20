@@ -36,6 +36,9 @@ export class InMemoryLocationRepository implements LocationRepository {
     const org = await this.organizations.findById({ id: location.organizationId });
     return { location, organizationActive: !!org?.isActive };
   }
+  async listActive({ organizationId }: { organizationId: string }) {
+    return [...this.items.values()].filter((l) => l.organizationId === organizationId && l.isActive).sort((a, b) => a.name.localeCompare(b.name));
+  }
   async save(l: Location) { this.items.set(l.id, l); }
 }
 
@@ -49,6 +52,9 @@ export class InMemoryUserRepository implements UserRepository {
   async findByIdForSession({ id }: { id: string }) { return this.items.get(id) ?? null; }
   async findActiveByUsername({ organizationId, username }: { organizationId: string; username: string }) {
     return [...this.items.values()].find((u) => u.organizationId === organizationId && u.username === username && u.isActive) ?? null;
+  }
+  async listActive({ organizationId }: { organizationId: string }) {
+    return [...this.items.values()].filter((u) => u.organizationId === organizationId && u.isActive).sort((a, b) => a.username.localeCompare(b.username));
   }
   async save(u: AppUser) { this.saves++; this.items.set(u.id, u); }
 

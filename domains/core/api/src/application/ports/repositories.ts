@@ -26,6 +26,8 @@ export interface LocationRepository {
    * devuelve su `organizationId` para que quien consulta lo compare; el resto de casos de uso lo pasan siempre.
    */
   findByIdWithOrganization(ref: { id: string; organizationId?: string }): Promise<LocationWithOrganization | null>;
+  /** Locales activos del negocio (no mira el estado del negocio: quien llama ya lo resolvió). */
+  listActive(ref: { organizationId: string }): Promise<Location[]>;
   save(location: Location): Promise<void>;
 }
 
@@ -38,6 +40,8 @@ export interface UserRepository {
   findByIdForSession(ref: { id: string }): Promise<AppUser | null>;
   /** Solo usuarios activos: el username es único entre activos (DATA-001). */
   findActiveByUsername(ref: { organizationId: string; username: string }): Promise<AppUser | null>;
+  /** Usuarios activos del negocio, por username. */
+  listActive(ref: { organizationId: string }): Promise<AppUser[]>;
   save(user: AppUser): Promise<void>;
   /**
    * Sección crítica del login por usuario: el adaptador abre una transacción, bloquea la fila

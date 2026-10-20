@@ -1,10 +1,11 @@
 import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestjs/common';
 import { CORE_ACCESS_PORT } from '@modivara/core-contracts';
 import {
-  AuthenticateSession, ChangePassword, CoreAccessService, CreateUser, DeactivateUser, Login, Logout, ResetPassword,
-  ResolveLocationAccess, RevokeUserSessions, SelectActingOrganization, SetLocationRoles,
+  Authorize, AuthenticateSession, BootstrapPlatform, ChangePassword, CoreAccessService, CreateUser, DeactivateUser, GetMe, ListUsers, Login, Logout,
+  ProvisionOrganization, ResetPassword, ResolveLocationAccess, RevokeUserSessions, SelectActingOrganization, SetLocationRoles,
 } from './application/index.js';
 import type { AdminTransactions, AuditLog, EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './application/ports/index.js';
+import { AuthController, LoginRateLimiter, PlatformController, UsersController } from './presentation/index.js';
 import { Argon2PasswordHasher, CryptoSessionTokenService } from './infrastructure/index.js';
 import {
   createCorePrisma, PrismaAdminTransactions, PrismaAuditLog, PrismaEntitlementRepository, PrismaLocationRepository, PrismaMembershipRepository,
@@ -42,6 +43,11 @@ const useCases = [
   [SetLocationRoles, [ADMIN_TRANSACTIONS]],
   [SelectActingOrganization, [ADMIN_TRANSACTIONS]],
   [ResolveLocationAccess, [LOCATIONS, MEMBERSHIPS, ENTITLEMENTS]],
+  [Authorize, [ResolveLocationAccess, MEMBERSHIPS, ENTITLEMENTS]],
+  [GetMe, [USERS, ORGANIZATIONS, LOCATIONS, MEMBERSHIPS, ENTITLEMENTS]],
+  [ListUsers, [USERS, MEMBERSHIPS]],
+  [ProvisionOrganization, [ADMIN_TRANSACTIONS]],
+  [BootstrapPlatform, [ADMIN_TRANSACTIONS, PASSWORD_HASHER]],
 ] as const;
 
 @Module({})
@@ -52,7 +58,9 @@ export class CoreModule implements OnModuleDestroy {
     const databaseUrl = options.databaseUrl ?? process.env.CORE_DATABASE_URL;
     return {
       module: CoreModule,
+      controllers: [AuthController, UsersController, PlatformController],
       providers: [
+        LoginRateLimiter,
         {
           provide: CORE_PRISMA,
           useFactory: () => {

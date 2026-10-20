@@ -27,3 +27,8 @@ export class SessionInvalidError extends DomainError {
 export class PermissionDeniedError extends DomainError {
   readonly code = 'permission_denied';
 }
+
+/** El negocio no tiene contratado (o tiene apagado) el módulo de la ruta. */
+export class ModuleDisabledError extends DomainError {
+  readonly code = 'module_disabled';
+}

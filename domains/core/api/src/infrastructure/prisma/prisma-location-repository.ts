@@ -22,6 +22,11 @@ export class PrismaLocationRepository implements LocationRepository {
     return r && { location: toDomain(r), organizationActive: r.organization.deactivatedAt === null };
   }
 
+  async listActive({ organizationId }: { organizationId: string }) {
+    const rows = await this.db.location.findMany({ where: { organizationId, deactivatedAt: null }, orderBy: [{ name: 'asc' }, { id: 'asc' }] });
+    return rows.map(toDomain);
+  }
+
   save(l: Location) {
     const data = { name: l.name, timezone: l.timezone, deactivatedAt: l.deactivatedAt };
     return mapConflicts(
