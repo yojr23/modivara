@@ -17,6 +17,6 @@ export class ResetPassword {
     const now = new Date();
     user.changePassword(await this.hasher.hash(input.newPassword), now);
     await this.users.save(user);
-    await this.sessions.revokeAllForUser(user.id, now);
+    await this.sessions.revokeAllForUser({ organizationId: user.organizationId, userId: user.id }, now);
   }
 }

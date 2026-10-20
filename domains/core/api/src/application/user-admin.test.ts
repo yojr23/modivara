@@ -122,8 +122,8 @@ describe('administración de usuarios', () => {
     });
 
     it('el superadmin administra usuarios de cualquier negocio', async () => {
-      await reset.execute({ actor: rootCtx, userId: staff.id, newPassword: 'Reinicio99' });
-      await deactivate.execute({ actor: rootCtx, userId: lunaOwner.id });
+      await reset.execute({ actor: { ...rootCtx, actingOrganizationId: w.sol.id }, userId: staff.id, newPassword: 'Reinicio99' });
+      await deactivate.execute({ actor: { ...rootCtx, actingOrganizationId: w.luna.id }, userId: lunaOwner.id });
       expect(lunaOwner.isActive).toBe(false);
     });
 
@@ -157,7 +157,9 @@ describe('administración de usuarios', () => {
     });
 
     it('ni siquiera el superadmin cruza negocios en una membresía', async () => {
-      await expect(setRoles.execute({ actor: rootCtx, userId: staff.id, locationId: w.lunaCenter.id, roles: ['staff'] })).rejects.toThrow(ValidationError);
+      const acting = { ...rootCtx, actingOrganizationId: w.sol.id };
+      await expect(setRoles.execute({ actor: acting, userId: staff.id, locationId: w.lunaCenter.id, roles: ['staff'] })).rejects.toThrow(NotFoundError);
+      await expect(setRoles.execute({ actor: rootCtx, userId: staff.id, locationId: w.solCenter.id, roles: ['staff'] })).rejects.toThrow(NotFoundError); // sin negocio elegido no ve usuarios ajenos
     });
 
     it('exige permiso y roles válidos', async () => {

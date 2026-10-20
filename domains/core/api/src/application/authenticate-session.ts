@@ -12,11 +12,11 @@ export class AuthenticateSession {
 
   async execute(input: { token: string }): Promise<ActorContext> {
     const now = new Date();
-    const session = await this.sessions.findByTokenHash(this.tokens.hash(input.token));
+    const session = await this.sessions.findByTokenHash({ tokenHash: this.tokens.hash(input.token) });
     if (!session?.isValid(now)) throw new SessionInvalidError();
 
-    const user = await this.users.findById(session.userId);
-    const org = user ? await this.organizations.findById(user.organizationId) : null;
+    const user = await this.users.findByIdForSession({ id: session.userId });
+    const org = user ? await this.organizations.findById({ id: user.organizationId }) : null;
     if (!user?.isActive || !org?.isActive) throw new SessionInvalidError();
 
     if (session.touch(now)) await this.sessions.save(session);

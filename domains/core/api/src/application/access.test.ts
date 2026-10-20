@@ -48,6 +48,12 @@ describe('acceso a locales', () => {
     await expect(resolve.execute({ actor: w.actorOf(owner), locationId: w.solCenter.id })).rejects.toThrow(NotFoundError);
   });
 
+  it('D7: un local activo de un negocio desactivado no se resuelve (misma regla que CoreAccessService)', async () => {
+    const owner = await w.addUser(w.sol, 'duena', { isOwner: true });
+    w.sol.deactivate(new Date());
+    await expect(resolve.execute({ actor: w.actorOf(owner), locationId: w.solCenter.id })).rejects.toThrow(NotFoundError);
+  });
+
   it('superadmin: todos los permisos, solo en el negocio sobre el que opera', async () => {
     const root = await w.addUser(w.platform, 'root');
     const ctx = w.actorOf(root);
@@ -66,7 +72,7 @@ describe('acceso a locales', () => {
 
       const updated = await select.execute({ actor: ctx, organizationId: w.sol.id });
       expect(updated.actingOrganizationId).toBe(w.sol.id);
-      expect((await w.sessions.findById(ctx.sessionId))!.actingOrganizationId).toBe(w.sol.id);
+      expect((await w.sessions.findById({ id: ctx.sessionId, userId: root.id }))!.actingOrganizationId).toBe(w.sol.id);
       expect((await select.execute({ actor: updated, organizationId: null })).actingOrganizationId).toBeNull();
       await expect(select.execute({ actor: ctx, organizationId: 'no-existe' })).rejects.toThrow(NotFoundError);
 
@@ -77,7 +83,7 @@ describe('acceso a locales', () => {
 
   describe('CoreAccessService (CoreAccessPort)', () => {
     it('devuelve LocationRef o null', async () => {
-      const port = new CoreAccessService(w.locations, w.organizations);
+      const port = new CoreAccessService(w.locations);
       expect(await port.getLocation(w.solCenter.id)).toEqual({ id: w.solCenter.id, organizationId: w.sol.id, timezone: 'America/Bogota', active: true });
       w.solCenter.deactivate(new Date());
       expect((await port.getLocation(w.solCenter.id))?.active).toBe(false);
@@ -85,7 +91,7 @@ describe('acceso a locales', () => {
     });
 
     it('local activo de un negocio desactivado: active false', async () => {
-      const port = new CoreAccessService(w.locations, w.organizations);
+      const port = new CoreAccessService(w.locations);
       w.sol.deactivate(new Date());
       expect((await port.getLocation(w.solCenter.id))?.active).toBe(false);
     });

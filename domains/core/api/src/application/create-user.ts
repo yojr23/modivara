@@ -27,7 +27,7 @@ export class CreateUser {
 
     const targetId = input.organizationId ?? effectiveOrganizationId(actor);
     if (!actor.isPlatform && targetId !== actor.organizationId) throw new PermissionDeniedError('Cannot create users in another organization');
-    const org = await this.organizations.findById(targetId);
+    const org = await this.organizations.findById({ id: targetId });
     if (!org?.isActive) throw new NotFoundError('Organization');
     // Un negocio cliente nunca crea superadmins: los usuarios de la organización de plataforma lo son.
     if (org.isPlatform && !actor.isPlatform) throw new PermissionDeniedError('Only platform users can create platform users');
@@ -37,7 +37,7 @@ export class CreateUser {
     const username = input.username.trim().toLowerCase();
     if (!isValidUsername(username)) throw new ValidationError(`Invalid username: ${input.username}`);
     assertPasswordPolicy(input.password);
-    if (await this.users.findActiveByUsername(org.id, username)) throw new ConflictError('Username already in use');
+    if (await this.users.findActiveByUsername({ organizationId: org.id, username })) throw new ConflictError('Username already in use');
 
     const user = AppUser.create({
       id: newId(),

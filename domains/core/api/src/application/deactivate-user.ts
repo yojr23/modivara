@@ -13,6 +13,6 @@ export class DeactivateUser {
     const now = new Date();
     user.deactivate(now);
     await this.users.save(user);
-    await this.sessions.revokeAllForUser(user.id, now);
+    await this.sessions.revokeAllForUser({ organizationId: user.organizationId, userId: user.id }, now);
   }
 }

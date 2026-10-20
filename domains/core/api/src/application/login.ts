@@ -31,8 +31,8 @@ export class Login {
   async execute(input: LoginInput): Promise<LoginOutput> {
     const now = new Date();
     const username = input.username.trim().toLowerCase();
-    const org = await this.organizations.findBySlug(input.slug.trim().toLowerCase());
-    const user = org?.isActive && isValidUsername(username) ? await this.users.findActiveByUsername(org.id, username) : null;
+    const org = await this.organizations.findBySlug({ slug: input.slug.trim().toLowerCase() });
+    const user = org?.isActive && isValidUsername(username) ? await this.users.findActiveByUsername({ organizationId: org.id, username }) : null;
 
     if (!org || !user) {
       // Trabajo equivalente al camino real para no delatar por tiempo si el usuario existe.

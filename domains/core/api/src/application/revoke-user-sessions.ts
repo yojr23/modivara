@@ -10,6 +10,6 @@ export class RevokeUserSessions {
 
   async execute(input: { actor: ActorContext; userId: string }): Promise<void> {
     const user = await findManageableUser(input.actor, input.userId, { users: this.users, memberships: this.memberships });
-    await this.sessions.revokeAllForUser(user.id, new Date());
+    await this.sessions.revokeAllForUser({ organizationId: user.organizationId, userId: user.id }, new Date());
   }
 }

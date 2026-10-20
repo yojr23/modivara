@@ -1,41 +1,65 @@
 import type { ModuleName } from '@modivara/core-contracts';
 import type { AppUser, Entitlement, Location, LocationMembership, Organization, Session } from '../../domain/index.js';
 
+// Toda consulta va acotada por negocio (`organizationId`). Excepciones, que derivan el tenant:
+// `OrganizationRepository.findById/findBySlug`, `SessionRepository.findByTokenHash` y `UserRepository.findByIdForSession`.
+
 export interface OrganizationRepository {
-  findById(id: string): Promise<Organization | null>;
-  findBySlug(slug: string): Promise<Organization | null>;
+  /** Excepción: la organización es la raíz del tenant, su id es el tenant. */
+  findById(ref: { id: string }): Promise<Organization | null>;
+  /** Excepción: resuelve el tenant a partir del slug del login. */
+  findBySlug(ref: { slug: string }): Promise<Organization | null>;
   save(organization: Organization): Promise<void>;
 }
 
+/** Local con el estado de su negocio, leídos en una sola consulta (el adaptador hace el JOIN). */
+export interface LocationWithOrganization {
+  location: Location;
+  organizationActive: boolean;
+}
+
 export interface LocationRepository {
-  findById(id: string): Promise<Location | null>;
+  findById(ref: { id: string; organizationId: string }): Promise<Location | null>;
+  /**
+   * Local y estado de su negocio en una sola llamada. Regla única de "local disponible" (D7): local activo Y negocio activo.
+   * `organizationId` es opcional solo para `CoreAccessPort.getLocation`, que recibe únicamente el id del local y
+   * devuelve su `organizationId` para que quien consulta lo compare; el resto de casos de uso lo pasan siempre.
+   */
+  findByIdWithOrganization(ref: { id: string; organizationId?: string }): Promise<LocationWithOrganization | null>;
   save(location: Location): Promise<void>;
 }
 
 export interface UserRepository {
-  findById(id: string): Promise<AppUser | null>;
+  findById(ref: { id: string; organizationId: string }): Promise<AppUser | null>;
+  /**
+   * Excepción: deriva el tenant. Resuelve el usuario dueño de una sesión (la sesión no guarda el negocio);
+   * solo para `AuthenticateSession`.
+   */
+  findByIdForSession(ref: { id: string }): Promise<AppUser | null>;
   /** Solo usuarios activos: el username es único entre activos (DATA-001). */
-  findActiveByUsername(organizationId: string, username: string): Promise<AppUser | null>;
+  findActiveByUsername(ref: { organizationId: string; username: string }): Promise<AppUser | null>;
   save(user: AppUser): Promise<void>;
 }
 
 export interface MembershipRepository {
   /** Solo membresías activas. */
-  findActive(userId: string, locationId: string): Promise<LocationMembership | null>;
-  listActiveByUser(userId: string): Promise<LocationMembership[]>;
+  findActive(ref: { organizationId: string; userId: string; locationId: string }): Promise<LocationMembership | null>;
+  listActiveByUser(ref: { organizationId: string; userId: string }): Promise<LocationMembership[]>;
   save(membership: LocationMembership): Promise<void>;
 }
 
 export interface SessionRepository {
-  findById(id: string): Promise<Session | null>;
-  findByTokenHash(tokenHash: string): Promise<Session | null>;
+  /** La sesión pertenece a un usuario, y el usuario a un negocio: se acota por `userId`. */
+  findById(ref: { id: string; userId: string }): Promise<Session | null>;
+  /** Excepción: deriva el tenant. Resuelve la sesión del token de la cookie. */
+  findByTokenHash(ref: { tokenHash: string }): Promise<Session | null>;
   save(session: Session): Promise<void>;
   /** Revoca todas las sesiones vigentes del usuario (`revoked_at = now`). */
-  revokeAllForUser(userId: string, now: Date): Promise<void>;
+  revokeAllForUser(ref: { organizationId: string; userId: string }, now: Date): Promise<void>;
 }
 
 export interface EntitlementRepository {
-  listEnabledModules(organizationId: string): Promise<ModuleName[]>;
-  find(organizationId: string, module: ModuleName): Promise<Entitlement | null>;
+  listEnabledModules(ref: { organizationId: string }): Promise<ModuleName[]>;
+  find(ref: { organizationId: string; module: ModuleName }): Promise<Entitlement | null>;
   save(entitlement: Entitlement): Promise<void>;
 }

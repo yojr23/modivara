@@ -18,8 +18,8 @@ export const TEST_PASSWORD = 'Secret123';
 /** Fixture: plataforma `labs` y dos negocios clientes con un local cada uno. */
 export class World {
   readonly organizations = new InMemoryOrganizationRepository();
-  readonly locations = new InMemoryLocationRepository();
-  readonly users = new InMemoryUserRepository();
+  readonly locations = new InMemoryLocationRepository(this.organizations);
+    readonly users = new InMemoryUserRepository();
   readonly memberships = new InMemoryMembershipRepository();
   readonly sessions = new InMemorySessionRepository();
   readonly entitlements = new InMemoryEntitlementRepository();

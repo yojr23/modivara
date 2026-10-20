@@ -8,7 +8,7 @@ export class Logout {
 
   /** Idempotente: un token desconocido o ya revocado no es error. */
   async execute(input: { token: string }): Promise<void> {
-    const session = await this.sessions.findByTokenHash(this.tokens.hash(input.token));
+    const session = await this.sessions.findByTokenHash({ tokenHash: this.tokens.hash(input.token) });
     if (!session) return;
     session.revoke(new Date());
     await this.sessions.save(session);

@@ -14,10 +14,10 @@ export class SelectActingOrganization {
     const { actor } = input;
     if (!actor.isPlatform) throw new PermissionDeniedError('Only platform users can select an organization');
     if (input.organizationId) {
-      const org = await this.organizations.findById(input.organizationId);
+      const org = await this.organizations.findById({ id: input.organizationId });
       if (!org?.isActive) throw new NotFoundError('Organization');
     }
-    const session = await this.sessions.findById(actor.sessionId);
+    const session = await this.sessions.findById({ id: actor.sessionId, userId: actor.actorUserId });
     if (!session) throw new NotFoundError('Session');
     session.actAs(input.organizationId, actor);
     await this.sessions.save(session);

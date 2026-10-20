@@ -22,7 +22,7 @@ export function effectiveOrganizationId(actor: ActorContext): string {
 // dueño, o admin en cualquier local, gestiona todos los usuarios del negocio.
 export async function canManageUsers(actor: ActorContext, memberships: MembershipRepository): Promise<boolean> {
   if (actor.isPlatform || actor.isOwner) return true;
-  const own = await memberships.listActiveByUser(actor.actorUserId);
+  const own = await memberships.listActiveByUser({ organizationId: actor.organizationId, userId: actor.actorUserId });
   return own.some((m) => permissionsFor(m.roles, actor).has('core.users.manage' satisfies Permission));
 }
 
@@ -30,14 +30,14 @@ export async function assertCanManageUsers(actor: ActorContext, memberships: Mem
   if (!(await canManageUsers(actor, memberships))) throw new PermissionDeniedError('core.users.manage required');
 }
 
-/** Usuario que el actor puede administrar: mismo negocio, salvo superadmin. Otro negocio responde "no existe". */
+/** Usuario que el actor puede administrar: del negocio sobre el que opera (el superadmin, el elegido). Otro negocio responde "no existe". */
 export async function findManageableUser(
   actor: ActorContext,
   userId: string,
   repos: { users: UserRepository; memberships: MembershipRepository },
 ): Promise<AppUser> {
   await assertCanManageUsers(actor, repos.memberships);
-  const user = await repos.users.findById(userId);
-  if (!user || (!actor.isPlatform && user.organizationId !== actor.organizationId)) throw new NotFoundError('User');
+  const user = await repos.users.findById({ id: userId, organizationId: effectiveOrganizationId(actor) });
+  if (!user) throw new NotFoundError('User');
   return user;
 }

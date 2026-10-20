@@ -1,4 +1,5 @@
 import { NotFoundError, permissionsFor, type LocationRef, type ModuleName, type Permission } from '@modivara/core-contracts';
+import { isLocationAvailable } from './location-availability.js';
 import { effectiveOrganizationId, type ActorContext } from './actor.js';
 import type { EntitlementRepository, LocationRepository, MembershipRepository } from './ports/index.js';
 
@@ -18,17 +19,19 @@ export class ResolveLocationAccess {
 
   async execute(input: { actor: ActorContext; locationId: string }): Promise<LocationAccess> {
     const { actor } = input;
-    const location = await this.locations.findById(input.locationId);
+    const organizationId = effectiveOrganizationId(actor);
     // Aislamiento entre negocios: un local ajeno es indistinguible de uno inexistente.
-    if (!location?.isActive || location.organizationId !== effectiveOrganizationId(actor)) {
-      throw new NotFoundError('Location');
-    }
+    const found = await this.locations.findByIdWithOrganization({ id: input.locationId, organizationId });
+    if (!found || !isLocationAvailable(found)) throw new NotFoundError('Location');
+    const { location } = found;
 
-    const membership = actor.isPlatform ? null : await this.memberships.findActive(actor.actorUserId, location.id);
+    const membership = actor.isPlatform
+      ? null
+      : await this.memberships.findActive({ organizationId, userId: actor.actorUserId, locationId: location.id });
     return {
       location: { id: location.id, organizationId: location.organizationId, timezone: location.timezone, active: true },
       permissions: permissionsFor(membership?.roles ?? [], actor),
-      modules: await this.entitlements.listEnabledModules(location.organizationId),
+      modules: await this.entitlements.listEnabledModules({ organizationId: location.organizationId }),
     };
   }
 }
