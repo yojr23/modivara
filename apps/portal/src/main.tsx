@@ -1,17 +1,20 @@
+import { AuthProvider } from '@modivara/core-web';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import './index.css';
-import Tokens from './pages/Tokens';
+import { routes } from './routes/routes';
 
-const router = createBrowserRouter([
-  { path: '/', element: <main className="p-6 font-display text-2xl font-bold">Modivara</main> },
-  // Ruta interna de la base visual (T6); no forma parte del producto.
-  { path: '/_tokens', element: <Tokens /> },
-]);
+const router = createBrowserRouter(routes);
+const queryClient = new QueryClient();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </QueryClientProvider>
   </StrictMode>,
 );
