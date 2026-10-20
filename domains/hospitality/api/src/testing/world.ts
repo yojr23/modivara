@@ -22,7 +22,7 @@ import {
 export function buildWorld() {
   const organizationId = crypto.randomUUID();
   const locationId = crypto.randomUUID();
-  const actorId = crypto.randomUUID();
+  const actorUserId = crypto.randomUUID();
   const core = new FakeCoreAccess();
   core.add({ id: locationId, organizationId, timezone: 'America/Bogota', active: true });
 
@@ -35,7 +35,7 @@ export function buildWorld() {
   const events = new InMemoryDeviceEventRepository();
   const notifications = new RecordingNotifications();
 
-  const ctx = { organizationId, locationId, actorId };
+  const ctx = { organizationId, locationId, actorUserId };
   const press = (over: Partial<NormalizedPress> = {}): NormalizedPress => ({
     gatewayId: crypto.randomUUID(),
     organizationId,

@@ -13,7 +13,7 @@ export class RegisterDevice {
 
   async execute(input: ActorContext & { code: string; model?: string | null }): Promise<Device> {
     await assertLocation(this.core, input);
-    const device = Device.create({ ...input, createdBy: input.actorId, now: new Date() });
+    const device = Device.create({ ...input, createdBy: input.actorUserId, now: new Date() });
     if (await this.devices.findActiveByCode(input.locationId, device.code)) throw new DuplicateError('device');
     await this.devices.save(device);
     return device;
@@ -43,7 +43,7 @@ export class AssignDevice {
       locationId: device.locationId,
       deviceId: device.id,
       tableId: table.id,
-      assignedBy: input.actorId,
+      assignedBy: input.actorUserId,
       now: new Date(),
     });
     await this.assignments.save(assignment);
@@ -58,7 +58,7 @@ export class UnassignDevice {
 
   async execute(input: ActorContext & { deviceId: string }): Promise<DeviceAssignment> {
     const assignment = owned(await this.assignments.findActiveByDevice(input.deviceId), input, 'device assignment');
-    assignment.unassign(input.actorId, new Date());
+    assignment.unassign(input.actorUserId, new Date());
     await this.assignments.save(assignment);
     return assignment;
   }

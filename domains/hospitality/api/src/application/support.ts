@@ -9,7 +9,7 @@ export interface TenantContext {
 }
 
 export interface ActorContext extends TenantContext {
-  actorId: string;
+  actorUserId: string;
 }
 
 /** El local debe existir, estar activo y pertenecer a la organización autorizada (DATA-001 §1). */

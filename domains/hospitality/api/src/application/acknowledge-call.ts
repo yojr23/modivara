@@ -14,7 +14,7 @@ export class AcknowledgeCall {
 
   async execute(input: CallActionInput): Promise<ServiceCall> {
     const call = owned(await this.calls.findById(input.callId, input.locationId), input, 'service call');
-    call.acknowledge(input.actorId, new Date());
+    call.acknowledge(input.actorUserId, new Date());
     await this.calls.save(call); // ConcurrencyConflictError -> 409 con el estado actual
     await notifyAfterSave(this.notifications, 'acknowledged', call);
     return call;

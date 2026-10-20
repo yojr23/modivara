@@ -13,7 +13,7 @@ export class CreateGateway {
   /** `plainKey` se devuelve una sola vez; solo el hash SHA-256 queda guardado. */
   async execute(input: ActorContext & { name: string }): Promise<{ gateway: Gateway; plainKey: string }> {
     await assertLocation(this.core, input);
-    const created = Gateway.create({ ...input, createdBy: input.actorId, now: new Date() });
+    const created = Gateway.create({ ...input, createdBy: input.actorUserId, now: new Date() });
     await this.gateways.save(created.gateway);
     return created;
   }

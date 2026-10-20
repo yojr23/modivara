@@ -11,7 +11,7 @@ export class CompleteCall {
 
   async execute(input: CallActionInput): Promise<ServiceCall> {
     const call = owned(await this.calls.findById(input.callId, input.locationId), input, 'service call');
-    call.complete(input.actorId, new Date());
+    call.complete(input.actorUserId, new Date());
     await this.calls.save(call);
     await notifyAfterSave(this.notifications, 'completed', call);
     return call;

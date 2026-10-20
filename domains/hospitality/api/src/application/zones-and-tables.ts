@@ -13,7 +13,7 @@ export class CreateZone {
 
   async execute(input: ActorContext & { name: string; position?: number }): Promise<Zone> {
     await assertLocation(this.core, input);
-    const zone = Zone.create({ ...input, createdBy: input.actorId, now: new Date() });
+    const zone = Zone.create({ ...input, createdBy: input.actorUserId, now: new Date() });
     if (await this.zones.findActiveByName(input.locationId, zone.name)) throw new DuplicateError('zone');
     await this.zones.save(zone);
     return zone;
@@ -33,7 +33,7 @@ export class CreateTable {
       const zone = owned(await this.zones.findById(input.zoneId, input.locationId), input, 'zone');
       if (!zone.isActive) throw new NotFoundError('zone');
     }
-    const table = DiningTable.create({ ...input, createdBy: input.actorId, now: new Date() });
+    const table = DiningTable.create({ ...input, createdBy: input.actorUserId, now: new Date() });
     // El mismo número puede repetirse en zonas distintas, no dentro de la misma (ni dos "sin zona").
     if (await this.tables.findActiveByLabel(input.locationId, table.zoneId, table.label)) throw new DuplicateError('table');
     await this.tables.save(table);
@@ -51,7 +51,7 @@ export class RenameTable {
     await assertLocation(this.core, input);
     const table = owned(await this.tables.findById(input.tableId, input.locationId), input, 'table');
     if (!table.isActive) throw new NotFoundError('table');
-    table.rename(input.label, input.actorId, new Date());
+    table.rename(input.label, input.actorUserId, new Date());
     const same = await this.tables.findActiveByLabel(input.locationId, table.zoneId, table.label);
     if (same && same.id !== table.id) throw new DuplicateError('table');
     await this.tables.save(table);
@@ -72,7 +72,7 @@ export class DeactivateTable {
     if (!table.isActive) throw new NotFoundError('table');
     // OPEN: ¿desactivar una mesa debe desasignar sus botones solos? Por ahora se exige desasignarlos antes (más fácil de relajar).
     if ((await this.assignments.listActiveByTable(table.id)).length > 0) throw new TableInUseError();
-    table.deactivate(input.actorId, new Date());
+    table.deactivate(input.actorUserId, new Date());
     await this.tables.save(table);
   }
 }

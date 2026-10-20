@@ -20,7 +20,7 @@ describe('AcknowledgeCall / CompleteCall', () => {
     vi.setSystemTime(new Date('2026-10-19T10:01:00Z'));
     await w.acknowledge.execute({ ...w.ctx, callId });
     await w.complete.execute({ ...w.ctx, callId });
-    expect(w.calls.all()[0]).toMatchObject({ status: 'completed', completedBy: w.ctx.actorId });
+    expect(w.calls.all()[0]).toMatchObject({ status: 'completed', completedBy: w.ctx.actorUserId });
     expect(w.calls.transitions.map((t) => t.action)).toEqual(['create', 'acknowledge', 'complete']);
     expect(w.calls.outbox.map((e) => e.eventType)).toEqual([
       'hospitality.service_call.created',

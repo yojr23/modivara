@@ -24,10 +24,10 @@ afterEach(() => vi.useRealTimers());
 /** Actores que no deben ver nada del negocio/local sembrado. */
 function intruders() {
   const otherOrg = crypto.randomUUID();
-  const sameLocationOtherOrg = { ...w.ctx, organizationId: otherOrg, actorId: crypto.randomUUID() };
-  const otherLocation = { ...w.ctx, locationId: crypto.randomUUID(), actorId: crypto.randomUUID() };
+  const sameLocationOtherOrg = { ...w.ctx, organizationId: otherOrg, actorUserId: crypto.randomUUID() };
+  const otherLocation = { ...w.ctx, locationId: crypto.randomUUID(), actorUserId: crypto.randomUUID() };
   w.core.add({ id: otherLocation.locationId, organizationId: w.ctx.organizationId, timezone: 'UTC', active: true });
-  const otherOrgOtherLocation = { organizationId: otherOrg, locationId: crypto.randomUUID(), actorId: crypto.randomUUID() };
+  const otherOrgOtherLocation = { organizationId: otherOrg, locationId: crypto.randomUUID(), actorUserId: crypto.randomUUID() };
   w.core.add({ id: otherOrgOtherLocation.locationId, organizationId: otherOrg, timezone: 'UTC', active: true });
   return { sameLocationOtherOrg, otherLocation, otherOrgOtherLocation };
 }
