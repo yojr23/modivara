@@ -68,11 +68,10 @@ describe('ServiceCallFact', () => {
   const created = { service_call_id: id, table_id: uuid(2), table_label: '5', zone_id: uuid(3), zone_name: 'Terraza', call_type: 'attention' as const, created_at: '2026-10-19T15:00:00Z' };
   const ack = { service_call_id: id, acknowledged_at: '2026-10-19T15:01:00Z', acknowledged_by: uuid(9), press_count: 2 };
   const done = { service_call_id: id, completed_at: '2026-10-19T15:03:00Z', completed_by: uuid(9), press_count: 3 };
-  const fresh = () => ServiceCallFact.create({ serviceCallId: id, organizationId: ORG, locationId: LOC });
+  const fresh = () => ServiceCallFact.create({ organizationId: ORG, locationId: LOC }, created);
 
   it('estados y tiempos', () => {
     const f = fresh();
-    f.applyCreated(created);
     expect(f.status).toBe('pending');
     f.applyAcknowledged(ack);
     expect(f.status).toBe('in_progress');
@@ -82,31 +81,23 @@ describe('ServiceCallFact', () => {
     expect(f.msToComplete).toBe(180_000);
     expect(f.snapshot.pressCount).toBe(3);
   });
-  it('es conmutativa: cualquier orden da el mismo resultado', () => {
-    const steps = [(f: ServiceCallFact) => f.applyCreated(created), (f: ServiceCallFact) => f.applyAcknowledged(ack), (f: ServiceCallFact) => f.applyCompleted(done)];
-    const perms = [[0, 1, 2], [2, 1, 0], [1, 0, 2], [1, 2, 0], [2, 0, 1], [0, 2, 1]];
-    const results = perms.map((p) => {
+  it('acknowledged y completed conmutan y son idempotentes', () => {
+    const run = (steps: Array<'a' | 'c'>) => {
       const f = fresh();
-      p.forEach((i) => steps[i]!(f));
+      for (const s of steps) s === 'a' ? f.applyAcknowledged(ack) : f.applyCompleted(done);
       return JSON.stringify(f.snapshot);
-    });
-    expect(new Set(results).size).toBe(1);
+    };
+    expect(new Set([run(['a', 'c']), run(['c', 'a']), run(['a', 'a', 'c', 'c', 'a'])]).size).toBe(1);
   });
-  it('es idempotente y no entra en métricas hasta tener created', () => {
-    const f = fresh();
-    f.applyAcknowledged(ack);
-    f.applyAcknowledged(ack);
-    expect(f.isReady).toBe(false);
-    expect(f.msToAcknowledge).toBeNull();
-    f.applyCreated(created);
-    expect(f.isReady).toBe(true);
+  it('nace con mesa, tipo y fecha obligatorios', () => {
+    expect(fresh().snapshot).toMatchObject({ tableId: uuid(2), callType: 'attention', createdAt: new Date(created.created_at) });
   });
   it('rechaza otro negocio o local', () => {
     expect(() => fresh().assertTenant(uuid(555), LOC)).toThrow(TenantMismatchError);
     try { fresh().assertTenant(uuid(555), LOC); } catch (e) { expect((e as TenantMismatchError).code).toBe('tenant_mismatch'); }
   });
   it('create exige identidad', () => {
-    expect(() => ServiceCallFact.create({ serviceCallId: '', organizationId: ORG, locationId: LOC })).toThrow();
+    expect(() => ServiceCallFact.create({ organizationId: '', locationId: LOC }, created)).toThrow();
   });
 });
 
@@ -115,11 +106,10 @@ describe('computeServiceCallMetrics', () => {
   let n = 10;
   const call = (createdAt: string, o: { table?: number; zone?: number | null; ackS?: number; doneS?: number; presses?: number } = {}) => {
     const sid = uuid(n++);
-    const f = ServiceCallFact.create({ serviceCallId: sid, organizationId: ORG, locationId: LOC });
     const at = new Date(createdAt).getTime();
     const table = o.table ?? 1;
     const zone = o.zone === undefined ? 1 : o.zone;
-    f.applyCreated({
+    const f = ServiceCallFact.create({ organizationId: ORG, locationId: LOC }, {
       service_call_id: sid, table_id: uuid(200 + table), table_label: `M${table}`,
       zone_id: zone === null ? null : uuid(300 + zone), zone_name: zone === null ? null : `Z${zone}`,
       call_type: 'attention', created_at: createdAt,
@@ -154,9 +144,8 @@ describe('computeServiceCallMetrics', () => {
     const m = compute([call('2026-10-20T04:59:59Z'), call('2026-10-20T05:00:00Z')], 'hour');
     expect(m.by_period.map((p) => p.bucket_label)).toEqual(['2026-10-19T23:00', '2026-10-20T00:00']);
   });
-  it('ignora facts sin created y duraciones negativas', () => {
-    const orphan = ServiceCallFact.create({ serviceCallId: uuid(900), organizationId: ORG, locationId: LOC });
-    const m = compute([orphan, call('2026-10-19T15:00:00Z', { ackS: -5 })]);
+  it('ignora duraciones negativas', () => {
+    const m = compute([call('2026-10-19T15:00:00Z', { ackS: -5 })]);
     expect(m.totals.calls).toBe(1);
     expect(m.time_to_acknowledge.count).toBe(0);
   });

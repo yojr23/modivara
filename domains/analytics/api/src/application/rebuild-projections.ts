@@ -10,6 +10,9 @@ export interface RebuildSummary {
 
 /**
  * Vacía las tres tablas de analytics y reprocesa un historial de eventos (DATA-001 §5).
+ * Vaciar y reprocesar debe ser atómico respecto a los eventos en vivo: el adaptador ejecuta los `clear()` y el
+ * reproceso en una sola transacción (o bloquea el suscriptor), para que un evento en vivo no se pierda ni se duplique
+ * a mitad de la reconstrucción. Esta clase no lo garantiza por sí sola.
  * OPEN: ¿de dónde sale el historial sin leer tablas ajenas? DATA-001 §5 habla de reprocesar `outbox_events`
  * de hospitality y commerce, pero Analytics no puede leer sus esquemas (PLAN-001 Q-09). Aquí se recibe como iterable.
  * OPEN: ante un evento inválido se aborta (la proyección queda parcial); ¿omitir y reportar en su lugar?

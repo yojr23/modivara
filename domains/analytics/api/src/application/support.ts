@@ -1,18 +1,17 @@
-import { eventEnvelopeSchema } from '@modivara/core-contracts';
 import { InvalidEventError } from '../domain/index.js';
 
 export type ProjectionResult = 'applied' | 'duplicate' | 'ignored';
 
-/** Lee tipo e id sin validar el payload, para deduplicar y enrutar antes del parseo completo. */
-export function readEnvelope(event: unknown): { eventId: string; eventType: string } {
-  const r = eventEnvelopeSchema.safeParse(event);
-  if (!r.success) throw new InvalidEventError('Invalid event envelope', r.error.issues);
-  return { eventId: r.data.event_id, eventType: r.data.event_type };
-}
-
 /** Cualquier esquema Zod de los contracts emisores; estructural para no depender de zod aquí. */
 export interface Parser<T> {
   safeParse(input: unknown): { success: true; data: T } | { success: false; error: { issues: unknown } };
+}
+
+/** Lee solo `event_type` para enrutar; el sobre y el payload se validan una vez con el esquema del tipo. */
+export function readEventType(event: unknown): string {
+  const type = (event as { event_type?: unknown } | null)?.event_type;
+  if (typeof type !== 'string') throw new InvalidEventError('Invalid event envelope');
+  return type;
 }
 
 export function parseEvent<T>(schema: Parser<T>, event: unknown): T {

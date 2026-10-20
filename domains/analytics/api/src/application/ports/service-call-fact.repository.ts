@@ -14,6 +14,9 @@ export interface ServiceCallFactRepository {
   /** Inserta o reemplaza por `serviceCallId`. */
   save(fact: ServiceCallFact): Promise<void>;
   findCreatedBetween(query: ServiceCallFactQuery): Promise<ServiceCallFact[]>;
-  /** Solo para reconstrucción de proyecciones. */
+  /**
+   * Solo para reconstrucción. Vaciar y reprocesar debe ser atómico respecto a los eventos en vivo: el adaptador
+   * lo ejecuta junto con el reproceso en una transacción. Ver `RebuildProjections`.
+   */
   clear(): Promise<void>;
 }

@@ -9,10 +9,11 @@ import {
   AnalyticsEventSubscriber,
   GetInventoryMetrics,
   GetServiceCallMetrics,
-  ProjectCommerceEvent,
-  ProjectHospitalityEvent,
+  ProjectEvent,
+  buildEventRegistry,
   RebuildProjections,
 } from './index.js';
+import { EventOutOfOrderError } from '../domain/index.js';
 
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const ORG = uuid(100);
@@ -53,11 +54,10 @@ function setup() {
   const core = new InMemoryCoreAccess()
     .add({ id: LOC, organizationId: ORG, timezone: 'America/Bogota', active: true })
     .add({ id: OTHER_LOC, organizationId: OTHER_ORG, timezone: 'America/Bogota', active: true });
-  const hospitality = new ProjectHospitalityEvent(calls, processed);
-  const commerce = new ProjectCommerceEvent(stocks, processed);
-  const subscriber = new AnalyticsEventSubscriber(hospitality, commerce);
+  const projectEvent = new ProjectEvent(buildEventRegistry(calls, stocks), processed);
+  const subscriber = new AnalyticsEventSubscriber(projectEvent);
   return {
-    calls, stocks, processed, subscriber, hospitality, commerce,
+    calls, stocks, processed, subscriber, projectEvent,
     callMetrics: new GetServiceCallMetrics(calls, core),
     stockMetrics: new GetInventoryMetrics(stocks, core),
     rebuild: new RebuildProjections(calls, stocks, processed, subscriber),
@@ -78,7 +78,7 @@ describe('proyección de llamados', () => {
   beforeEach(() => (c = setup()));
 
   it('proyecta created → acknowledged → completed', async () => {
-    for (const e of [created(), acked(), completed()]) expect(await c.hospitality.execute(e)).toBe('applied');
+    for (const e of [created(), acked(), completed()]) expect(await c.projectEvent.execute(e)).toBe('applied');
     const m = await c.callMetrics.execute({ organizationId: ORG, locationId: LOC, query: today });
     expect(m.totals).toMatchObject({ calls: 1, completed: 1, repeated_presses: 2 });
     expect(m.time_to_acknowledge.average_seconds).toBe(60);
@@ -87,47 +87,77 @@ describe('proyección de llamados', () => {
 
   it('deduplica por event_id (at-least-once)', async () => {
     const e = created();
-    expect(await c.hospitality.execute(e)).toBe('applied');
-    expect(await c.hospitality.execute(e)).toBe('duplicate');
+    expect(await c.projectEvent.execute(e)).toBe('applied');
+    expect(await c.projectEvent.execute(e)).toBe('duplicate');
     expect(await c.subscriber.project(e)).toBe('duplicate');
     expect(c.calls.items.size).toBe(1);
   });
 
-  it('tolera desorden: completed y acknowledged antes que created', async () => {
-    const m1 = setup();
-    for (const e of [completed(), acked(), created()]) await m1.subscriber.handle(e);
-    const m2 = setup();
-    for (const e of [created(), acked(), completed()]) await m2.subscriber.handle(e);
-    expect(m1.calls.items.get(CALL)!.snapshot).toEqual(m2.calls.items.get(CALL)!.snapshot);
-    const before = setup();
-    await before.subscriber.handle(acked());
-    const r = await before.callMetrics.execute({ organizationId: ORG, locationId: LOC, query: today });
-    expect(r.totals.calls).toBe(0); // un fact sin created aún no cuenta
+  it('acknowledged/completed sin created: error reintentable, no se marca procesado y no crea fact', async () => {
+    for (const e of [acked(), completed()]) {
+      await expect(c.subscriber.handle(e)).rejects.toMatchObject({ code: 'out_of_order' });
+      await expect(c.subscriber.handle(e)).rejects.toBeInstanceOf(EventOutOfOrderError);
+      expect(await c.processed.has(e.event_id)).toBe(false);
+    }
+    expect(c.calls.items.size).toBe(0);
+  });
+
+  it('el reintento tras llegar created aplica el evento rechazado (todas las permutaciones convergen)', async () => {
+    const make = () => [created(), acked(), completed()];
+    const perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+    const results = [];
+    for (const p of perms) {
+      const m = setup();
+      const events = make();
+      const pending = p.map((i) => events[i]!);
+      // el poller reintenta lo rechazado hasta que todo se aplica
+      for (let round = 0; pending.length && round < 5; round++) {
+        for (const e of [...pending]) {
+          try {
+            await m.subscriber.handle(e);
+            pending.splice(pending.indexOf(e), 1);
+          } catch (err) {
+            expect((err as { code: string }).code).toBe('out_of_order');
+          }
+        }
+      }
+      expect(pending).toEqual([]);
+      results.push(JSON.stringify(m.calls.items.get(CALL)!.snapshot));
+    }
+    expect(new Set(results).size).toBe(1);
+  });
+
+  it('created repetido con otro event_id no cambia el fact', async () => {
+    await c.projectEvent.execute(created());
+    await c.projectEvent.execute(acked());
+    const before = JSON.stringify(c.calls.items.get(CALL)!.snapshot);
+    expect(await c.projectEvent.execute(created())).toBe('applied');
+    expect(JSON.stringify(c.calls.items.get(CALL)!.snapshot)).toBe(before);
   });
 
   it('reentrega del mismo hecho con otro event_id no cambia el resultado', async () => {
-    await c.hospitality.execute(created());
-    await c.hospitality.execute(acked());
-    await c.hospitality.execute(acked());
+    await c.projectEvent.execute(created());
+    await c.projectEvent.execute(acked());
+    await c.projectEvent.execute(acked());
     expect(c.calls.items.get(CALL)!.snapshot.pressCount).toBe(2);
   });
 
   it('rechaza payload inválido y no lo marca procesado', async () => {
     const bad = created();
     (bad.payload as { call_type: string }).call_type = 'bill';
-    await expect(c.hospitality.execute(bad)).rejects.toMatchObject({ code: 'invalid_event' });
+    await expect(c.projectEvent.execute(bad)).rejects.toMatchObject({ code: 'invalid_event' });
     expect(c.processed.ids.size).toBe(0);
     await expect(c.subscriber.handle({ nope: true })).rejects.toMatchObject({ code: 'invalid_event' });
   });
 
   it('ignora eventos de tipos desconocidos', async () => {
     expect(await c.subscriber.project(env('core.user.created', {}))).toBe('ignored');
-    expect(await c.hospitality.execute(env('hospitality.table.updated', {}))).toBe('ignored');
+    expect(await c.projectEvent.execute(env('hospitality.table.updated', {}))).toBe('ignored');
   });
 
   it('un evento de otro local con el mismo llamado falla (aislamiento)', async () => {
-    await c.hospitality.execute(created());
-    await expect(c.hospitality.execute(acked('2026-10-19T15:01:00Z', CALL, 1, { org: OTHER_ORG, loc: OTHER_LOC }))).rejects.toMatchObject({ code: 'tenant_mismatch' });
+    await c.projectEvent.execute(created());
+    await expect(c.projectEvent.execute(acked('2026-10-19T15:01:00Z', CALL, 1, { org: OTHER_ORG, loc: OTHER_LOC }))).rejects.toMatchObject({ code: 'tenant_mismatch' });
   });
 });
 

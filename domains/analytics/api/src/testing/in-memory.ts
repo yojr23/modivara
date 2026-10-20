@@ -28,10 +28,9 @@ export class InMemoryServiceCallFactRepository implements ServiceCallFactReposit
     return [...this.items.values()].filter((f) => {
       const s = f.snapshot;
       return (
-        f.isReady &&
         s.organizationId === q.organizationId &&
         s.locationId === q.locationId &&
-        inRange(s.createdAt!, q.range) &&
+        inRange(s.createdAt, q.range) &&
         (!q.zoneId || s.zoneId === q.zoneId) &&
         (!q.tableId || s.tableId === q.tableId)
       );

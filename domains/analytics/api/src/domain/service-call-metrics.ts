@@ -36,7 +36,7 @@ function tally<T>(items: readonly T[], key: (t: T) => string): Map<string, { sam
 function periods(facts: readonly ServiceCallFact[], ctx: { timeZone: string; groupBy: GroupBy }) {
   const out = new Map<string, { bucket_start: string; bucket_label: string; calls: number }>();
   for (const f of facts) {
-    const b = bucketOf(f.snapshot.createdAt!, ctx.groupBy, ctx.timeZone); // una vez por fact
+    const b = bucketOf(f.snapshot.createdAt, ctx.groupBy, ctx.timeZone); // una vez por fact
     const p = out.get(b.label);
     if (p) p.calls++;
     else out.set(b.label, { bucket_start: b.start.toISOString(), bucket_label: b.label, calls: 1 });
@@ -52,14 +52,13 @@ export function computeServiceCallMetrics(
   facts: readonly ServiceCallFact[],
   ctx: { timeZone: string; groupBy: GroupBy; range: DateRange },
 ): ServiceCallMetrics {
-  const ready = facts.filter((f) => f.isReady);
-  const status = (s: CallStatus) => ready.filter((f) => f.status === s).length;
-  const repeats = ready.map((f) => f.snapshot.pressCount - 1);
+  const status = (s: CallStatus) => facts.filter((f) => f.status === s).length;
+  const repeats = facts.map((f) => f.snapshot.pressCount - 1);
   // OPEN: ¿duraciones negativas (reloj/desorden) se excluyen (como aquí) o se cuentan?
   const nonNegative = (v: number | null): v is number => v !== null && v >= 0;
 
   // Última etiqueta/zona vista por mesa: el nombre se copia al momento del llamado y puede cambiar.
-  const newestFirst = [...ready].sort((a, b) => b.snapshot.createdAt!.getTime() - a.snapshot.createdAt!.getTime());
+  const newestFirst = [...facts].sort((a, b) => b.snapshot.createdAt.getTime() - a.snapshot.createdAt.getTime());
 
   return {
     timezone: ctx.timeZone,
@@ -67,19 +66,19 @@ export function computeServiceCallMetrics(
     to: ctx.range.to.toISOString(),
     group_by: ctx.groupBy,
     totals: {
-      calls: ready.length,
+      calls: facts.length,
       pending: status('pending'),
       in_progress: status('in_progress'),
       completed: status('completed'),
       repeated_presses: repeats.reduce((s, n) => s + n, 0),
       calls_with_repeated_presses: repeats.filter((n) => n > 0).length,
     },
-    time_to_acknowledge: durationStats(ready.map((f) => f.msToAcknowledge).filter(nonNegative)),
-    time_to_complete: durationStats(ready.map((f) => f.msToComplete).filter(nonNegative)),
-    by_table: [...tally(newestFirst, (f) => f.snapshot.tableId!).values()]
+    time_to_acknowledge: durationStats(facts.map((f) => f.msToAcknowledge).filter(nonNegative)),
+    time_to_complete: durationStats(facts.map((f) => f.msToComplete).filter(nonNegative)),
+    by_table: [...tally(newestFirst, (f) => f.snapshot.tableId).values()]
       .map(({ sample: s, calls }) => ({
-        table_id: s.snapshot.tableId!,
-        table_label: s.snapshot.tableLabel!,
+        table_id: s.snapshot.tableId,
+        table_label: s.snapshot.tableLabel,
         zone_id: s.snapshot.zoneId,
         zone_name: s.snapshot.zoneName,
         calls,
@@ -89,6 +88,6 @@ export function computeServiceCallMetrics(
       .values()]
       .map(({ sample: s, calls }) => ({ zone_id: s.snapshot.zoneId, zone_name: s.snapshot.zoneName, calls }))
       .sort((a, b) => b.calls - a.calls || (a.zone_name ?? '').localeCompare(b.zone_name ?? '')),
-    by_period: periods(ready, ctx),
+    by_period: periods(facts, ctx),
   };
 }
