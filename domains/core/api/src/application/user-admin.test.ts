@@ -215,3 +215,52 @@ describe('atomicidad con auditoría', () => {
     expect(await w.users.findActiveByUsername({ organizationId: w.sol.id, username: 'nuevo' })).toBeNull();
   });
 });
+
+describe('protección de cuentas de dueños y de la cuenta propia', () => {
+  let w: World;
+  let owner: AppUser, owner2: AppUser, admin: AppUser, root: AppUser;
+  let ctx: Record<string, ActorContext>;
+  let reset: ResetPassword, deactivate: DeactivateUser, revoke: RevokeUserSessions, setRoles: SetLocationRoles;
+
+  beforeEach(async () => {
+    w = await World.create();
+    owner = await w.addUser(w.sol, 'duena', { isOwner: true });
+    owner2 = await w.addUser(w.sol, 'duena2', { isOwner: true });
+    admin = await w.addUser(w.sol, 'jefe', { roles: ['admin'], location: w.solCenter });
+    root = await w.addUser(w.platform, 'root');
+    ctx = {
+      owner: w.actorOf(owner), admin: w.actorOf(admin), root: w.actorOf(root, { actingOrganizationId: w.sol.id }),
+    } as Record<string, ActorContext>;
+    reset = new ResetPassword(w.admin, w.hasher);
+    deactivate = new DeactivateUser(w.admin);
+    revoke = new RevokeUserSessions(w.admin);
+    setRoles = new SetLocationRoles(w.admin);
+  });
+
+  it('un admin no dueño no gestiona a un dueño (reset, desactivar, revocar, roles) -> NotFound', async () => {
+    const a = ctx.admin!;
+    await expect(reset.execute({ actor: a, userId: owner.id, newPassword: 'Nueva1234' })).rejects.toThrow(NotFoundError);
+    await expect(deactivate.execute({ actor: a, userId: owner.id })).rejects.toThrow(NotFoundError);
+    await expect(revoke.execute({ actor: a, userId: owner.id })).rejects.toThrow(NotFoundError);
+    await expect(setRoles.execute({ actor: a, userId: owner.id, locationId: w.solCenter.id, roles: ['staff'] })).rejects.toThrow(NotFoundError);
+    expect(owner.isActive).toBe(true);
+    expect(w.audit.entries).toHaveLength(0);
+  });
+
+  it('un dueño gestiona a otro dueño del mismo negocio; el superadmin también', async () => {
+    await reset.execute({ actor: ctx.owner!, userId: owner2.id, newPassword: 'Nueva1234' });
+    await setRoles.execute({ actor: ctx.root!, userId: owner2.id, locationId: w.solCenter.id, roles: ['staff'] });
+    await deactivate.execute({ actor: ctx.root!, userId: owner2.id });
+    expect(owner2.isActive).toBe(false);
+  });
+
+  it('nadie se desactiva, se cambia los roles ni se restablece la contraseña a sí mismo', async () => {
+    for (const [actor, me] of [[ctx.admin!, admin], [ctx.owner!, owner]] as const) {
+      await expect(deactivate.execute({ actor, userId: me.id })).rejects.toThrow(PermissionDeniedError);
+      await expect(reset.execute({ actor, userId: me.id, newPassword: 'Nueva1234' })).rejects.toThrow(PermissionDeniedError);
+      await expect(setRoles.execute({ actor, userId: me.id, locationId: w.solCenter.id, roles: ['staff'] })).rejects.toThrow(PermissionDeniedError);
+    }
+    expect(admin.isActive && owner.isActive).toBe(true);
+    await revoke.execute({ actor: ctx.admin!, userId: admin.id }); // cerrar las propias sesiones sí
+  });
+});

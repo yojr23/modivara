@@ -7,7 +7,7 @@ export class RevokeUserSessions {
 
   execute(input: { actor: ActorContext; userId: string }): Promise<void> {
     return this.admin.withTransaction(async (tx) => {
-      const user = await findManageableUser(input.actor, input.userId, tx);
+      const user = await findManageableUser(input.actor, input.userId, tx, { allowSelf: true });
       await tx.sessions.revokeAllForUser({ organizationId: user.organizationId, userId: user.id }, new Date());
       await tx.audit.record({
         id: newId(),

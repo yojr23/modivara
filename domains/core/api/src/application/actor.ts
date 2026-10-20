@@ -35,9 +35,15 @@ export async function findManageableUser(
   actor: ActorContext,
   userId: string,
   repos: { users: UserRepository; memberships: MembershipRepository },
+  opts: { allowSelf?: boolean } = {},
 ): Promise<AppUser> {
   await assertCanManageUsers(actor, repos.memberships);
   const user = await repos.users.findById({ id: userId, organizationId: effectiveOrganizationId(actor) });
   if (!user) throw new NotFoundError('User');
+  // Cuenta propia: no se desactiva, no se cambian sus roles ni se restablece su contraseña (para eso, ChangePassword, que exige la actual).
+  if (user.id === actor.actorUserId && !opts.allowSelf) throw new PermissionDeniedError('Cannot manage your own account here');
+  // Un dueño solo lo gestiona otro dueño del negocio o el superadmin; para un admin no dueño "no existe" (no revelar).
+  // OPEN: ¿puede un admin de un local gestionar usuarios que solo tienen membresía en otro local? Hoy sí (core.users.manage es por negocio).
+  if (user.isOwner && !actor.isOwner && !actor.isPlatform) throw new NotFoundError('User');
   return user;
 }

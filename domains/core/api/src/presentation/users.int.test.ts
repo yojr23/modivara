@@ -139,3 +139,45 @@ describe('ciclo de vida', () => {
     expect(await db.appUser.count({ where: { username: 'mesero2' } })).toBe(0);
   });
 });
+
+describe('cuentas de dueños y cuenta propia', () => {
+  // El dueño lo crea el superadmin (un admin no puede crear dueños).
+  async function makeOwner(username: string) {
+    const root = await t.loginAs('labs', 'root');
+    await t.http().put('/api/v1/platform/acting-organization').set('Cookie', root).send({ organization_id: s.demo.organization.id });
+    const res = await post('/users', root, { username, display_name: username, password: PASSWORD, is_owner: true });
+    expect(res.status).toBe(201);
+    return { id: res.body.id as string, root };
+  }
+
+  it('un admin no dueño no puede tomar la cuenta de un dueño (404, sin cambios)', async () => {
+    const { id } = await makeOwner('duena');
+    expect((await post(`/users/${id}/password-reset`, admin, { new_password: 'Nueva1234' })).status).toBe(404);
+    expect((await post(`/users/${id}/deactivate`, admin)).status).toBe(404);
+    expect((await post(`/users/${id}/revoke-sessions`, admin)).status).toBe(404);
+    const roles = await t.http().put(`/api/v1/users/${id}/locations/${s.demo.location.id}/roles`).set('Cookie', admin).send({ roles: ['staff'] });
+    expect(roles.status).toBe(404);
+    expect(await t.loginAs('bar-demo', 'duena')).toBeTruthy();
+  });
+
+  it('un dueño gestiona a otro dueño del mismo negocio; el superadmin también', async () => {
+    const { id, root } = await makeOwner('duena');
+    const second = await post('/users', root, { username: 'duena2', display_name: 'D2', password: PASSWORD, is_owner: true });
+    const owner = await t.loginAs('bar-demo', 'duena');
+    expect((await post(`/users/${second.body.id}/password-reset`, owner, { new_password: 'Nueva1234' })).status).toBe(204);
+    expect((await post(`/users/${id}/revoke-sessions`, root)).status).toBe(204);
+  });
+
+  it('auto-desactivación y auto-reset rechazados (403); el dueño tampoco', async () => {
+    const me = s.demo.userIds.admin!;
+    expect((await post(`/users/${me}/deactivate`, admin)).status).toBe(403);
+    expect((await post(`/users/${me}/password-reset`, admin, { new_password: 'Nueva1234' })).status).toBe(403);
+    const roles = await t.http().put(`/api/v1/users/${me}/locations/${s.demo.location.id}/roles`).set('Cookie', admin).send({ roles: ['staff'] });
+    expect(roles.status).toBe(403);
+    await makeOwner('duena');
+    const owner = await t.loginAs('bar-demo', 'duena');
+    const ownerId = (await db.appUser.findFirstOrThrow({ where: { username: 'duena' } })).id;
+    expect((await post(`/users/${ownerId}/deactivate`, owner)).status).toBe(403);
+    expect((await t.http().get('/api/v1/me').set('Cookie', admin)).status).toBe(200);
+  });
+});
