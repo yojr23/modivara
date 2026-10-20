@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { CoreAccessPort } from '@modivara/core-contracts';
 import type { DeviceEventResult } from '@modivara/hospitality-contracts';
 import { DeviceEvent } from '../domain/devices/device-event.js';
 import { ConcurrencyConflictError } from '../domain/errors.js';
@@ -26,6 +27,7 @@ const sameTenant = (e: { organizationId: string; locationId: string }, t: { orga
 /** Flujo de una pulsación (DATA-001 §3). */
 export class RegisterButtonPress implements IoTInputPort {
   constructor(
+    private readonly core: CoreAccessPort,
     private readonly devices: DeviceRepository,
     private readonly assignments: DeviceAssignmentRepository,
     private readonly tables: DiningTableRepository,
@@ -68,6 +70,11 @@ export class RegisterButtonPress implements IoTInputPort {
     const found = await this.devices.findActiveByCode(press.locationId, press.deviceCode);
     const device = found && sameTenant(found, press) ? found : null;
     if (!device) return record('unknown_device', null, null);
+
+    // DATA-001 §1: el local debe existir, estar activo y ser del negocio del gateway antes de crear o reutilizar llamados.
+    // OPEN: DATA-001 §3 no tiene un resultado para "local inactivo"; se usa unassigned_device (el más conservador: sin llamado).
+    const location = await this.core.getLocation(press.locationId);
+    if (!location || !location.active || location.organizationId !== press.organizationId) return record('unassigned_device', device.id, null);
 
     const assignment = await this.assignments.findActiveByDevice(device.id);
     const candidate = assignment ? await this.tables.findById(assignment.tableId, press.locationId) : null;

@@ -13,6 +13,19 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('RegisterButtonPress', () => {
+  it.each([
+    ['inactivo', (w: World) => w.core.add({ id: w.ctx.locationId, organizationId: w.ctx.organizationId, timezone: 'America/Bogota', active: false })],
+    ['de otro negocio', (w: World) => w.core.add({ id: w.ctx.locationId, organizationId: crypto.randomUUID(), timezone: 'America/Bogota', active: true })],
+  ])('local %s: se registra el evento sin crear ni reutilizar llamado', async (_n, break_) => {
+    await seedTableWithButton(w);
+    break_(w);
+    const out = await w.registerPress.execute(w.press());
+    expect(out).toMatchObject({ result: 'unassigned_device', serviceCallId: null });
+    expect(w.events.all()).toHaveLength(1);
+    expect(w.calls.all()).toHaveLength(0);
+    expect(w.notifications.sent).toHaveLength(0);
+  });
+
   it('unknown_device: se registra sin más efectos', async () => {
     const out = await w.registerPress.execute(w.press({ deviceCode: 'NOPE' }));
     expect(out).toMatchObject({ result: 'unknown_device', serviceCallId: null });

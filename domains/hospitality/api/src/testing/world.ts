@@ -51,7 +51,7 @@ export function buildWorld() {
 
   return {
     ctx, press, core, calls, zones, tables, devices, assignments, gateways, events, notifications,
-    registerPress: new RegisterButtonPress(devices, assignments, tables, zones, calls, events, notifications),
+    registerPress: new RegisterButtonPress(core, devices, assignments, tables, zones, calls, events, notifications),
     acknowledge: new AcknowledgeCall(calls, notifications),
     complete: new CompleteCall(calls, notifications),
     createZone: new CreateZone(core, zones),
