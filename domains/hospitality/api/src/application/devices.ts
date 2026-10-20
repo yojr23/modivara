@@ -2,7 +2,7 @@ import type { CoreAccessPort } from '@modivara/core-contracts';
 import { Device } from '../domain/devices/device.js';
 import { DeviceAssignment } from '../domain/devices/device-assignment.js';
 import { DeviceAlreadyAssignedError, DuplicateError, NotFoundError } from '../domain/errors.js';
-import type { DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository } from './ports/index.js';
+import type { DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, UnknownDeviceCode } from './ports/index.js';
 import { type ActorContext, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
 
 export class RegisterDevice {
@@ -64,35 +64,19 @@ export class UnassignDevice {
   }
 }
 
-export interface UnknownDevice {
-  deviceCode: string;
-  pressCount: number;
-  lastReceivedAt: Date;
-}
+export type UnknownDevice = UnknownDeviceCode;
 
 /** Códigos detectados que aún no están registrados: la consola del superadmin los vincula. */
 export class ListUnknownDevices {
   constructor(
     private readonly events: DeviceEventRepository,
-    private readonly devices: DeviceRepository,
     private readonly core: CoreAccessPort,
   ) {}
 
-  async execute(input: TenantContext): Promise<UnknownDevice[]> {
+  // OPEN: ventana por defecto de `since` (¿7 días?, ¿hasta cuándo se conservan las señales?): la decide presentación.
+  async execute(input: TenantContext & { since: Date }): Promise<UnknownDevice[]> {
     await requireActiveLocation(this.core, input);
-    const byCode = new Map<string, UnknownDevice>();
-    for (const event of await this.events.listUnknown(scopeOf(input))) {
-      const seen = byCode.get(event.deviceCode);
-      if (!seen) byCode.set(event.deviceCode, { deviceCode: event.deviceCode, pressCount: 1, lastReceivedAt: event.receivedAt });
-      else {
-        seen.pressCount += 1;
-        if (event.receivedAt > seen.lastReceivedAt) seen.lastReceivedAt = event.receivedAt;
-      }
-    }
-    const result: UnknownDevice[] = [];
-    for (const unknown of byCode.values()) {
-      if (!(await this.devices.findActiveByCode({ ...scopeOf(input), code: unknown.deviceCode }))) result.push(unknown);
-    }
-    return result.sort((a, b) => b.lastReceivedAt.getTime() - a.lastReceivedAt.getTime());
+    const codes = await this.events.listUnknownCodes({ ...scopeOf(input), since: input.since });
+    return codes.sort((a, b) => b.lastReceivedAt.getTime() - a.lastReceivedAt.getTime());
   }
 }

@@ -40,19 +40,25 @@ export interface GatewayConnectivity {
   connected: boolean;
 }
 
+export type ConnectivityStatus = 'no_gateways' | 'all_connected' | 'some_disconnected';
+
 export class GetConnectivity {
   constructor(
     private readonly core: CoreAccessPort,
     private readonly gateways: GatewayRepository,
   ) {}
 
-  /** `anyDisconnected` alimenta el aviso "Botones desconectados" del tablero. */
-  async execute(input: TenantContext): Promise<{ gateways: GatewayConnectivity[]; anyDisconnected: boolean }> {
+  /**
+   * `some_disconnected` alimenta el aviso "Botones desconectados" del tablero. Sin gateways no hay nada que
+   * vigilar: se informa `no_gateways` en vez de fingir que todo está conectado.
+   */
+  async execute(input: TenantContext): Promise<{ gateways: GatewayConnectivity[]; status: ConnectivityStatus }> {
     await requireActiveLocation(this.core, input);
     const now = new Date();
     const gateways = (await this.gateways.listByLocation(scopeOf(input)))
       .filter((g) => g.isActive)
       .map((g) => ({ gatewayId: g.id, name: g.name, lastSeenAt: g.lastSeenAt, connected: g.isConnected(now) }));
-    return { gateways, anyDisconnected: gateways.some((g) => !g.connected) };
+    const status = gateways.length === 0 ? 'no_gateways' : gateways.some((g) => !g.connected) ? 'some_disconnected' : 'all_connected';
+    return { gateways, status };
   }
 }

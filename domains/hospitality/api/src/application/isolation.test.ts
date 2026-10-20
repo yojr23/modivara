@@ -84,7 +84,7 @@ describe('aislamiento por negocio y local', () => {
     const { sameLocationOtherOrg } = intruders();
     const permissions = new Set(['hospitality.calls.read'] as const);
     await expect(w.listActive.execute({ ...sameLocationOtherOrg, permissions })).rejects.toBeInstanceOf(LocationUnavailableError);
-    await expect(w.listUnknown.execute(sameLocationOtherOrg)).rejects.toBeInstanceOf(LocationUnavailableError);
+    await expect(w.listUnknown.execute({ ...sameLocationOtherOrg, since: new Date(0) })).rejects.toBeInstanceOf(LocationUnavailableError);
     await expect(w.connectivity.execute(sameLocationOtherOrg)).rejects.toBeInstanceOf(LocationUnavailableError);
   });
 

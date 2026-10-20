@@ -33,7 +33,7 @@ export function buildWorld() {
   const devices = new InMemoryDeviceRepository();
   const assignments = new InMemoryDeviceAssignmentRepository();
   const gateways = new InMemoryGatewayRepository();
-  const events = new InMemoryDeviceEventRepository();
+  const events = new InMemoryDeviceEventRepository(devices);
   const store = new InMemoryButtonPressStore(calls, events);
   const notifications = new RecordingNotifications((id) => calls.all().some((c) => c.id === id));
 
@@ -67,7 +67,7 @@ export function buildWorld() {
     heartbeat: new RecordHeartbeat(gateways),
     connectivity: new GetConnectivity(core, gateways),
     listActive: new ListActiveCalls(core, calls, tables, zones),
-    listUnknown: new ListUnknownDevices(events, devices, core),
+    listUnknown: new ListUnknownDevices(events, core),
   };
 }
 

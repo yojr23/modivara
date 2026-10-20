@@ -13,6 +13,7 @@ import type {
   NotificationPort,
   Scope,
   ServiceCallRepository,
+  UnknownDeviceCode,
   ZoneRepository,
 } from '../application/ports/index.js';
 import { Device } from '../domain/devices/device.js';
@@ -148,7 +149,26 @@ export class InMemoryDeviceEventRepository implements DeviceEventRepository {
       .filter((e) => inScope(e, scope) && e.deviceId === deviceId && e.buttonKey === buttonKey && (e.result === 'call_created' || e.result === 'repeat_press'));
     return counted.sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime())[0] ?? null;
   }
-  async listUnknown(scope: Scope) { return this.store.all().filter((e) => inScope(e, scope) && e.result === 'unknown_device'); }
+  constructor(private readonly devices: InMemoryDeviceRepository) {}
+
+  async listUnknownCodes({ since, ...scope }: Scope & { since: Date }) {
+    const byCode = new Map<string, UnknownDeviceCode>();
+    for (const e of this.store.all()) {
+      if (!inScope(e, scope) || e.result !== 'unknown_device' || e.receivedAt < since) continue;
+      const seen = byCode.get(e.deviceCode);
+      if (!seen) byCode.set(e.deviceCode, { deviceCode: e.deviceCode, firstReceivedAt: e.receivedAt, lastReceivedAt: e.receivedAt, pressCount: 1 });
+      else {
+        seen.pressCount += 1;
+        if (e.receivedAt < seen.firstReceivedAt) seen.firstReceivedAt = e.receivedAt;
+        if (e.receivedAt > seen.lastReceivedAt) seen.lastReceivedAt = e.receivedAt;
+      }
+    }
+    const result: UnknownDeviceCode[] = [];
+    for (const unknown of byCode.values()) {
+      if (!(await this.devices.findActiveByCode({ ...scope, code: unknown.deviceCode }))) result.push(unknown);
+    }
+    return result;
+  }
   /** Devuelve el `undo` para el rollback de la transacción simulada. */
   add(event: DeviceEvent) {
     this.store.put(event);

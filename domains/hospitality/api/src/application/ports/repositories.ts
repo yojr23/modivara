@@ -1,6 +1,5 @@
 import type { Device } from '../../domain/devices/device.js';
 import type { DeviceAssignment } from '../../domain/devices/device-assignment.js';
-import type { DeviceEvent } from '../../domain/devices/device-event.js';
 import type { Gateway } from '../../domain/devices/gateway.js';
 import type { ServiceCall } from '../../domain/service-calls/service-call.js';
 import type { DiningTable } from '../../domain/tables/dining-table.js';
@@ -63,6 +62,18 @@ export interface GatewayRepository {
   save(gateway: Gateway): Promise<void>;
 }
 
+/** Código no registrado, agregado sobre sus señales `unknown_device`. */
+export interface UnknownDeviceCode {
+  deviceCode: string;
+  firstReceivedAt: Date;
+  lastReceivedAt: Date;
+  pressCount: number;
+}
+
 export interface DeviceEventRepository {
-  listUnknown(scope: Scope): Promise<DeviceEvent[]>;
+  /**
+   * Códigos con señales `unknown_device` desde `since` que siguen sin dispositivo activo en el local.
+   * El adaptador lo resuelve con un solo GROUP BY por código + NOT EXISTS contra `devices` (sin N+1).
+   */
+  listUnknownCodes(query: Scope & { since: Date }): Promise<UnknownDeviceCode[]>;
 }

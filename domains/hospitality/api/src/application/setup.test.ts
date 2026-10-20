@@ -104,11 +104,22 @@ describe('botones y asignaciones', () => {
     vi.setSystemTime(new Date(T0.getTime() + 5_000));
     await w.registerPress.registerPress(w.press({ deviceCode: 'X1' }));
     await w.registerPress.registerPress(w.press({ deviceCode: 'X2' }));
-    const list = await w.listUnknown.execute(w.ctx);
+    const since = new Date(T0.getTime() - 1_000);
+    const list = await w.listUnknown.execute({ ...w.ctx, since });
     expect(list.map((u) => [u.deviceCode, u.pressCount]).sort()).toEqual([['X1', 2], ['X2', 1]]);
+    expect(list.find((u) => u.deviceCode === 'X1')).toMatchObject({ firstReceivedAt: T0, lastReceivedAt: new Date(T0.getTime() + 5_000) });
     await w.registerDevice.execute({ ...w.ctx, code: 'X1' });
-    expect((await w.listUnknown.execute(w.ctx)).map((u) => u.deviceCode)).toEqual(['X2']);
-    await expect(w.listUnknown.execute({ ...w.ctx, locationId: crypto.randomUUID() })).rejects.toBeInstanceOf(LocationUnavailableError);
+    expect((await w.listUnknown.execute({ ...w.ctx, since })).map((u) => u.deviceCode)).toEqual(['X2']);
+    await expect(w.listUnknown.execute({ ...w.ctx, since, locationId: crypto.randomUUID() })).rejects.toBeInstanceOf(LocationUnavailableError);
+  });
+
+  it('ListUnknownDevices respeta since y no mezcla locales ni negocios', async () => {
+    await w.registerPress.registerPress(w.press({ deviceCode: 'OLD' }));
+    vi.setSystemTime(new Date(T0.getTime() + 60_000));
+    await w.registerPress.registerPress(w.press({ deviceCode: 'NEW' }));
+    const since = new Date(T0.getTime() + 30_000);
+    expect((await w.listUnknown.execute({ ...w.ctx, since })).map((u) => u.deviceCode)).toEqual(['NEW']);
+    expect(await w.events.listUnknownCodes({ organizationId: crypto.randomUUID(), locationId: w.ctx.locationId, since: T0 })).toEqual([]);
   });
 });
 
@@ -122,17 +133,21 @@ describe('gateways', () => {
 
   it('conectividad: señal cada 30 s, desconectado pasados 90 s', async () => {
     const { gateway } = await w.createGateway.execute({ ...w.ctx, name: 'GW' });
-    expect(await w.connectivity.execute(w.ctx)).toMatchObject({ anyDisconnected: true });
+    expect(await w.connectivity.execute(w.ctx)).toMatchObject({ status: 'some_disconnected' });
     await w.heartbeat.execute({ ...w.ctx, gatewayId: gateway.id });
-    expect((await w.connectivity.execute(w.ctx)).anyDisconnected).toBe(false);
+    expect((await w.connectivity.execute(w.ctx)).status).toBe('all_connected');
     vi.setSystemTime(new Date(T0.getTime() + 90_000));
-    expect((await w.connectivity.execute(w.ctx)).anyDisconnected).toBe(false);
+    expect((await w.connectivity.execute(w.ctx)).status).toBe('all_connected');
     vi.setSystemTime(new Date(T0.getTime() + 90_001));
     const status = await w.connectivity.execute(w.ctx);
-    expect(status.anyDisconnected).toBe(true);
+    expect(status.status).toBe('some_disconnected');
     expect(status.gateways[0]).toMatchObject({ connected: false, lastSeenAt: T0 });
     await w.heartbeat.execute({ ...w.ctx, gatewayId: gateway.id });
-    expect((await w.connectivity.execute(w.ctx)).anyDisconnected).toBe(false);
+    expect((await w.connectivity.execute(w.ctx)).status).toBe('all_connected');
+  });
+
+  it('sin gateways no se reporta todo conectado', async () => {
+    expect(await w.connectivity.execute(w.ctx)).toEqual({ gateways: [], status: 'no_gateways' });
   });
 
   it('el heartbeat de otro local no encuentra el gateway; GetConnectivity aísla por local', async () => {
