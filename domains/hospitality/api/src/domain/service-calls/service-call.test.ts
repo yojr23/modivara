@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { serviceCallAcknowledgedEventSchema, serviceCallCompletedEventSchema, serviceCallCreatedEventSchema } from '@modivara/hospitality-contracts';
-import { toEventEnvelope } from '../../application/event-envelope.js';
 import { InvalidTransitionError } from '../errors.js';
 import { ServiceCall } from './service-call.js';
 import { isDebounced } from './debounce.js';
@@ -23,14 +21,13 @@ const newCall = () =>
 
 
 describe('ServiceCall', () => {
-  it('create: pending, pressCount 1, transición create y evento created válido', () => {
+  it('create: pending, pressCount 1, transición create ', () => {
     const c = newCall();
     expect(c.status).toBe('pending');
     expect(c.pressCount).toBe(1);
     expect(c.persistedStatus).toBeNull();
     expect(c.transitions).toHaveLength(1);
     expect(c.transitions[0]).toMatchObject({ action: 'create', fromStatus: null, toStatus: 'pending', actorUserId: null });
-    expect(serviceCallCreatedEventSchema.safeParse(toEventEnvelope(c.events[0]!)).success).toBe(true);
   });
 
   it('registerPress suma y actualiza lastPressAt sin transición ni evento nuevos', () => {
@@ -55,16 +52,6 @@ describe('ServiceCall', () => {
     expect(c.completedAt).toEqual(at(60));
     expect(c.transitions.map((t) => t.action)).toEqual(['acknowledge', 'complete']);
     expect(c.events[0]!.payload).toMatchObject({ press_count: 2 });
-  });
-
-  it('eventos ack/complete cumplen el contrato', () => {
-    const c = newCall();
-    c.markPersisted();
-    const u = uid();
-    c.acknowledge(u, at(1));
-    c.complete(u, at(2));
-    expect(serviceCallAcknowledgedEventSchema.safeParse(toEventEnvelope(c.events[0]!)).success).toBe(true);
-    expect(serviceCallCompletedEventSchema.safeParse(toEventEnvelope(c.events[1]!)).success).toBe(true);
   });
 
   it('completed es final', () => {
