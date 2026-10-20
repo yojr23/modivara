@@ -1,5 +1,6 @@
 import type { ModuleName } from '@modivara/core-contracts';
-import type { AppUser, Entitlement, Location, LocationMembership, Organization, Session } from '../domain/index.js';
+import { AppUser } from '../domain/index.js';
+import type { Entitlement, Location, LocationMembership, Organization, Session } from '../domain/index.js';
 import type {
   AuditEntry,
   AuditLog,
@@ -48,6 +49,29 @@ export class InMemoryUserRepository implements UserRepository {
     return [...this.items.values()].find((u) => u.organizationId === organizationId && u.username === username && u.isActive) ?? null;
   }
   async save(u: AppUser) { this.saves++; this.items.set(u.id, u); }
+
+  readonly #locks = new Map<string, Promise<unknown>>();
+  /** Serializa por usuario y trabaja sobre una copia, como una transacción: sin el bloqueo habría actualizaciones perdidas. */
+  async withLoginLock<T>(
+    { id, organizationId }: { id: string; organizationId: string },
+    work: (tx: { user: AppUser | null; save(user: AppUser): Promise<void> }) => Promise<T>,
+  ): Promise<T> {
+    const previous = this.#locks.get(id) ?? Promise.resolve();
+    const run = previous.then(async () => {
+      const stored = await this.findById({ id, organizationId });
+      const user = stored?.isActive
+        ? AppUser.restore({
+            id: stored.id, organizationId: stored.organizationId, username: stored.username, displayName: stored.displayName,
+            passwordHash: stored.passwordHash, isOwner: stored.isOwner, passwordChangedAt: stored.passwordChangedAt,
+            failedLoginCount: stored.failedLoginCount, failedLoginWindowStart: stored.failedLoginWindowStart,
+            deactivatedAt: stored.deactivatedAt,
+          })
+        : null;
+      return work({ user, save: (u) => this.save(u) });
+    });
+    this.#locks.set(id, run.catch(() => undefined));
+    return run;
+  }
 }
 
 export class InMemoryMembershipRepository implements MembershipRepository {

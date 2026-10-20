@@ -28,8 +28,13 @@ export class Login {
     private readonly tokens: SessionTokenService,
   ) {}
 
+  private dummy?: Promise<string>;
+  /** Hash ficticio (de una contraseña aleatoria) contra el que se verifica cuando la cuenta está bloqueada. */
+  private dummyHash(): Promise<string> {
+    return (this.dummy ??= this.hasher.hash(newId()));
+  }
+
   async execute(input: LoginInput): Promise<LoginOutput> {
-    const now = new Date();
     const username = input.username.trim().toLowerCase();
     const org = await this.organizations.findBySlug({ slug: input.slug.trim().toLowerCase() });
     const user = org?.isActive && isValidUsername(username) ? await this.users.findActiveByUsername({ organizationId: org.id, username }) : null;
@@ -40,17 +45,32 @@ export class Login {
       throw new InvalidCredentialsError();
     }
 
-    // OPEN: el bloqueo se informa de forma explícita (revela que el usuario existe). ¿Responder genérico también?
-    const lockedUntil = user.lockedUntil(now);
-    if (lockedUntil) throw new AccountLockedError(lockedUntil);
+    const outcome = await this.users.withLoginLock({ id: user.id, organizationId: user.organizationId }, async (tx) => {
+      const locked = tx.user;
+      if (!locked) {
+        await this.hasher.hash(input.password);
+        return { kind: 'invalid' } as const;
+      }
+      const now = new Date();
+      // OPEN: el bloqueo se informa de forma explícita (revela que el usuario existe). ¿Responder genérico también?
+      const lockedUntil = locked.lockedUntil(now);
+      if (lockedUntil) {
+        // Mismo costo que un intento real, para que el tiempo de respuesta no delate el bloqueo.
+        await this.hasher.verify(await this.dummyHash(), input.password);
+        return { kind: 'locked', until: lockedUntil } as const;
+      }
+      if (!(await this.hasher.verify(locked.passwordHash, input.password))) {
+        locked.registerFailedLogin(now);
+        await tx.save(locked);
+        return { kind: 'invalid' } as const;
+      }
+      if (locked.registerSuccessfulLogin()) await tx.save(locked);
+      return { kind: 'ok', user: locked } as const;
+    });
+    if (outcome.kind === 'locked') throw new AccountLockedError(outcome.until);
+    if (outcome.kind === 'invalid') throw new InvalidCredentialsError();
 
-    if (!(await this.hasher.verify(user.passwordHash, input.password))) {
-      user.registerFailedLogin(now);
-      await this.users.save(user);
-      throw new InvalidCredentialsError();
-    }
-    if (user.registerSuccessfulLogin()) await this.users.save(user);
-
+    const now = new Date();
     const { token, tokenHash } = this.tokens.generate();
     const session = Session.create({ id: newId(), userId: user.id, tokenHash, now, ip: input.ip, userAgent: input.userAgent });
     await this.sessions.save(session);

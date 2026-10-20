@@ -69,6 +69,22 @@ describe('login / sesión', () => {
       await expect(attempt(TEST_PASSWORD)).resolves.toBeDefined();
     });
 
+    it('dos fallos simultáneos cuentan como dos (bloqueo de fila por usuario)', async () => {
+      const slow = w.hasher.verify.bind(w.hasher);
+      w.hasher.verify = async (h, p) => { await new Promise((r) => setTimeout(r, 5)); return slow(h, p); };
+      vi.useRealTimers();
+      await Promise.allSettled([attempt('mala'), attempt('mala')]);
+      expect([...w.users.items.values()][0]!.failedLoginCount).toBe(2);
+    });
+
+    it('cuenta bloqueada: igual verifica un hash antes de responder (tiempo constante)', async () => {
+      for (let i = 0; i < 5; i++) await expect(attempt('mala')).rejects.toThrow(InvalidCredentialsError);
+      const verify = vi.spyOn(w.hasher, 'verify');
+      await expect(attempt(TEST_PASSWORD)).rejects.toThrow(AccountLockedError);
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(verify.mock.calls[0]![0]).not.toBe(await w.hasher.hash(TEST_PASSWORD)); // contra un hash ficticio
+    });
+
     it('4 fallos y un acierto reinician el conteo', async () => {
       for (let i = 0; i < 4; i++) await expect(attempt('mala')).rejects.toThrow(InvalidCredentialsError);
       await attempt(TEST_PASSWORD);
@@ -124,6 +140,16 @@ describe('login / sesión', () => {
       await authenticate.execute({ token });
       await authenticate.execute({ token });
       expect(w.sessions.saves).toBe(base + 1);
+    });
+
+    it('superadmin: ignora el negocio elegido si fue desactivado', async () => {
+      await w.addUser(w.platform, 'root');
+      const { token } = await attempt(TEST_PASSWORD, 'labs', 'root');
+      const session = [...w.sessions.items.values()][0]!;
+      session.actAs(w.sol.id, { isPlatform: true });
+      expect((await authenticate.execute({ token })).actingOrganizationId).toBe(w.sol.id);
+      w.sol.deactivate(new Date());
+      expect((await authenticate.execute({ token })).actingOrganizationId).toBeNull();
     });
 
     it('rechaza si el usuario o el negocio se desactivaron', async () => {

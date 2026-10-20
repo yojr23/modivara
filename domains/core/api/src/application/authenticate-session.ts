@@ -19,6 +19,10 @@ export class AuthenticateSession {
     const org = user ? await this.organizations.findById({ id: user.organizationId }) : null;
     if (!user?.isActive || !org?.isActive) throw new SessionInvalidError();
 
+    // Un negocio desactivado deja de ser elegible: el superadmin vuelve a su propia organización.
+    const acting = org.isPlatform ? session.actingOrganizationId : null;
+    const actingActive = acting ? (await this.organizations.findById({ id: acting }))?.isActive === true : false;
+
     if (session.touch(now)) await this.sessions.save(session);
 
     return {
@@ -27,7 +31,7 @@ export class AuthenticateSession {
       isPlatform: org.isPlatform,
       isOwner: user.isOwner,
       sessionId: session.id,
-      actingOrganizationId: org.isPlatform ? session.actingOrganizationId : null,
+      actingOrganizationId: actingActive ? acting : null,
     };
   }
 }

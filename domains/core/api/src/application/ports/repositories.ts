@@ -39,6 +39,17 @@ export interface UserRepository {
   /** Solo usuarios activos: el username es único entre activos (DATA-001). */
   findActiveByUsername(ref: { organizationId: string; username: string }): Promise<AppUser | null>;
   save(user: AppUser): Promise<void>;
+  /**
+   * Sección crítica del login por usuario: el adaptador abre una transacción, bloquea la fila
+   * (`SELECT … FOR UPDATE`), entrega el usuario recién leído (`null` si ya no existe o está desactivado) y
+   * confirma al terminar `work`. Así dos fallos simultáneos se cuentan como dos.
+   * `work` decide dentro y devuelve el resultado: lanzar haría rollback y perdería el contador, por eso
+   * los fallos de credenciales se devuelven y el llamador los lanza fuera.
+   */
+  withLoginLock<T>(
+    ref: { id: string; organizationId: string },
+    work: (tx: { user: AppUser | null; save(user: AppUser): Promise<void> }) => Promise<T>,
+  ): Promise<T>;
 }
 
 export interface MembershipRepository {
