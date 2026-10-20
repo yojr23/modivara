@@ -1,4 +1,5 @@
-import { InvalidValueError, PermissionDeniedError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
+import { PermissionDeniedError } from './errors.js';
 
 /** Expiración deslizante de 30 días; `touch` escribe como máximo una vez por hora (DATA-001 §2). */
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -28,7 +29,7 @@ export class Session {
     ip?: string | null;
     userAgent?: string | null;
   }): Session {
-    if (!input.tokenHash) throw new InvalidValueError('Token hash is required');
+    if (!input.tokenHash) throw new ValidationError('Token hash is required');
     return new Session({
       id: input.id,
       userId: input.userId,

@@ -1,5 +1,4 @@
-import { permissionsFor, type LocationRef, type ModuleName, type Permission } from '@modivara/core-contracts';
-import { NotFoundError } from '../domain/index.js';
+import { NotFoundError, permissionsFor, type LocationRef, type ModuleName, type Permission } from '@modivara/core-contracts';
 import { effectiveOrganizationId, type ActorContext } from './actor.js';
 import type { EntitlementRepository, LocationRepository, MembershipRepository } from './ports/index.js';
 
@@ -22,7 +21,7 @@ export class ResolveLocationAccess {
     const location = await this.locations.findById(input.locationId);
     // Aislamiento entre negocios: un local ajeno es indistinguible de uno inexistente.
     if (!location?.isActive || location.organizationId !== effectiveOrganizationId(actor)) {
-      throw new NotFoundError('Location not found');
+      throw new NotFoundError('Location');
     }
 
     const membership = actor.isPlatform ? null : await this.memberships.findActive(actor.actorUserId, location.id);

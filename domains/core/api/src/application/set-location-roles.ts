@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { LocationMembership, NotFoundError } from '../domain/index.js';
+import { newId, NotFoundError } from '@modivara/core-contracts';
+import { LocationMembership } from '../domain/index.js';
 import { findManageableUser, type ActorContext } from './actor.js';
 import type { LocationRepository, MembershipRepository, UserRepository } from './ports/index.js';
 
@@ -16,7 +16,7 @@ export class SetLocationRoles {
     const location = await this.locations.findById(input.locationId);
     // Un local de otro negocio responde "no existe"; la membresía además valida el mismo negocio.
     if (!location?.isActive || (!input.actor.isPlatform && location.organizationId !== input.actor.organizationId)) {
-      throw new NotFoundError('Location not found');
+      throw new NotFoundError('Location');
     }
 
     const existing = await this.memberships.findActive(user.id, location.id);
@@ -25,7 +25,7 @@ export class SetLocationRoles {
       await this.memberships.save(existing);
       return existing;
     }
-    const created = LocationMembership.create({ id: randomUUID(), user, location, roles: input.roles });
+    const created = LocationMembership.create({ id: newId(), user, location, roles: input.roles });
     await this.memberships.save(created);
     return created;
   }

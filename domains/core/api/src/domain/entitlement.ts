@@ -1,5 +1,5 @@
 import { MODULES, type ModuleName } from '@modivara/core-contracts';
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 
 export class Entitlement {
   private constructor(
@@ -9,7 +9,7 @@ export class Entitlement {
   ) {}
 
   static create(input: { organizationId: string; module: string; enabled?: boolean }): Entitlement {
-    if (!(MODULES as readonly string[]).includes(input.module)) throw new InvalidValueError(`Unknown module: ${input.module}`);
+    if (!(MODULES as readonly string[]).includes(input.module)) throw new ValidationError(`Unknown module: ${input.module}`);
     return new Entitlement(input.organizationId, input.module as ModuleName, input.enabled ?? true);
   }
 

@@ -1,4 +1,5 @@
-import { assertPasswordPolicy, InvalidCredentialsError, NotFoundError } from '../domain/index.js';
+import { NotFoundError } from '@modivara/core-contracts';
+import { assertPasswordPolicy, InvalidCredentialsError } from '../domain/index.js';
 import type { ActorContext } from './actor.js';
 import type { PasswordHasher, SessionRepository, UserRepository } from './ports/index.js';
 
@@ -11,7 +12,7 @@ export class ChangePassword {
 
   async execute(input: { actor: ActorContext; currentPassword: string; newPassword: string }): Promise<void> {
     const user = await this.users.findById(input.actor.actorUserId);
-    if (!user?.isActive) throw new NotFoundError('User not found');
+    if (!user?.isActive) throw new NotFoundError('User');
     assertPasswordPolicy(input.newPassword);
     if (!(await this.hasher.verify(user.passwordHash, input.currentPassword))) throw new InvalidCredentialsError();
 

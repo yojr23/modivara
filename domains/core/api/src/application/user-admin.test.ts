@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { ConflictError, NotFoundError, ValidationError } from '@modivara/core-contracts';
 import {
-  ConflictError,
-  InvalidValueError,
-  NotFoundError,
   PermissionDeniedError,
   SessionInvalidError,
   WeakPasswordError,
@@ -79,7 +77,7 @@ describe('administración de usuarios', () => {
 
     it('valida política, formato y unicidad por negocio', async () => {
       await expect(newUser(ownerCtx, { password: 'debil' })).rejects.toThrow(WeakPasswordError);
-      await expect(newUser(ownerCtx, { username: 'x' })).rejects.toThrow(InvalidValueError);
+      await expect(newUser(ownerCtx, { username: 'x' })).rejects.toThrow(ValidationError);
       await expect(newUser(ownerCtx, { username: 'jefe' })).rejects.toThrow(ConflictError);
       await expect(newUser(lunaCtx, { username: 'jefe' })).resolves.toBeDefined(); // otro negocio: permitido
     });
@@ -159,12 +157,12 @@ describe('administración de usuarios', () => {
     });
 
     it('ni siquiera el superadmin cruza negocios en una membresía', async () => {
-      await expect(setRoles.execute({ actor: rootCtx, userId: staff.id, locationId: w.lunaCenter.id, roles: ['staff'] })).rejects.toThrow(InvalidValueError);
+      await expect(setRoles.execute({ actor: rootCtx, userId: staff.id, locationId: w.lunaCenter.id, roles: ['staff'] })).rejects.toThrow(ValidationError);
     });
 
     it('exige permiso y roles válidos', async () => {
       await expect(setRoles.execute({ actor: staffCtx, userId: staff.id, locationId: w.solCenter.id, roles: ['admin'] })).rejects.toThrow(PermissionDeniedError);
-      await expect(setRoles.execute({ actor: ownerCtx, userId: staff.id, locationId: w.solCenter.id, roles: [] })).rejects.toThrow(InvalidValueError);
+      await expect(setRoles.execute({ actor: ownerCtx, userId: staff.id, locationId: w.solCenter.id, roles: [] })).rejects.toThrow(ValidationError);
     });
   });
 });

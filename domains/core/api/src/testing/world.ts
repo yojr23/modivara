@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '@modivara/core-contracts';
 import { AppUser, Entitlement, Location, LocationMembership, Organization } from '../domain/index.js';
 import type { ActorContext } from '../application/actor.js';
 import {
@@ -26,11 +26,11 @@ export class World {
   readonly hasher = new FakePasswordHasher();
   readonly tokens = new FakeSessionTokenService();
 
-  readonly platform = Organization.create({ id: randomUUID(), slug: 'labs', name: 'Labs', isPlatform: true });
-  readonly sol = Organization.create({ id: randomUUID(), slug: 'bar-sol', name: 'Bar Sol' });
-  readonly luna = Organization.create({ id: randomUUID(), slug: 'bar-luna', name: 'Bar Luna' });
-  readonly solCenter = Location.create({ id: randomUUID(), organizationId: this.sol.id, name: 'Centro' });
-  readonly lunaCenter = Location.create({ id: randomUUID(), organizationId: this.luna.id, name: 'Centro' });
+  readonly platform = Organization.create({ id: newId(), slug: 'labs', name: 'Labs', isPlatform: true });
+  readonly sol = Organization.create({ id: newId(), slug: 'bar-sol', name: 'Bar Sol' });
+  readonly luna = Organization.create({ id: newId(), slug: 'bar-luna', name: 'Bar Luna' });
+  readonly solCenter = Location.create({ id: newId(), organizationId: this.sol.id, name: 'Centro' });
+  readonly lunaCenter = Location.create({ id: newId(), organizationId: this.luna.id, name: 'Centro' });
 
   static async create(): Promise<World> {
     const w = new World();
@@ -45,7 +45,7 @@ export class World {
 
   async addUser(org: Organization, username: string, opts: { isOwner?: boolean; roles?: string[]; location?: Location } = {}): Promise<AppUser> {
     const user = AppUser.create({
-      id: randomUUID(),
+      id: newId(),
       organizationId: org.id,
       username,
       displayName: username,
@@ -55,7 +55,7 @@ export class World {
     });
     await this.users.save(user);
     if (opts.roles && opts.location) {
-      await this.memberships.save(LocationMembership.create({ id: randomUUID(), user, location: opts.location, roles: opts.roles }));
+      await this.memberships.save(LocationMembership.create({ id: newId(), user, location: opts.location, roles: opts.roles }));
     }
     return user;
   }
@@ -68,7 +68,7 @@ export class World {
       organizationId: user.organizationId,
       isPlatform: org.isPlatform,
       isOwner: user.isOwner,
-      sessionId: randomUUID(),
+      sessionId: newId(),
       actingOrganizationId: null,
       ...extra,
     };

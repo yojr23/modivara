@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AppUser } from './app-user.js';
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 import { Location } from './location.js';
 import { LocationMembership } from './location-membership.js';
 
@@ -14,12 +14,12 @@ describe('LocationMembership', () => {
     expect(m.roles).toEqual(['staff', 'inventory']);
   });
   it('rechaza usuario y local de negocios distintos', () => {
-    expect(() => LocationMembership.create({ id: 'm1', user: user('o1'), location: loc('o2'), roles: ['staff'] })).toThrow(InvalidValueError);
+    expect(() => LocationMembership.create({ id: 'm1', user: user('o1'), location: loc('o2'), roles: ['staff'] })).toThrow(ValidationError);
   });
   it('rechaza roles vacíos o desconocidos', () => {
-    expect(() => LocationMembership.create({ id: 'm1', user: user('o1'), location: loc('o1'), roles: [] })).toThrow(InvalidValueError);
-    expect(() => LocationMembership.create({ id: 'm1', user: user('o1'), location: loc('o1'), roles: ['root'] })).toThrow(InvalidValueError);
+    expect(() => LocationMembership.create({ id: 'm1', user: user('o1'), location: loc('o1'), roles: [] })).toThrow(ValidationError);
+    expect(() => LocationMembership.create({ id: 'm1', user: user('o1'), location: loc('o1'), roles: ['root'] })).toThrow(ValidationError);
     const m = LocationMembership.create({ id: 'm1', user: user('o1'), location: loc('o1'), roles: ['staff'] });
-    expect(() => m.setRoles([])).toThrow(InvalidValueError);
+    expect(() => m.setRoles([])).toThrow(ValidationError);
   });
 });

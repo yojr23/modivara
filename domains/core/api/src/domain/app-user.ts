@@ -1,5 +1,5 @@
 import { isValidUsername } from '@modivara/core-contracts';
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 
 /** Política de bloqueo (TECH-001 §16.3): 5 fallos dentro de 15 minutos. */
 export const MAX_FAILED_LOGINS = 5;
@@ -31,11 +31,11 @@ export class AppUser {
     now: Date;
   }): AppUser {
     if (!isValidUsername(input.username)) {
-      throw new InvalidValueError(`Invalid username: ${input.username}`);
+      throw new ValidationError(`Invalid username: ${input.username}`);
     }
     const displayName = input.displayName.trim();
-    if (!displayName) throw new InvalidValueError('Display name is required');
-    if (!input.passwordHash) throw new InvalidValueError('Password hash is required');
+    if (!displayName) throw new ValidationError('Display name is required');
+    if (!input.passwordHash) throw new ValidationError('Password hash is required');
     return new AppUser({
       id: input.id,
       organizationId: input.organizationId,
@@ -94,7 +94,7 @@ export class AppUser {
   }
 
   changePassword(passwordHash: string, now: Date): void {
-    if (!passwordHash) throw new InvalidValueError('Password hash is required');
+    if (!passwordHash) throw new ValidationError('Password hash is required');
     this.props.passwordHash = passwordHash;
     this.props.passwordChangedAt = now;
     // Un restablecimiento por admin también libera un bloqueo vigente.

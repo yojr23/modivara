@@ -1,5 +1,5 @@
-import { permissionsFor, type Permission } from '@modivara/core-contracts';
-import { NotFoundError, PermissionDeniedError, type AppUser } from '../domain/index.js';
+import { NotFoundError, permissionsFor, type Permission } from '@modivara/core-contracts';
+import { PermissionDeniedError, type AppUser } from '../domain/index.js';
 import type { MembershipRepository, UserRepository } from './ports/index.js';
 
 /** Quién hace la petición, ya autenticado. */
@@ -38,6 +38,6 @@ export async function findManageableUser(
 ): Promise<AppUser> {
   await assertCanManageUsers(actor, repos.memberships);
   const user = await repos.users.findById(userId);
-  if (!user || (!actor.isPlatform && user.organizationId !== actor.organizationId)) throw new NotFoundError('User not found');
+  if (!user || (!actor.isPlatform && user.organizationId !== actor.organizationId)) throw new NotFoundError('User');
   return user;
 }

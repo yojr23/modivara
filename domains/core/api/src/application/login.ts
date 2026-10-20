@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { usernameSchema } from '@modivara/core-contracts';
+import { newId, usernameSchema } from '@modivara/core-contracts';
 import { AccountLockedError, InvalidCredentialsError, Session } from '../domain/index.js';
 import type { ActorContext } from './actor.js';
 import type { OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './ports/index.js';
@@ -53,7 +52,7 @@ export class Login {
     if (user.registerSuccessfulLogin()) await this.users.save(user);
 
     const { token, tokenHash } = this.tokens.generate();
-    const session = Session.create({ id: randomUUID(), userId: user.id, tokenHash, now, ip: input.ip, userAgent: input.userAgent });
+    const session = Session.create({ id: newId(), userId: user.id, tokenHash, now, ip: input.ip, userAgent: input.userAgent });
     await this.sessions.save(session);
 
     return {

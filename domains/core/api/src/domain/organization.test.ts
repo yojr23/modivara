@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 import { Organization } from './organization.js';
 
 describe('Organization', () => {
@@ -8,13 +8,13 @@ describe('Organization', () => {
     expect(o).toMatchObject({ slug: 'bar-sol', name: 'Bar Sol', isPlatform: false, isActive: true });
   });
   it.each(['labs', 'api', 'sim', 'assets', 'login', 'static'])('un cliente no puede usar el slug reservado %s', (slug) => {
-    expect(() => Organization.create({ id: 'o1', slug, name: 'X' })).toThrow(InvalidValueError);
+    expect(() => Organization.create({ id: 'o1', slug, name: 'X' })).toThrow(ValidationError);
   });
   it('la plataforma sí puede usar labs', () => {
     expect(Organization.create({ id: 'o1', slug: 'labs', name: 'Labs', isPlatform: true }).isPlatform).toBe(true);
   });
   it.each(['Bar-Sol', 'ab', 'bar sol'])('rechaza el slug %s', (slug) => {
-    expect(() => Organization.create({ id: 'o1', slug, name: 'X' })).toThrow(InvalidValueError);
+    expect(() => Organization.create({ id: 'o1', slug, name: 'X' })).toThrow(ValidationError);
   });
   it('desactivar es idempotente y conserva la primera fecha', () => {
     const o = Organization.create({ id: 'o1', slug: 'bar-sol', name: 'X' });

@@ -1,5 +1,5 @@
 import { LOCATION_ROLES, type LocationRole } from '@modivara/core-contracts';
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 import type { AppUser } from './app-user.js';
 import type { Location } from './location.js';
 
@@ -13,9 +13,9 @@ export interface LocationMembershipProps {
 }
 
 function normalizeRoles(roles: readonly string[]): LocationRole[] {
-  if (roles.length === 0) throw new InvalidValueError('A membership needs at least one role');
+  if (roles.length === 0) throw new ValidationError('A membership needs at least one role');
   for (const r of roles) {
-    if (!(LOCATION_ROLES as readonly string[]).includes(r)) throw new InvalidValueError(`Unknown role: ${r}`);
+    if (!(LOCATION_ROLES as readonly string[]).includes(r)) throw new ValidationError(`Unknown role: ${r}`);
   }
   return [...new Set(roles)] as LocationRole[];
 }
@@ -26,7 +26,7 @@ export class LocationMembership {
   /** Recibe usuario y local para garantizar que son del mismo negocio (en BD lo garantizan las FK compuestas). */
   static create(input: { id: string; user: AppUser; location: Location; roles: readonly string[] }): LocationMembership {
     if (input.user.organizationId !== input.location.organizationId) {
-      throw new InvalidValueError('User and location belong to different organizations');
+      throw new ValidationError('User and location belong to different organizations');
     }
     return new LocationMembership({
       id: input.id,

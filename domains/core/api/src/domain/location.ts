@@ -1,4 +1,4 @@
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 
 export const DEFAULT_TIMEZONE = 'America/Bogota';
 
@@ -18,9 +18,9 @@ export class Location {
   static create(input: { id: string; organizationId: string; name: string; timezone?: string }): Location {
     const timezone = input.timezone ?? DEFAULT_TIMEZONE;
     // Solo se aceptan las zonas que lista el motor (DATA-001 §2); "UTC" puede no figurar ahí.
-    if (!supported.has(timezone)) throw new InvalidValueError(`Unknown timezone: ${timezone}`);
+    if (!supported.has(timezone)) throw new ValidationError(`Unknown timezone: ${timezone}`);
     const name = input.name.trim();
-    if (!name) throw new InvalidValueError('Location name is required');
+    if (!name) throw new ValidationError('Location name is required');
     return new Location({ id: input.id, organizationId: input.organizationId, name, timezone, deactivatedAt: null });
   }
 

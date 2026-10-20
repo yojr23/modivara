@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppUser } from './app-user.js';
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 
 const make = () =>
   AppUser.create({ id: 'u1', organizationId: 'o1', username: 'ana', displayName: 'Ana', passwordHash: 'h', now: new Date() });
@@ -11,9 +11,9 @@ describe('AppUser', () => {
   afterEach(() => vi.useRealTimers());
 
   it('valida username (minúsculas, formato) y datos', () => {
-    expect(() => AppUser.create({ id: 'u', organizationId: 'o', username: 'Ana', displayName: 'A', passwordHash: 'h', now: new Date() })).toThrow(InvalidValueError);
-    expect(() => AppUser.create({ id: 'u', organizationId: 'o', username: 'ana', displayName: ' ', passwordHash: 'h', now: new Date() })).toThrow(InvalidValueError);
-    expect(() => AppUser.create({ id: 'u', organizationId: 'o', username: 'ana', displayName: 'A', passwordHash: '', now: new Date() })).toThrow(InvalidValueError);
+    expect(() => AppUser.create({ id: 'u', organizationId: 'o', username: 'Ana', displayName: 'A', passwordHash: 'h', now: new Date() })).toThrow(ValidationError);
+    expect(() => AppUser.create({ id: 'u', organizationId: 'o', username: 'ana', displayName: ' ', passwordHash: 'h', now: new Date() })).toThrow(ValidationError);
+    expect(() => AppUser.create({ id: 'u', organizationId: 'o', username: 'ana', displayName: 'A', passwordHash: '', now: new Date() })).toThrow(ValidationError);
   });
 
   it('no se bloquea con 4 fallos', () => {

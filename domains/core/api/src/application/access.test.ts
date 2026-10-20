@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { NotFoundError, PermissionDeniedError } from '../domain/index.js';
+import { NotFoundError } from '@modivara/core-contracts';
+import { PermissionDeniedError } from '../domain/index.js';
 import { World } from '../testing/index.js';
 import { CoreAccessService } from './core-access.service.js';
 import { ResolveLocationAccess } from './resolve-location-access.js';

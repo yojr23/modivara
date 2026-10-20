@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 import { Location } from './location.js';
 
 describe('Location', () => {
@@ -10,9 +10,9 @@ describe('Location', () => {
     expect(Location.create({ id: 'l1', organizationId: 'o1', name: 'Centro', timezone: 'Europe/Madrid' }).timezone).toBe('Europe/Madrid');
   });
   it('rechaza una zona inventada', () => {
-    expect(() => Location.create({ id: 'l1', organizationId: 'o1', name: 'Centro', timezone: 'Mars/Olympus' })).toThrow(InvalidValueError);
+    expect(() => Location.create({ id: 'l1', organizationId: 'o1', name: 'Centro', timezone: 'Mars/Olympus' })).toThrow(ValidationError);
   });
   it('exige nombre', () => {
-    expect(() => Location.create({ id: 'l1', organizationId: 'o1', name: '  ' })).toThrow(InvalidValueError);
+    expect(() => Location.create({ id: 'l1', organizationId: 'o1', name: '  ' })).toThrow(ValidationError);
   });
 });

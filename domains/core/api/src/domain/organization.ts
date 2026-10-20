@@ -1,5 +1,5 @@
 import { isReservedSlug, isValidSlug } from '@modivara/core-contracts';
-import { InvalidValueError } from './errors.js';
+import { ValidationError } from '@modivara/core-contracts';
 
 export interface OrganizationProps {
   id: string;
@@ -17,13 +17,13 @@ export class Organization {
     const slug = input.slug;
     // El slug no se normaliza aquí: debe llegar ya en su forma canónica.
     if (!isValidSlug(slug)) {
-      throw new InvalidValueError(`Invalid slug: ${slug}`);
+      throw new ValidationError(`Invalid slug: ${slug}`);
     }
     if (!isPlatform && isReservedSlug(slug)) {
-      throw new InvalidValueError(`Reserved slug: ${slug}`);
+      throw new ValidationError(`Reserved slug: ${slug}`);
     }
     const name = input.name.trim();
-    if (!name) throw new InvalidValueError('Organization name is required');
+    if (!name) throw new ValidationError('Organization name is required');
     return new Organization({ id: input.id, slug, name, isPlatform, deactivatedAt: null });
   }
 

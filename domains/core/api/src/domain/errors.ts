@@ -1,15 +1,7 @@
-/** Base de los errores de dominio; `code` es estable para que el borde HTTP los traduzca. */
-export abstract class DomainError extends Error {
-  abstract readonly code: string;
-  constructor(message: string) {
-    super(message);
-    this.name = new.target.name;
-  }
-}
+import { DomainError } from '@modivara/core-contracts';
 
-export class InvalidValueError extends DomainError {
-  readonly code = 'invalid_value';
-}
+// Los errores comunes (ValidationError, NotFoundError, ConflictError) viven en core-contracts.
+
 export class WeakPasswordError extends DomainError {
   readonly code = 'weak_password';
 }
@@ -34,11 +26,4 @@ export class SessionInvalidError extends DomainError {
 }
 export class PermissionDeniedError extends DomainError {
   readonly code = 'permission_denied';
-}
-/** Se usa también cuando el recurso es de otro negocio, para no revelar que existe. */
-export class NotFoundError extends DomainError {
-  readonly code = 'not_found';
-}
-export class ConflictError extends DomainError {
-  readonly code = 'conflict';
 }
