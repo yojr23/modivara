@@ -1,7 +1,7 @@
 import { Clock, Wifi } from 'lucide-react';
-import { Button } from '../ui/Button';
-import { cn } from '../ui/cn';
-import { StatusBadge, type CallStatus } from '../ui/StatusBadge';
+import { Button } from '@/ui/Button';
+import { cn } from '@/ui/cn';
+import { StatusBadge, type CallStatus } from '@/ui/StatusBadge';
 
 const BRAND = [
   ['Azul tinta', '#101E33', 'Identidad, fondos oscuros, títulos', 'bg-ink'],

@@ -7,6 +7,7 @@
     "lib": ["es2023", "dom", "dom.iterable"],
     "types": ["vite/client", "node"],
     "noEmit": true,
+    "paths": { "@/*": ["./src/*"] },
     "experimentalDecorators": false,
     "emitDecoratorMetadata": false
   },
