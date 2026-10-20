@@ -17,8 +17,10 @@ export class ValidationError extends DomainError {
 /** No existe o no pertenece al negocio/local del actor: nunca se distingue (no revelar existencia). */
 export class NotFoundError extends DomainError {
   readonly code = 'not_found';
-  constructor(readonly entity: string) {
+  readonly entity: string;
+  constructor(entity: string) {
     super(`${entity} not found`);
+    this.entity = entity;
   }
 }
 
