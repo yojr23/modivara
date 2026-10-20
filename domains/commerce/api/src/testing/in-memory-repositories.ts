@@ -22,14 +22,15 @@ abstract class Store<T extends { id: string; organizationId: string }> {
 }
 
 export class InMemoryProductRepository extends Store<Product> implements ProductRepository {
-  findById({ id, organizationId }: { id: string; organizationId: string }) {
-    return this.byId(organizationId, id);
+  async findById({ id, organizationId, locationId }: { id: string; organizationId: string; locationId: string }) {
+    const row = await this.byId(organizationId, id);
+    return row && row.locationId === locationId ? row : null;
   }
-  async findActiveByName({ organizationId, name }: { organizationId: string; name: string }) {
-    return this.all(organizationId).find((p) => p.isActive && same(p.name, name)) ?? null;
+  async findActiveByName({ organizationId, locationId, name }: { organizationId: string; locationId: string; name: string }) {
+    return this.all(organizationId).find((p) => p.isActive && p.locationId === locationId && same(p.name, name)) ?? null;
   }
-  async findActiveBySku({ organizationId, sku }: { organizationId: string; sku: string }) {
-    return this.all(organizationId).find((p) => p.isActive && p.sku === sku) ?? null;
+  async findActiveBySku({ organizationId, locationId, sku }: { organizationId: string; locationId: string; sku: string }) {
+    return this.all(organizationId).find((p) => p.isActive && p.locationId === locationId && p.sku === sku) ?? null;
   }
 }
 

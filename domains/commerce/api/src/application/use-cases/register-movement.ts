@@ -37,7 +37,7 @@ export class MovementRecorder {
     const { organizationId, locationId } = target;
     await requireLocation(this.core, organizationId, locationId);
     const stockLocation = await requireStockLocation(this.stockLocations, { id: target.stockLocationId, organizationId, locationId });
-    const product = await requireProduct(this.products, { id: target.productId, organizationId });
+    const product = await requireProduct(this.products, { id: target.productId, organizationId, locationId });
     const reason = await this.reasons.findById({ id: target.reasonId, organizationId });
     if (!reason) throw new NotFoundError('Movement reason');
 

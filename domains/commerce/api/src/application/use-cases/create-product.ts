@@ -1,11 +1,11 @@
 import type { Unit } from '@modivara/commerce-contracts';
 import { Product } from '../../domain/product.js';
-import { newId } from '@modivara/core-contracts';
+import { type CoreAccessPort, newId } from '@modivara/core-contracts';
 import { ConflictError } from '../../domain/errors.js';
 import type { ProductRepository } from '../ports/product.repository.js';
-import type { ActorContext } from './shared.js';
+import { type StockContext, requireLocation } from './shared.js';
 
-export interface CreateProductCommand extends ActorContext {
+export interface CreateProductCommand extends StockContext {
   name: string;
   sku?: string;
   category?: string;
@@ -13,14 +13,18 @@ export interface CreateProductCommand extends ActorContext {
 }
 
 export class CreateProduct {
-  constructor(private readonly products: ProductRepository) {}
+  constructor(
+    private readonly products: ProductRepository,
+    private readonly core: CoreAccessPort,
+  ) {}
 
   async execute(input: CreateProductCommand): Promise<Product> {
+    await requireLocation(this.core, input.organizationId, input.locationId);
     const product = Product.create({ ...input, id: newId(), now: new Date() });
-    if (await this.products.findActiveByName({ organizationId: product.organizationId, name: product.name })) {
+    if (await this.products.findActiveByName({ organizationId: product.organizationId, locationId: product.locationId, name: product.name })) {
       throw new ConflictError(`An active product named "${product.name}" already exists`);
     }
-    if (product.sku && (await this.products.findActiveBySku({ organizationId: product.organizationId, sku: product.sku }))) {
+    if (product.sku && (await this.products.findActiveBySku({ organizationId: product.organizationId, locationId: product.locationId, sku: product.sku }))) {
       throw new ConflictError(`An active product with SKU "${product.sku}" already exists`);
     }
     await this.products.save(product);

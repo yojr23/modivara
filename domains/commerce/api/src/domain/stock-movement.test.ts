@@ -106,6 +106,24 @@ describe('StockMovement.register', () => {
     await expect(s.register(reason, { kind: 'in', quantity: Quantity.parse('1') })).rejects.toThrow(InactiveEntityError);
   });
 
+  it('rechaza producto y lugar de stock de distinto local (defensa del dominio)', async () => {
+    const s = await scenario();
+    const LOC_B = '66666666-6666-4666-8666-666666666666';
+    s.h.core.add({ id: LOC_B, organizationId: s.actor.organizationId });
+    const foreign = await s.h.createProduct.execute({ ...s.actor, locationId: LOC_B, name: 'Otro', unit: 'unit' });
+    const reason = await s.reason('Compra');
+    const balance = StockBalance.zero(
+      { stockLocationId: s.stockLocation.id, productId: foreign.id, organizationId: foreign.organizationId, locationId: s.stockLocation.locationId },
+      new Date(),
+    );
+    expect(() =>
+      StockMovement.register(balance, {
+        id: 'a', eventId: 'b', product: foreign, stockLocation: s.stockLocation, reason,
+        change: { kind: 'in', quantity: Quantity.parse('1') }, actorUserId: USER, idempotencyKey: 'k', occurredAt: new Date(),
+      }),
+    ).toThrow(ScopeMismatchError);
+  });
+
   it('rechaza un motivo de otro negocio', async () => {
     const s = await scenario();
     const foreign = await s.h.createMovementReason.execute({ organizationId: OTHER_ORG, actorUserId: USER, name: 'Compra', direction: 'in' });

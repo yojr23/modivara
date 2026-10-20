@@ -27,9 +27,9 @@ export function createHarness() {
   const recorder = new MovementRecorder(products, stockLocations, reasons, ledger, core);
   return {
     products, stockLocations, reasons, ledger, core,
-    createProduct: new CreateProduct(products),
-    updateProduct: new UpdateProduct(products),
-    deactivateProduct: new DeactivateProduct(products),
+    createProduct: new CreateProduct(products, core),
+    updateProduct: new UpdateProduct(products, core),
+    deactivateProduct: new DeactivateProduct(products, core),
     ensureDefaultStockLocation: new EnsureDefaultStockLocation(stockLocations, core),
     createStockLocation: new CreateStockLocation(stockLocations, core),
     seedMovementReasons: new SeedMovementReasons(reasons),

@@ -21,7 +21,7 @@ describe('catálogo', () => {
 
   it('el mismo nombre existe en otro negocio sin conflicto', async () => {
     const { h, product } = await setup();
-    const other = await h.createProduct.execute({ organizationId: OTHER_ORG, actorUserId: USER, name: product.name, unit: 'unit' });
+    const other = await h.createProduct.execute({ organizationId: OTHER_ORG, locationId: OTHER_LOC, actorUserId: USER, name: product.name, unit: 'unit' });
     expect(other.id).not.toBe(product.id);
   });
 
@@ -46,10 +46,24 @@ describe('catálogo', () => {
     expect([byName.mock.calls.length, bySku.mock.calls.length]).toEqual([1, 1]);
   });
 
+  it('el catálogo es por local: mismo nombre/SKU en otro local del negocio no choca y no se ve entre locales', async () => {
+    const { h, actor, product } = await setup();
+    const LOC_B = '66666666-6666-4666-8666-666666666666';
+    h.core.add({ id: LOC_B, organizationId: ORG });
+    const ctxB = { ...actor, locationId: LOC_B };
+    const sku = await h.createProduct.execute({ ...actor, name: 'Ron', sku: 'R1', unit: 'bottle' });
+    const inB = await h.createProduct.execute({ ...ctxB, name: product.name, unit: 'bottle' });
+    await h.createProduct.execute({ ...ctxB, name: 'Ron', sku: 'R1', unit: 'bottle' });
+    expect(inB.locationId).toBe(LOC_B);
+    await expect(h.updateProduct.execute({ ...ctxB, productId: product.id, name: 'X' })).rejects.toThrow(NotFoundError);
+    await expect(h.deactivateProduct.execute({ ...ctxB, productId: sku.id })).rejects.toThrow(NotFoundError);
+    await expect(h.createProduct.execute({ ...actor, locationId: OTHER_LOC, name: 'Z', unit: 'unit' })).rejects.toThrow(LocationUnavailableError);
+  });
+
   it('un producto de otro negocio no existe', async () => {
     const { h, product } = await setup();
     await expect(
-      h.updateProduct.execute({ organizationId: OTHER_ORG, actorUserId: USER, productId: product.id, name: 'X' }),
+      h.updateProduct.execute({ organizationId: OTHER_ORG, locationId: OTHER_LOC, actorUserId: USER, productId: product.id, name: 'X' }),
     ).rejects.toThrow(NotFoundError);
   });
 });
@@ -208,7 +222,8 @@ describe('movimientos', () => {
     s.h.core.add({ id: LOC_B, organizationId: ORG });
     const ctxB = { ...s.actor, locationId: LOC_B };
     const bodegaB = await s.h.createStockLocation.execute({ ...ctxB, name: 'Bodega B' });
-    await s.h.registerMovement.execute({ ...ctxB, stockLocationId: bodegaB.id, productId: s.product.id, direction: 'in', reasonId: s.compra.id, quantity: '3', idempotencyKey: s.idem() });
+    const productB = await s.h.createProduct.execute({ ...ctxB, name: 'Cerveza', unit: 'bottle' });
+    await s.h.registerMovement.execute({ ...ctxB, stockLocationId: bodegaB.id, productId: productB.id, direction: 'in', reasonId: s.compra.id, quantity: '3', idempotencyKey: s.idem() });
     // actor autorizado solo en A envía la bodega de B
     await expect(
       s.h.registerMovement.execute({ ...s.target, stockLocationId: bodegaB.id, direction: 'in', reasonId: s.compra.id, quantity: '1', idempotencyKey: s.idem() }),
@@ -224,6 +239,23 @@ describe('movimientos', () => {
     expect(await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC_B })).toHaveLength(1);
     // un local de otro negocio no se acepta en lecturas
     await expect(s.h.getBalances.execute({ organizationId: ORG, locationId: OTHER_LOC })).rejects.toThrow(LocationUnavailableError);
+  });
+
+  it('un movimiento exige que el producto sea del local del contexto', async () => {
+    const s = await stocked('5');
+    const LOC_B = '66666666-6666-4666-8666-666666666666';
+    s.h.core.add({ id: LOC_B, organizationId: ORG });
+    const ctxB = { ...s.actor, locationId: LOC_B };
+    const bodegaB = await s.h.createStockLocation.execute({ ...ctxB, name: 'Bodega B' });
+    // lugar de stock de B pero producto de A: el producto no existe para B
+    await expect(
+      s.h.registerMovement.execute({ ...ctxB, stockLocationId: bodegaB.id, productId: s.product.id, direction: 'in', reasonId: s.compra.id, quantity: '1', idempotencyKey: s.idem() }),
+    ).rejects.toThrow(NotFoundError);
+    // los motivos siguen siendo por negocio: el mismo motivo sirve en B con un producto de B
+    const pB = await s.h.createProduct.execute({ ...ctxB, name: 'Cerveza', unit: 'bottle' });
+    await expect(
+      s.h.registerMovement.execute({ ...ctxB, stockLocationId: bodegaB.id, productId: pB.id, direction: 'in', reasonId: s.compra.id, quantity: '1', idempotencyKey: s.idem() }),
+    ).resolves.toBeDefined();
   });
 
   it('un local inactivo bloquea los movimientos', async () => {

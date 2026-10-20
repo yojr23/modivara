@@ -23,7 +23,11 @@ export async function requireLocation(core: CoreAccessPort, organizationId: stri
   return location;
 }
 
-export async function requireProduct(repo: ProductRepository, query: { id: string; organizationId: string }): Promise<Product> {
+/** A product of another location counts as missing: its existence is not revealed. */
+export async function requireProduct(
+  repo: ProductRepository,
+  query: { id: string; organizationId: string; locationId: string },
+): Promise<Product> {
   const product = await repo.findById(query);
   if (!product) throw new NotFoundError('Product');
   return product;

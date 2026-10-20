@@ -4,8 +4,9 @@ import { optionalText, requireText } from './name.js';
 
 export interface ProductProps {
   id: string;
-  // OPEN: catálogo por negocio (propuesto) o por local — DATA-001 §8.3 pendiente.
   organizationId: string;
+  /** The catalog is per location: name and SKU are unique per location among active products. */
+  locationId: string;
   name: string;
   sku: string | null;
   category: string | null;
@@ -20,6 +21,7 @@ export interface ProductProps {
 export interface CreateProductInput {
   id: string;
   organizationId: string;
+  locationId: string;
   name: string;
   sku?: string | null;
   category?: string | null;
@@ -37,6 +39,7 @@ export class Product {
     return new Product({
       id: input.id,
       organizationId: input.organizationId,
+      locationId: input.locationId,
       name: requireText('Name', input.name),
       sku: optionalText('SKU', input.sku, SKU_MAX_LENGTH),
       category: optionalText('Category', input.category),
@@ -55,6 +58,7 @@ export class Product {
 
   get id() { return this.props.id; }
   get organizationId() { return this.props.organizationId; }
+  get locationId() { return this.props.locationId; }
   get name() { return this.props.name; }
   get sku() { return this.props.sku; }
   get category() { return this.props.category; }

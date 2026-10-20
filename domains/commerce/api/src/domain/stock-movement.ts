@@ -71,12 +71,14 @@ export class StockMovement extends AggregateRoot {
     const orgId = stockLocation.organizationId;
     if (
       product.organizationId !== orgId ||
+      product.locationId !== stockLocation.locationId ||
+      balance.locationId !== stockLocation.locationId ||
       reason.organizationId !== orgId ||
       balance.organizationId !== orgId ||
       balance.stockLocationId !== stockLocation.id ||
       balance.productId !== product.id
     ) {
-      throw new ScopeMismatchError('Product, stock location, reason and balance must share the business and match');
+      throw new ScopeMismatchError('Product, stock location, reason and balance must share the business and location and match');
     }
     if (!product.isActive) throw new InactiveEntityError('Product is deactivated');
     stockLocation.assertActive();
