@@ -1,0 +1,7 @@
+# La API lee todos los gateways.
+user api
+topic read modivara/gw/#
+
+# Cada gateway (usuario = id del gateway) solo publica en su propio tópico.
+# ponytail: usuarios gestionados con mosquitto_passwd; plugin de autenticación contra la API cuando haya varios clientes.
+pattern write modivara/gw/%u/#

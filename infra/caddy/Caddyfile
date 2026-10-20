@@ -1,0 +1,12 @@
+# Proxy de entrada. En local escucha HTTP en :80; en un VPS se reemplaza ":80" por el dominio y Caddy obtiene HTTPS solo.
+:80 {
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle_path /sim* {
+		reverse_proxy button-sim:4000
+	}
+	handle {
+		reverse_proxy web:80
+	}
+}

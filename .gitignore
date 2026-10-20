@@ -11,3 +11,6 @@ AGENTS.md
 CLAUDE.md
 MEMORY.md
 .claude/
+
+# Credenciales locales del broker MQTT
+infra/mosquitto/passwd

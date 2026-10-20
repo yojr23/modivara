@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/dist
+.env
+AGENTS.md
+CLAUDE.md
+MEMORY.md
+.claude
+infra/mosquitto/passwd
