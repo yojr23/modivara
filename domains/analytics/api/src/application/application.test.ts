@@ -1,6 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  FixedClock,
   InMemoryCoreAccess,
   InMemoryProcessedEventStore,
   InMemoryServiceCallFactRepository,
@@ -57,18 +56,24 @@ function setup() {
   const core = new InMemoryCoreAccess()
     .add({ id: LOC, organizationId: ORG, timezone: 'America/Bogota', active: true })
     .add({ id: OTHER_LOC, organizationId: OTHER_ORG, timezone: 'America/Bogota', active: true });
-  const clock = new FixedClock(new Date('2026-10-20T03:00:00Z')); // 22:00 del 19 en Bogotá
   const hospitality = new ProjectHospitalityEvent(calls, processed);
   const commerce = new ProjectCommerceEvent(stocks, processed);
   const subscriber = new AnalyticsEventSubscriber(hospitality, commerce);
   return {
     calls, stocks, processed, subscriber, hospitality, commerce,
-    callMetrics: new GetServiceCallMetrics(calls, core, clock),
-    stockMetrics: new GetInventoryMetrics(stocks, core, clock),
+    callMetrics: new GetServiceCallMetrics(calls, core),
+    stockMetrics: new GetInventoryMetrics(stocks, core),
     rebuild: new RebuildProjections(calls, stocks, processed, subscriber),
   };
 }
 type Ctx = ReturnType<typeof setup>;
+
+// 22:00 del 19 en Bogotá (ya es 20 en UTC)
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-20T03:00:00Z'));
+});
+afterEach(() => vi.useRealTimers());
 const today = { range: 'today' as const, group_by: 'day' as const };
 
 describe('proyección de llamados', () => {

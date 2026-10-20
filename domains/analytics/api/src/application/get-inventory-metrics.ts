@@ -1,7 +1,7 @@
 import type { InventoryMetrics, InventoryMetricsQuery } from '@modivara/analytics-contracts';
 import { computeInventoryMetrics, resolveRange } from '../domain/index.js';
 import { LocationNotFoundError } from './errors.js';
-import type { Clock, CoreAccessPort, StockMovementFactRepository } from './ports/index.js';
+import type { CoreAccessPort, StockMovementFactRepository } from './ports/index.js';
 
 export interface GetInventoryMetricsInput {
   organizationId: string;
@@ -12,8 +12,7 @@ export interface GetInventoryMetricsInput {
 export class GetInventoryMetrics {
   constructor(
     private readonly facts: StockMovementFactRepository,
-    private readonly core: CoreAccessPort,
-    private readonly clock: Clock = { now: () => new Date() },
+    private readonly core: CoreAccessPort
   ) {}
 
   async execute(input: GetInventoryMetricsInput): Promise<InventoryMetrics> {
@@ -21,7 +20,7 @@ export class GetInventoryMetrics {
     if (!location || location.organizationId !== input.organizationId) throw new LocationNotFoundError(input.locationId);
 
     const { query } = input;
-    const range = resolveRange(query, this.clock.now(), location.timezone);
+    const range = resolveRange(query, new Date(), location.timezone);
     const scope = {
       organizationId: input.organizationId,
       locationId: input.locationId,

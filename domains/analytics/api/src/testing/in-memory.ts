@@ -5,7 +5,6 @@ import {
   type StockMovementFact,
 } from '../domain/index.js';
 import type {
-  Clock,
   CoreAccessPort,
   LocationRef,
   ProcessedEventStore,
@@ -94,15 +93,5 @@ export class InMemoryCoreAccess implements CoreAccessPort {
   }
   async getLocation(locationId: string) {
     return this.locations.get(locationId) ?? null;
-  }
-}
-
-export class FixedClock implements Clock {
-  constructor(private current: Date) {}
-  now() {
-    return this.current;
-  }
-  set(date: Date) {
-    this.current = date;
   }
 }

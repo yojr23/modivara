@@ -1,7 +1,7 @@
 import type { ServiceCallMetrics, ServiceCallMetricsQuery } from '@modivara/analytics-contracts';
 import { computeServiceCallMetrics, resolveRange } from '../domain/index.js';
 import { LocationNotFoundError } from './errors.js';
-import type { Clock, CoreAccessPort, ServiceCallFactRepository } from './ports/index.js';
+import type { CoreAccessPort, ServiceCallFactRepository } from './ports/index.js';
 
 export interface GetServiceCallMetricsInput {
   /** Del contexto autenticado, nunca del cliente. */
@@ -13,8 +13,7 @@ export interface GetServiceCallMetricsInput {
 export class GetServiceCallMetrics {
   constructor(
     private readonly facts: ServiceCallFactRepository,
-    private readonly core: CoreAccessPort,
-    private readonly clock: Clock = { now: () => new Date() },
+    private readonly core: CoreAccessPort
   ) {}
 
   async execute(input: GetServiceCallMetricsInput): Promise<ServiceCallMetrics> {
@@ -22,7 +21,7 @@ export class GetServiceCallMetrics {
     if (!location || location.organizationId !== input.organizationId) throw new LocationNotFoundError(input.locationId);
 
     const { query } = input;
-    const range = resolveRange(query, this.clock.now(), location.timezone);
+    const range = resolveRange(query, new Date(), location.timezone);
     const facts = await this.facts.findCreatedBetween({
       organizationId: input.organizationId,
       locationId: input.locationId,
