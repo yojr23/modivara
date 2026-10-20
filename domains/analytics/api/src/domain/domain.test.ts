@@ -112,6 +112,7 @@ describe('ServiceCallFact', () => {
   });
   it('rechaza otro negocio o local', () => {
     expect(() => fresh().assertTenant(uuid(555), LOC)).toThrow(TenantMismatchError);
+    try { fresh().assertTenant(uuid(555), LOC); } catch (e) { expect((e as TenantMismatchError).code).toBe('tenant_mismatch'); }
   });
   it('create exige identidad', () => {
     expect(() => ServiceCallFact.create({ serviceCallId: '', organizationId: ORG, locationId: LOC })).toThrow();

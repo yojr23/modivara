@@ -9,13 +9,10 @@ import {
   AnalyticsEventSubscriber,
   GetInventoryMetrics,
   GetServiceCallMetrics,
-  InvalidEventError,
-  LocationNotFoundError,
   ProjectCommerceEvent,
   ProjectHospitalityEvent,
   RebuildProjections,
 } from './index.js';
-import { TenantMismatchError } from '../domain/index.js';
 
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const ORG = uuid(100);
@@ -118,9 +115,9 @@ describe('proyección de llamados', () => {
   it('rechaza payload inválido y no lo marca procesado', async () => {
     const bad = created();
     (bad.payload as { call_type: string }).call_type = 'bill';
-    await expect(c.hospitality.execute(bad)).rejects.toThrow(InvalidEventError);
+    await expect(c.hospitality.execute(bad)).rejects.toMatchObject({ code: 'invalid_event' });
     expect(c.processed.ids.size).toBe(0);
-    await expect(c.subscriber.handle({ nope: true })).rejects.toThrow(InvalidEventError);
+    await expect(c.subscriber.handle({ nope: true })).rejects.toMatchObject({ code: 'invalid_event' });
   });
 
   it('ignora eventos de tipos desconocidos', async () => {
@@ -130,7 +127,7 @@ describe('proyección de llamados', () => {
 
   it('un evento de otro local con el mismo llamado falla (aislamiento)', async () => {
     await c.hospitality.execute(created());
-    await expect(c.hospitality.execute(acked('2026-10-19T15:01:00Z', CALL, 1, { org: OTHER_ORG, loc: OTHER_LOC }))).rejects.toThrow(TenantMismatchError);
+    await expect(c.hospitality.execute(acked('2026-10-19T15:01:00Z', CALL, 1, { org: OTHER_ORG, loc: OTHER_LOC }))).rejects.toMatchObject({ code: 'tenant_mismatch' });
   });
 });
 
@@ -165,8 +162,8 @@ describe('métricas de llamados', () => {
   });
   it('aísla negocios: cada local ve solo lo suyo y no puede consultar locales ajenos', async () => {
     expect((await run({ range: 'today' }, OTHER_ORG, OTHER_LOC)).totals.calls).toBe(1);
-    await expect(run({ range: 'today' }, ORG, OTHER_LOC)).rejects.toThrow(LocationNotFoundError);
-    await expect(run({ range: 'today' }, ORG, uuid(999))).rejects.toThrow(LocationNotFoundError);
+    await expect(run({ range: 'today' }, ORG, OTHER_LOC)).rejects.toMatchObject({ code: 'location_unavailable' });
+    await expect(run({ range: 'today' }, ORG, uuid(999))).rejects.toMatchObject({ code: 'location_unavailable' });
   });
 });
 
@@ -199,14 +196,14 @@ describe('proyección e inventario', () => {
     expect((await run()).balances[0]!.balance).toBe('7.000');
   });
   it('rechaza received con delta negativo', async () => {
-    await expect(c.subscriber.handle(stock('received', '-1', '0', '2026-10-19T14:00:00Z'))).rejects.toThrow(InvalidEventError);
+    await expect(c.subscriber.handle(stock('received', '-1', '0', '2026-10-19T14:00:00Z'))).rejects.toMatchObject({ code: 'invalid_event' });
   });
   it('aísla por local y negocio', async () => {
     await c.subscriber.handle(stock('received', '2', '2', '2026-10-19T14:00:00Z'));
     await c.subscriber.handle(stock('received', '9', '9', '2026-10-19T14:00:00Z', { org: OTHER_ORG, loc: OTHER_LOC }));
     expect((await run()).balances[0]!.balance).toBe('2.000');
     expect((await run({}, OTHER_ORG, OTHER_LOC)).balances[0]!.balance).toBe('9.000');
-    await expect(run({}, ORG, OTHER_LOC)).rejects.toThrow(LocationNotFoundError);
+    await expect(run({}, ORG, OTHER_LOC)).rejects.toMatchObject({ code: 'location_unavailable' });
   });
   it('filtra por producto', async () => {
     await c.subscriber.handle(stock('received', '2', '2', '2026-10-19T14:00:00Z'));

@@ -1,6 +1,6 @@
 import type { ServiceCallMetrics, ServiceCallMetricsQuery } from '@modivara/analytics-contracts';
 import { computeServiceCallMetrics, resolveRange } from '../domain/index.js';
-import { LocationNotFoundError } from './errors.js';
+import { LocationUnavailableError } from './errors.js';
 import type { CoreAccessPort, ServiceCallFactRepository } from './ports/index.js';
 
 export interface GetServiceCallMetricsInput {
@@ -18,7 +18,7 @@ export class GetServiceCallMetrics {
 
   async execute(input: GetServiceCallMetricsInput): Promise<ServiceCallMetrics> {
     const location = await this.core.getLocation(input.locationId);
-    if (!location || location.organizationId !== input.organizationId) throw new LocationNotFoundError(input.locationId);
+    if (!location || location.organizationId !== input.organizationId) throw new LocationUnavailableError(input.locationId);
 
     const { query } = input;
     const range = resolveRange(query, new Date(), location.timezone);
