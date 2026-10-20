@@ -1,0 +1,9 @@
+// Esquema "hospitality" (DATA-001 §1). Sin modelos hasta cerrar la revisión de DATA-001 (PLAN-001 P0-01).
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}

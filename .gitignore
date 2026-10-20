@@ -14,3 +14,6 @@ MEMORY.md
 
 # Credenciales locales del broker MQTT
 infra/mosquitto/passwd
+
+# Clientes Prisma generados
+**/infrastructure/prisma/generated/
