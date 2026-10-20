@@ -1,5 +1,4 @@
 export * from './date-range.js';
-export * from './decimal.js';
 export * from './errors.js';
 export * from './inventory-metrics.js';
 export * from './service-call-fact.js';

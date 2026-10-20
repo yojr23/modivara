@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { resolveRange } from './date-range.js';
-import { formatMilli, parseMilli } from './decimal.js';
 import { computeInventoryMetrics, latestPerPlaceAndProduct } from './inventory-metrics.js';
 import { ServiceCallFact } from './service-call-fact.js';
 import { computeServiceCallMetrics, durationStats } from './service-call-metrics.js';
@@ -48,14 +47,6 @@ describe('atajos de rango', () => {
   it('custom: from y to son fechas locales inclusivas', () => {
     const x = resolveRange({ range: 'custom', from: '2026-10-01', to: '2026-10-03' }, now, TZ);
     expect([x.from.toISOString(), x.to.toISOString()]).toEqual(['2026-10-01T05:00:00.000Z', '2026-10-04T05:00:00.000Z']);
-  });
-});
-
-describe('decimales exactos', () => {
-  it('suma sin error de coma flotante', () => {
-    expect(formatMilli(parseMilli('0.1') + parseMilli('0.2'))).toBe('0.300');
-    expect(formatMilli(parseMilli('-2.5'))).toBe('-2.500');
-    expect(formatMilli(0n)).toBe('0.000');
   });
 });
 

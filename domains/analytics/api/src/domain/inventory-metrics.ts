@@ -1,10 +1,8 @@
+import { MOVEMENT_DIRECTIONS, formatMilli } from '@modivara/commerce-contracts';
 import type { GroupBy, InventoryMetrics } from '@modivara/analytics-contracts';
-import { formatMilli, parseMilli } from './decimal.js';
 import type { DateRange } from './date-range.js';
 import type { StockMovementFact } from './stock-movement-fact.js';
 import { bucketOf } from './time-zone.js';
-
-const DIRECTIONS = ['in', 'out', 'adjust'] as const;
 
 /** Saldo actual = `balance_after` del último movimiento por (lugar, producto). */
 export function latestPerPlaceAndProduct(facts: readonly StockMovementFact[]): StockMovementFact[] {
@@ -27,13 +25,14 @@ function isNewer(a: StockMovementFact, b: StockMovementFact): boolean {
 /**
  * `movements`: movimientos del periodo; `latest`: último movimiento por (lugar, producto) en todo el historial
  * (el saldo actual no depende del rango).
+ * ponytail: agrega en memoria; techo = volumen del piloto. Pasar a `date_trunc` en SQL (DATA-001 §5) al crecer.
  */
 export function computeInventoryMetrics(
   movements: readonly StockMovementFact[],
   latest: readonly StockMovementFact[],
   ctx: { timeZone: string; groupBy: GroupBy; range: DateRange },
 ): InventoryMetrics {
-  const byDirection = new Map<string, { count: number; total: bigint }>(DIRECTIONS.map((d) => [d, { count: 0, total: 0n }]));
+  const byDirection = new Map<string, { count: number; total: bigint }>(MOVEMENT_DIRECTIONS.map((d) => [d, { count: 0, total: 0n }]));
   const byReason = new Map<string, { sample: StockMovementFact; count: number; total: bigint }>();
   const byPeriod = new Map<string, { start: Date; label: string; count: number; totals: Record<string, bigint> }>();
 
@@ -64,7 +63,7 @@ export function computeInventoryMetrics(
     from: ctx.range.from.toISOString(),
     to: ctx.range.to.toISOString(),
     group_by: ctx.groupBy,
-    by_direction: DIRECTIONS.map((direction) => {
+    by_direction: MOVEMENT_DIRECTIONS.map((direction) => {
       const d = byDirection.get(direction)!;
       return { direction, movement_count: d.count, total_delta: formatMilli(d.total) };
     }),
@@ -92,7 +91,7 @@ export function computeInventoryMetrics(
         stock_location_id: f.snapshot.stockLocationId,
         product_id: f.snapshot.productId,
         product_name: f.snapshot.productName,
-        balance: formatMilli(parseMilli(f.snapshot.balanceAfter)),
+        balance: f.snapshot.balanceAfter,
         as_of: f.snapshot.occurredAt.toISOString(),
       }))
       .sort((a, b) => a.product_name.localeCompare(b.product_name) || a.stock_location_id.localeCompare(b.stock_location_id)),

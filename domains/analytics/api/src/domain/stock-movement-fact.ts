@@ -1,5 +1,4 @@
-import type { MovementDirection, StockEventPayload } from '@modivara/commerce-contracts';
-import { parseMilli } from './decimal.js';
+import { formatMilli, parseMilli, type MovementDirection, type StockEventPayload } from '@modivara/commerce-contracts';
 
 export interface StockMovementFactProps {
   movementId: string;
@@ -28,8 +27,6 @@ export class StockMovementFact {
     payload: StockEventPayload;
   }): StockMovementFact {
     const { payload: p } = input;
-    parseMilli(p.delta); // valida formato
-    parseMilli(p.balance_after);
     return new StockMovementFact({
       movementId: p.movement_id,
       organizationId: input.organizationId,
@@ -40,8 +37,8 @@ export class StockMovementFact {
       direction: input.direction,
       reasonId: p.reason_id,
       reasonName: p.reason_name,
-      delta: p.delta,
-      balanceAfter: p.balance_after,
+      delta: formatMilli(parseMilli(p.delta)), // normaliza a 3 decimales (valida formato)
+      balanceAfter: formatMilli(parseMilli(p.balance_after)),
       occurredAt: new Date(p.occurred_at),
     });
   }

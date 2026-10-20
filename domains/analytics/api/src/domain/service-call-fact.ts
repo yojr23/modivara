@@ -2,10 +2,9 @@ import type {
   ServiceCallAcknowledgedPayload,
   ServiceCallCompletedPayload,
   ServiceCallCreatedPayload,
+  CallStatus,
 } from '@modivara/hospitality-contracts';
 import { TenantMismatchError } from './errors.js';
-
-export type CallFactStatus = 'pending' | 'in_progress' | 'completed';
 
 export interface ServiceCallFactProps {
   serviceCallId: string;
@@ -73,7 +72,7 @@ export class ServiceCallFact {
     return this.props.createdAt !== null;
   }
 
-  get status(): CallFactStatus {
+  get status(): CallStatus {
     if (this.props.completedAt) return 'completed';
     return this.props.acknowledgedAt ? 'in_progress' : 'pending';
   }
