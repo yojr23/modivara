@@ -8,7 +8,7 @@ import { corePrismaForTests, resetCore, seedOrganization } from '../../testing/i
 import { Argon2PasswordHasher } from '../argon2-password-hasher.js';
 import { CryptoSessionTokenService } from '../crypto-session-token.service.js';
 import {
-  PrismaAuditLog, PrismaMembershipRepository, PrismaOrganizationRepository, PrismaSessionRepository, PrismaUserRepository,
+  PrismaAdminTransactions, PrismaMembershipRepository, PrismaOrganizationRepository, PrismaSessionRepository, PrismaUserRepository,
 } from './index.js';
 
 // Casos de uso con adaptadores Prisma reales y Argon2 real (F1-05). Los temporizadores falsos solo tocan Date.
@@ -17,14 +17,14 @@ const organizations = new PrismaOrganizationRepository(db);
 const users = new PrismaUserRepository(db);
 const memberships = new PrismaMembershipRepository(db);
 const sessions = new PrismaSessionRepository(db);
-const audit = new PrismaAuditLog(db);
+const admin = new PrismaAdminTransactions(db);
 const hasher = new Argon2PasswordHasher();
 const tokens = new CryptoSessionTokenService();
 
 const login = new Login(organizations, users, sessions, hasher, tokens);
 const authenticate = new AuthenticateSession(sessions, users, organizations, tokens);
-const createUser = new CreateUser(organizations, users, memberships, hasher, audit);
-const deactivateUser = new DeactivateUser(users, memberships, sessions, audit);
+const createUser = new CreateUser(admin, hasher);
+const deactivateUser = new DeactivateUser(admin);
 const changePassword = new ChangePassword(users, sessions, hasher);
 
 const PASSWORD = 'Secret123';
@@ -97,5 +97,19 @@ describe('casos de uso de core sobre PostgreSQL', () => {
     expect(entry).toMatchObject({ targetId: a.actor.actorUserId, organizationId: owner.organizationId });
     // El username queda libre para un alta nueva.
     await expect(createUser.execute({ actor: owner, username: 'ana', displayName: 'Ana 2', password: PASSWORD })).resolves.toBeDefined();
+  });
+});
+
+describe('auditoría atómica (DATA-001 §2)', () => {
+  it('si falla la auditoría, el cambio no queda', async () => {
+    const failing = new PrismaAdminTransactions(db, () => ({ record: () => Promise.reject(new Error('audit down')) }));
+    await expect(
+      new CreateUser(failing, hasher).execute({ actor: owner, username: 'nuevo', displayName: 'Nuevo', password: PASSWORD }),
+    ).rejects.toThrow('audit down');
+    expect(await db.appUser.count({ where: { username: 'nuevo' } })).toBe(0);
+
+    const ana = await db.appUser.findFirstOrThrow({ where: { username: 'ana' } });
+    await expect(new DeactivateUser(failing).execute({ actor: owner, userId: ana.id })).rejects.toThrow('audit down');
+    expect((await db.appUser.findUniqueOrThrow({ where: { id: ana.id } })).deactivatedAt).toBeNull();
   });
 });

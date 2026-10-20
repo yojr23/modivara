@@ -4,6 +4,7 @@ import type { ActorContext } from '../application/actor.js';
 import {
   FakePasswordHasher,
   FakeSessionTokenService,
+  InMemoryAdminTransactions,
   InMemoryAuditLog,
   InMemoryEntitlementRepository,
   InMemoryLocationRepository,
@@ -20,13 +21,14 @@ export const TEST_PASSWORD = 'Secret123';
 export class World {
   readonly organizations = new InMemoryOrganizationRepository();
   readonly locations = new InMemoryLocationRepository(this.organizations);
-    readonly users = new InMemoryUserRepository();
+  readonly users = new InMemoryUserRepository();
   readonly memberships = new InMemoryMembershipRepository();
   readonly sessions = new InMemorySessionRepository();
   readonly entitlements = new InMemoryEntitlementRepository();
   readonly audit = new InMemoryAuditLog();
   readonly hasher = new FakePasswordHasher();
   readonly tokens = new FakeSessionTokenService();
+  readonly admin = new InMemoryAdminTransactions(this);
 
   readonly platform = Organization.create({ id: newId(), slug: 'labs', name: 'Labs', isPlatform: true });
   readonly sol = Organization.create({ id: newId(), slug: 'bar-sol', name: 'Bar Sol' });

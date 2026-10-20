@@ -1,4 +1,5 @@
 export * from './client.js';
+export * from './prisma-admin-transactions.js';
 export * from './prisma-audit-log.js';
 export * from './prisma-entitlement-repository.js';
 export * from './prisma-location-repository.js';

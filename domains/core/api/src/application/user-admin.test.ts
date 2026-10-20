@@ -31,11 +31,11 @@ describe('administración de usuarios', () => {
     root = await w.addUser(w.platform, 'root');
     [ownerCtx, adminCtx, staffCtx, lunaCtx, rootCtx] = [owner, admin, staff, lunaOwner, root].map((u) => w.actorOf(u)) as [ActorContext, ActorContext, ActorContext, ActorContext, ActorContext];
 
-    createUser = new CreateUser(w.organizations, w.users, w.memberships, w.hasher, w.audit);
-    reset = new ResetPassword(w.users, w.memberships, w.sessions, w.hasher, w.audit);
-    deactivate = new DeactivateUser(w.users, w.memberships, w.sessions, w.audit);
-    revoke = new RevokeUserSessions(w.users, w.memberships, w.sessions, w.audit);
-    setRoles = new SetLocationRoles(w.users, w.memberships, w.locations, w.audit);
+    createUser = new CreateUser(w.admin, w.hasher);
+    reset = new ResetPassword(w.admin, w.hasher);
+    deactivate = new DeactivateUser(w.admin);
+    revoke = new RevokeUserSessions(w.admin);
+    setRoles = new SetLocationRoles(w.admin);
   });
 
   const newUser = (actor: ActorContext, extra: object = {}) =>
@@ -201,5 +201,17 @@ describe('administración de usuarios', () => {
       await expect(newUser(ownerCtx, { username: 'jefe' })).rejects.toThrow(ConflictError);
       expect(w.audit.entries).toHaveLength(0);
     });
+  });
+});
+
+describe('atomicidad con auditoría', () => {
+  it('si falla la auditoría, el cambio no se aplica (doble en memoria con rollback)', async () => {
+    const w = await World.create();
+    const owner = w.actorOf(await w.addUser(w.sol, 'duena', { isOwner: true }));
+    w.audit.record = () => Promise.reject(new Error('audit down'));
+    await expect(
+      new CreateUser(w.admin, w.hasher).execute({ actor: owner, username: 'nuevo', displayName: 'N', password: TEST_PASSWORD }),
+    ).rejects.toThrow('audit down');
+    expect(await w.users.findActiveByUsername({ organizationId: w.sol.id, username: 'nuevo' })).toBeNull();
   });
 });

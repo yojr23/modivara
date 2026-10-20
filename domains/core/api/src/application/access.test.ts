@@ -68,7 +68,7 @@ describe('acceso a locales', () => {
       const root = await w.addUser(w.platform, 'root');
       const ctx = w.actorOf(root);
       await w.sessions.save(Session.create({ id: ctx.sessionId, userId: root.id, tokenHash: 'h', now: new Date() }));
-      const select = new SelectActingOrganization(w.organizations, w.sessions, w.audit);
+      const select = new SelectActingOrganization(w.admin);
 
       const updated = await select.execute({ actor: ctx, organizationId: w.sol.id });
       expect(updated.actingOrganizationId).toBe(w.sol.id);

@@ -1,6 +1,5 @@
 import { AppUser } from '../../domain/index.js';
 import type { UserRepository } from '../../application/ports/index.js';
-import type { CorePrisma } from './client.js';
 import { mapConflicts, type Db } from './db.js';
 
 type Row = Parameters<typeof AppUser.restore>[0];
@@ -24,7 +23,7 @@ function saveUser(db: Db, u: AppUser) {
 }
 
 export class PrismaUserRepository implements UserRepository {
-  constructor(private readonly prisma: CorePrisma) {}
+  constructor(private readonly prisma: Db) {}
 
   async findById({ id, organizationId }: { id: string; organizationId: string }) {
     const r = await this.prisma.appUser.findFirst({ where: { id, organizationId } });
@@ -49,6 +48,8 @@ export class PrismaUserRepository implements UserRepository {
     { id, organizationId }: { id: string; organizationId: string },
     work: (tx: { user: AppUser | null; save(user: AppUser): Promise<void> }) => Promise<T>,
   ): Promise<T> {
+    // Dentro de una transacción ya abierta no hay `$transaction`: el bloqueo solo lo usa el login, con el cliente raíz.
+    if (!('$transaction' in this.prisma)) throw new Error('withLoginLock requires the root Prisma client');
     return this.prisma.$transaction(
       async (tx) => {
         const locked = await tx.$queryRaw<{ id: string }[]>`

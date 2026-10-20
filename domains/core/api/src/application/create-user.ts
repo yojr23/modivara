@@ -1,7 +1,7 @@
 import { ConflictError, newId, NotFoundError, isValidUsername, ValidationError } from '@modivara/core-contracts';
 import { AppUser, assertPasswordPolicy, PermissionDeniedError } from '../domain/index.js';
 import { assertCanManageUsers, effectiveOrganizationId, type ActorContext } from './actor.js';
-import type { AuditLog, MembershipRepository, OrganizationRepository, PasswordHasher, UserRepository } from './ports/index.js';
+import type { AdminTransaction, AdminTransactions, PasswordHasher } from './ports/index.js';
 
 export interface CreateUserInput {
   actor: ActorContext;
@@ -15,20 +15,21 @@ export interface CreateUserInput {
 
 export class CreateUser {
   constructor(
-    private readonly organizations: OrganizationRepository,
-    private readonly users: UserRepository,
-    private readonly memberships: MembershipRepository,
+    private readonly admin: AdminTransactions,
     private readonly hasher: PasswordHasher,
-    private readonly audit: AuditLog,
   ) {}
 
   async execute(input: CreateUserInput): Promise<AppUser> {
+    return this.admin.withTransaction((tx) => this.run(tx, input));
+  }
+
+  private async run(tx: AdminTransaction, input: CreateUserInput): Promise<AppUser> {
     const { actor } = input;
-    await assertCanManageUsers(actor, this.memberships);
+    await assertCanManageUsers(actor, tx.memberships);
 
     const targetId = input.organizationId ?? effectiveOrganizationId(actor);
     if (!actor.isPlatform && targetId !== actor.organizationId) throw new PermissionDeniedError('Cannot create users in another organization');
-    const org = await this.organizations.findById({ id: targetId });
+    const org = await tx.organizations.findById({ id: targetId });
     if (!org?.isActive) throw new NotFoundError('Organization');
     // Un negocio cliente nunca crea superadmins: los usuarios de la organización de plataforma lo son.
     if (org.isPlatform && !actor.isPlatform) throw new PermissionDeniedError('Only platform users can create platform users');
@@ -38,7 +39,7 @@ export class CreateUser {
     const username = input.username.trim().toLowerCase();
     if (!isValidUsername(username)) throw new ValidationError(`Invalid username: ${input.username}`);
     assertPasswordPolicy(input.password);
-    if (await this.users.findActiveByUsername({ organizationId: org.id, username })) throw new ConflictError('Username already in use');
+    if (await tx.users.findActiveByUsername({ organizationId: org.id, username })) throw new ConflictError('Username already in use');
 
     const user = AppUser.create({
       id: newId(),
@@ -49,9 +50,8 @@ export class CreateUser {
       isOwner: input.isOwner,
       now: new Date(),
     });
-    await this.users.save(user);
-    // ponytail: hoy se escribe tras el cambio, sin atomicidad; el adaptador Prisma debe registrarlo en la misma transacción.
-    await this.audit.record({
+    await tx.users.save(user);
+    await tx.audit.record({
       id: newId(),
       organizationId: user.organizationId,
       actorUserId: input.actor.actorUserId,

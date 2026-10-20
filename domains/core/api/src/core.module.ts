@@ -4,10 +4,10 @@ import {
   AuthenticateSession, ChangePassword, CoreAccessService, CreateUser, DeactivateUser, Login, Logout, ResetPassword,
   ResolveLocationAccess, RevokeUserSessions, SelectActingOrganization, SetLocationRoles,
 } from './application/index.js';
-import type { AuditLog, EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './application/ports/index.js';
+import type { AdminTransactions, AuditLog, EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './application/ports/index.js';
 import { Argon2PasswordHasher, CryptoSessionTokenService } from './infrastructure/index.js';
 import {
-  createCorePrisma, PrismaAuditLog, PrismaEntitlementRepository, PrismaLocationRepository, PrismaMembershipRepository,
+  createCorePrisma, PrismaAdminTransactions, PrismaAuditLog, PrismaEntitlementRepository, PrismaLocationRepository, PrismaMembershipRepository,
   PrismaOrganizationRepository, PrismaSessionRepository, PrismaUserRepository, type CorePrisma,
 } from './infrastructure/prisma/index.js';
 
@@ -20,6 +20,7 @@ export const MEMBERSHIPS = 'CORE_MEMBERSHIPS';
 export const SESSIONS = 'CORE_SESSIONS';
 export const ENTITLEMENTS = 'CORE_ENTITLEMENTS';
 export const AUDIT_LOG = 'CORE_AUDIT_LOG';
+export const ADMIN_TRANSACTIONS = 'CORE_ADMIN_TRANSACTIONS';
 export const PASSWORD_HASHER = 'CORE_PASSWORD_HASHER';
 export const SESSION_TOKENS = 'CORE_SESSION_TOKENS';
 
@@ -34,12 +35,12 @@ const useCases = [
   [Logout, [SESSIONS, SESSION_TOKENS]],
   [AuthenticateSession, [SESSIONS, USERS, ORGANIZATIONS, SESSION_TOKENS]],
   [ChangePassword, [USERS, SESSIONS, PASSWORD_HASHER]],
-  [CreateUser, [ORGANIZATIONS, USERS, MEMBERSHIPS, PASSWORD_HASHER, AUDIT_LOG]],
-  [DeactivateUser, [USERS, MEMBERSHIPS, SESSIONS, AUDIT_LOG]],
-  [ResetPassword, [USERS, MEMBERSHIPS, SESSIONS, PASSWORD_HASHER, AUDIT_LOG]],
-  [RevokeUserSessions, [USERS, MEMBERSHIPS, SESSIONS, AUDIT_LOG]],
-  [SetLocationRoles, [USERS, MEMBERSHIPS, LOCATIONS, AUDIT_LOG]],
-  [SelectActingOrganization, [ORGANIZATIONS, SESSIONS, AUDIT_LOG]],
+  [CreateUser, [ADMIN_TRANSACTIONS, PASSWORD_HASHER]],
+  [DeactivateUser, [ADMIN_TRANSACTIONS]],
+  [ResetPassword, [ADMIN_TRANSACTIONS, PASSWORD_HASHER]],
+  [RevokeUserSessions, [ADMIN_TRANSACTIONS]],
+  [SetLocationRoles, [ADMIN_TRANSACTIONS]],
+  [SelectActingOrganization, [ADMIN_TRANSACTIONS]],
   [ResolveLocationAccess, [LOCATIONS, MEMBERSHIPS, ENTITLEMENTS]],
 ] as const;
 
@@ -66,6 +67,7 @@ export class CoreModule implements OnModuleDestroy {
         { provide: SESSIONS, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): SessionRepository => new PrismaSessionRepository(p) },
         { provide: ENTITLEMENTS, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): EntitlementRepository => new PrismaEntitlementRepository(p) },
         { provide: AUDIT_LOG, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): AuditLog => new PrismaAuditLog(p) },
+        { provide: ADMIN_TRANSACTIONS, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): AdminTransactions => new PrismaAdminTransactions(p) },
         { provide: PASSWORD_HASHER, useFactory: (): PasswordHasher => new Argon2PasswordHasher() },
         { provide: SESSION_TOKENS, useFactory: (): SessionTokenService => new CryptoSessionTokenService() },
         ...useCases.map(([useCase, deps]) => ({

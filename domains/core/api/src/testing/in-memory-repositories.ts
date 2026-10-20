@@ -2,6 +2,8 @@ import type { ModuleName } from '@modivara/core-contracts';
 import { AppUser } from '../domain/index.js';
 import type { Entitlement, Location, LocationMembership, Organization, Session } from '../domain/index.js';
 import type {
+  AdminTransaction,
+  AdminTransactions,
   AuditEntry,
   AuditLog,
   EntitlementRepository,
@@ -130,4 +132,34 @@ export class FakeSessionTokenService implements SessionTokenService {
 export class InMemoryAuditLog implements AuditLog {
   readonly entries: AuditEntry[] = [];
   async record(entry: AuditEntry) { this.entries.push(entry); }
+}
+
+type Store = Map<string, unknown> | unknown[];
+const snapshot = (store: Store) => (store instanceof Map ? new Map(store) : [...store]);
+const restore = (store: Store, saved: Store) => {
+  if (store instanceof Map) { store.clear(); for (const [k, v] of saved as Map<string, unknown>) store.set(k, v); }
+  else store.splice(0, store.length, ...(saved as unknown[]));
+};
+
+/**
+ * Doble de `AdminTransactions`: si `work` lanza, restaura el contenido de los almacenes (lo guardado y la auditoría).
+ * Limitación: las entidades ya cargadas se mutan en memoria al instante y `revokeAllForUser` muta sesiones; el rollback cubre lo guardado.
+ */
+export class InMemoryAdminTransactions implements AdminTransactions {
+  constructor(private readonly base: AdminTransaction & {
+    organizations: { items: Store }; locations: { items: Store }; users: { items: Store }; memberships: { items: Store };
+    sessions: { items: Store }; entitlements: { items: Store }; audit: { entries: Store };
+  }) {}
+
+  async withTransaction<T>(work: (tx: AdminTransaction) => Promise<T>): Promise<T> {
+    const b = this.base;
+    const stores = [b.organizations.items, b.locations.items, b.users.items, b.memberships.items, b.sessions.items, b.entitlements.items, b.audit.entries];
+    const saved = stores.map(snapshot);
+    try {
+      return await work(b);
+    } catch (e) {
+      stores.forEach((store, i) => restore(store, saved[i]!));
+      throw e;
+    }
+  }
 }
