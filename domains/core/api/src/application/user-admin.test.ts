@@ -31,11 +31,11 @@ describe('administración de usuarios', () => {
     root = await w.addUser(w.platform, 'root');
     [ownerCtx, adminCtx, staffCtx, lunaCtx, rootCtx] = [owner, admin, staff, lunaOwner, root].map((u) => w.actorOf(u)) as [ActorContext, ActorContext, ActorContext, ActorContext, ActorContext];
 
-    createUser = new CreateUser(w.organizations, w.users, w.memberships, w.hasher);
-    reset = new ResetPassword(w.users, w.memberships, w.sessions, w.hasher);
-    deactivate = new DeactivateUser(w.users, w.memberships, w.sessions);
-    revoke = new RevokeUserSessions(w.users, w.memberships, w.sessions);
-    setRoles = new SetLocationRoles(w.users, w.memberships, w.locations);
+    createUser = new CreateUser(w.organizations, w.users, w.memberships, w.hasher, w.audit);
+    reset = new ResetPassword(w.users, w.memberships, w.sessions, w.hasher, w.audit);
+    deactivate = new DeactivateUser(w.users, w.memberships, w.sessions, w.audit);
+    revoke = new RevokeUserSessions(w.users, w.memberships, w.sessions, w.audit);
+    setRoles = new SetLocationRoles(w.users, w.memberships, w.locations, w.audit);
   });
 
   const newUser = (actor: ActorContext, extra: object = {}) =>
@@ -165,6 +165,41 @@ describe('administración de usuarios', () => {
     it('exige permiso y roles válidos', async () => {
       await expect(setRoles.execute({ actor: staffCtx, userId: staff.id, locationId: w.solCenter.id, roles: ['admin'] })).rejects.toThrow(PermissionDeniedError);
       await expect(setRoles.execute({ actor: ownerCtx, userId: staff.id, locationId: w.solCenter.id, roles: [] })).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('auditoría', () => {
+    const last = () => w.audit.entries.at(-1)!;
+
+    it('CreateUser registra user.created en el negocio afectado, sin secretos', async () => {
+      const u = await newUser({ ...rootCtx, actingOrganizationId: w.luna.id });
+      expect(last()).toMatchObject({ organizationId: w.luna.id, actorUserId: root.id, action: 'user.created', targetType: 'user', targetId: u.id });
+      expect(JSON.stringify(last())).not.toMatch(/fake:|Secret/);
+    });
+
+    it('deactivate, reset y revoke registran su acción con el negocio del usuario', async () => {
+      const rootInSol = { ...rootCtx, actingOrganizationId: w.sol.id };
+      await reset.execute({ actor: rootInSol, userId: staff.id, newPassword: 'Reinicio99' });
+      expect(last()).toMatchObject({ organizationId: w.sol.id, actorUserId: root.id, action: 'user.password_reset', targetId: staff.id });
+      await revoke.execute({ actor: rootInSol, userId: staff.id });
+      expect(last()).toMatchObject({ organizationId: w.sol.id, action: 'user.sessions_revoked', targetId: staff.id });
+      await deactivate.execute({ actor: rootInSol, userId: staff.id });
+      expect(last()).toMatchObject({ organizationId: w.sol.id, action: 'user.deactivated', targetId: staff.id });
+      expect(JSON.stringify(w.audit.entries)).not.toMatch(/Reinicio99|fake:/);
+    });
+
+    it('SetLocationRoles registra membership.roles_set con los roles', async () => {
+      const m = await setRoles.execute({ actor: ownerCtx, userId: staff.id, locationId: w.solCenter.id, roles: ['inventory'] });
+      expect(last()).toMatchObject({
+        organizationId: w.sol.id, action: 'membership.roles_set', targetType: 'membership', targetId: m.id,
+        details: { userId: staff.id, locationId: w.solCenter.id, roles: ['inventory'] },
+      });
+    });
+
+    it('una acción rechazada no deja rastro', async () => {
+      await expect(reset.execute({ actor: staffCtx, userId: admin.id, newPassword: 'Reinicio99' })).rejects.toThrow(PermissionDeniedError);
+      await expect(newUser(ownerCtx, { username: 'jefe' })).rejects.toThrow(ConflictError);
+      expect(w.audit.entries).toHaveLength(0);
     });
   });
 });

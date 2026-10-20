@@ -1,12 +1,13 @@
-import { NotFoundError } from '@modivara/core-contracts';
+import { newId, NotFoundError } from '@modivara/core-contracts';
 import { PermissionDeniedError } from '../domain/index.js';
 import type { ActorContext } from './actor.js';
-import type { OrganizationRepository, SessionRepository } from './ports/index.js';
+import type { AuditLog, OrganizationRepository, SessionRepository } from './ports/index.js';
 
 export class SelectActingOrganization {
   constructor(
     private readonly organizations: OrganizationRepository,
     private readonly sessions: SessionRepository,
+    private readonly audit: AuditLog,
   ) {}
 
   /** `null` vuelve a operar sobre la organización propia. Devuelve el actor ya actualizado. */
@@ -19,8 +20,21 @@ export class SelectActingOrganization {
     }
     const session = await this.sessions.findById({ id: actor.sessionId, userId: actor.actorUserId });
     if (!session) throw new NotFoundError('Session');
+    const previous = session.actingOrganizationId;
     session.actAs(input.organizationId, actor);
     await this.sessions.save(session);
+    // ponytail: hoy se escribe tras el cambio, sin atomicidad; el adaptador Prisma debe registrarlo en la misma transacción.
+    await this.audit.record({
+      id: newId(),
+      // Negocio afectado: el elegido o, al volver a la propia, el que se dejó.
+      organizationId: input.organizationId ?? previous ?? actor.organizationId,
+      actorUserId: actor.actorUserId,
+      action: 'session.acting_organization_selected',
+      targetType: 'session',
+      targetId: session.id,
+      details: { previousOrganizationId: previous, organizationId: input.organizationId },
+      occurredAt: new Date(),
+    });
     return { ...actor, actingOrganizationId: input.organizationId };
   }
 }

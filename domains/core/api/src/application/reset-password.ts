@@ -1,6 +1,7 @@
+import { newId } from '@modivara/core-contracts';
 import { assertPasswordPolicy } from '../domain/index.js';
 import { findManageableUser, type ActorContext } from './actor.js';
-import type { MembershipRepository, PasswordHasher, SessionRepository, UserRepository } from './ports/index.js';
+import type { AuditLog, MembershipRepository, PasswordHasher, SessionRepository, UserRepository } from './ports/index.js';
 
 /** Restablecimiento por admin del negocio o superadmin (ADR-002 D2: sin correo). */
 export class ResetPassword {
@@ -9,6 +10,7 @@ export class ResetPassword {
     private readonly memberships: MembershipRepository,
     private readonly sessions: SessionRepository,
     private readonly hasher: PasswordHasher,
+    private readonly audit: AuditLog,
   ) {}
 
   async execute(input: { actor: ActorContext; userId: string; newPassword: string }): Promise<void> {
@@ -18,5 +20,16 @@ export class ResetPassword {
     user.changePassword(await this.hasher.hash(input.newPassword), now);
     await this.users.save(user);
     await this.sessions.revokeAllForUser({ organizationId: user.organizationId, userId: user.id }, now);
+    // ponytail: hoy se escribe tras el cambio, sin atomicidad; el adaptador Prisma debe registrarlo en la misma transacción.
+    await this.audit.record({
+      id: newId(),
+      organizationId: user.organizationId,
+      actorUserId: input.actor.actorUserId,
+      action: 'user.password_reset',
+      targetType: 'user',
+      targetId: user.id,
+      details: { username: user.username },
+      occurredAt: new Date(),
+    });
   }
 }

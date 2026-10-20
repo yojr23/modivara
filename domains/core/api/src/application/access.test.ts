@@ -68,13 +68,18 @@ describe('acceso a locales', () => {
       const root = await w.addUser(w.platform, 'root');
       const ctx = w.actorOf(root);
       await w.sessions.save(Session.create({ id: ctx.sessionId, userId: root.id, tokenHash: 'h', now: new Date() }));
-      const select = new SelectActingOrganization(w.organizations, w.sessions);
+      const select = new SelectActingOrganization(w.organizations, w.sessions, w.audit);
 
       const updated = await select.execute({ actor: ctx, organizationId: w.sol.id });
       expect(updated.actingOrganizationId).toBe(w.sol.id);
       expect((await w.sessions.findById({ id: ctx.sessionId, userId: root.id }))!.actingOrganizationId).toBe(w.sol.id);
       expect((await select.execute({ actor: updated, organizationId: null })).actingOrganizationId).toBeNull();
       await expect(select.execute({ actor: ctx, organizationId: 'no-existe' })).rejects.toThrow(NotFoundError);
+
+      expect(w.audit.entries.map((e) => [e.action, e.organizationId, e.targetId])).toEqual([
+        ['session.acting_organization_selected', w.sol.id, ctx.sessionId],
+        ['session.acting_organization_selected', w.sol.id, ctx.sessionId], // al volver a la propia, el negocio que se dejó
+      ]);
 
       const owner = await w.addUser(w.sol, 'duena', { isOwner: true });
       await expect(select.execute({ actor: w.actorOf(owner), organizationId: w.luna.id })).rejects.toThrow(PermissionDeniedError);

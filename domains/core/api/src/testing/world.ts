@@ -4,6 +4,7 @@ import type { ActorContext } from '../application/actor.js';
 import {
   FakePasswordHasher,
   FakeSessionTokenService,
+  InMemoryAuditLog,
   InMemoryEntitlementRepository,
   InMemoryLocationRepository,
   InMemoryMembershipRepository,
@@ -23,6 +24,7 @@ export class World {
   readonly memberships = new InMemoryMembershipRepository();
   readonly sessions = new InMemorySessionRepository();
   readonly entitlements = new InMemoryEntitlementRepository();
+  readonly audit = new InMemoryAuditLog();
   readonly hasher = new FakePasswordHasher();
   readonly tokens = new FakeSessionTokenService();
 

@@ -1,6 +1,8 @@
 import type { ModuleName } from '@modivara/core-contracts';
 import type { AppUser, Entitlement, Location, LocationMembership, Organization, Session } from '../domain/index.js';
 import type {
+  AuditEntry,
+  AuditLog,
   EntitlementRepository,
   LocationRepository,
   MembershipRepository,
@@ -99,4 +101,9 @@ export class FakeSessionTokenService implements SessionTokenService {
     return { token, tokenHash: this.hash(token) };
   }
   hash(token: string) { return `hash(${token})`; }
+}
+
+export class InMemoryAuditLog implements AuditLog {
+  readonly entries: AuditEntry[] = [];
+  async record(entry: AuditEntry) { this.entries.push(entry); }
 }

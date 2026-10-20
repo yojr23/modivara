@@ -1,7 +1,7 @@
 import { ConflictError, newId, NotFoundError, isValidUsername, ValidationError } from '@modivara/core-contracts';
 import { AppUser, assertPasswordPolicy, PermissionDeniedError } from '../domain/index.js';
 import { assertCanManageUsers, effectiveOrganizationId, type ActorContext } from './actor.js';
-import type { MembershipRepository, OrganizationRepository, PasswordHasher, UserRepository } from './ports/index.js';
+import type { AuditLog, MembershipRepository, OrganizationRepository, PasswordHasher, UserRepository } from './ports/index.js';
 
 export interface CreateUserInput {
   actor: ActorContext;
@@ -19,6 +19,7 @@ export class CreateUser {
     private readonly users: UserRepository,
     private readonly memberships: MembershipRepository,
     private readonly hasher: PasswordHasher,
+    private readonly audit: AuditLog,
   ) {}
 
   async execute(input: CreateUserInput): Promise<AppUser> {
@@ -49,6 +50,17 @@ export class CreateUser {
       now: new Date(),
     });
     await this.users.save(user);
+    // ponytail: hoy se escribe tras el cambio, sin atomicidad; el adaptador Prisma debe registrarlo en la misma transacción.
+    await this.audit.record({
+      id: newId(),
+      organizationId: user.organizationId,
+      actorUserId: input.actor.actorUserId,
+      action: 'user.created',
+      targetType: 'user',
+      targetId: user.id,
+      details: { username: user.username, isOwner: user.isOwner },
+      occurredAt: new Date(),
+    });
     return user;
   }
 }
