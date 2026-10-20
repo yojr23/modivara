@@ -1,9 +1,163 @@
-// Esquema "core" (DATA-001 §1). Sin modelos hasta cerrar la revisión de DATA-001 (PLAN-001 P0-01).
+// Esquema "core" (DATA-001 §2 v1.1). Lo que Prisma no expresa (índices parciales y por expresión, CHECK)
+// va en SQL explícito al final de cada migración.
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum LocationRole {
+  admin
+  staff
+  inventory
+
+  @@map("location_role")
+}
+
+enum Module {
+  hospitality
+  commerce
+  analytics
+
+  @@map("module")
+}
+
+model Organization {
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  slug          String    @unique(map: "uq_organizations_slug")
+  name          String
+  isPlatform    Boolean   @default(false) @map("is_platform")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz
+
+  locations      Location[]
+  users          AppUser[]
+  entitlements   Entitlement[]
+  actingSessions Session[]     @relation("ActingOrganization")
+
+  // Una sola organización de plataforma (ADR-002 D3).
+  @@unique([isPlatform], map: "uq_organizations_single_platform", where: raw("is_platform"))
+  @@map("organizations")
+}
+
+model Location {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  timezone       String    @default("America/Bogota")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  memberships  LocationMembership[]
+
+  @@unique([id, organizationId], map: "uq_locations_id_org")
+  @@map("locations")
+}
+
+model AppUser {
+  id                     String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
+  username               String
+  displayName            String    @map("display_name")
+  passwordHash           String    @map("password_hash")
+  isOwner                Boolean   @default(false) @map("is_owner")
+  passwordChangedAt      DateTime  @default(now()) @map("password_changed_at") @db.Timestamptz
+  failedLoginCount       Int       @default(0) @map("failed_login_count")
+  failedLoginWindowStart DateTime? @map("failed_login_window_start") @db.Timestamptz
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy              String?   @map("created_by") @db.Uuid
+  updatedBy              String?   @map("updated_by") @db.Uuid
+  deactivatedAt          DateTime? @map("deactivated_at") @db.Timestamptz
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  memberships  LocationMembership[]
+  sessions     Session[]
+
+  @@unique([id, organizationId], map: "uq_app_users_id_org")
+  // username se guarda en minúsculas; único entre usuarios activos del negocio.
+  @@unique([organizationId, username], map: "uq_app_users_username", where: raw("deactivated_at IS NULL"))
+  @@map("app_users")
+}
+
+model LocationMembership {
+  id             String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  locationId     String         @map("location_id") @db.Uuid
+  roles          LocationRole[]
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?        @map("created_by") @db.Uuid
+  updatedBy      String?        @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime?      @map("deactivated_at") @db.Timestamptz
+
+  // Usuario y local del mismo negocio, garantizado por la base (FK compuestas).
+  user     AppUser  @relation(fields: [userId, organizationId], references: [id, organizationId])
+  location Location @relation(fields: [locationId, organizationId], references: [id, organizationId])
+
+  @@unique([userId, locationId], map: "uq_location_memberships", where: raw("deactivated_at IS NULL"))
+  @@map("location_memberships")
+}
+
+model Session {
+  id                   String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId               String    @map("user_id") @db.Uuid
+  tokenHash            Bytes     @unique(map: "uq_sessions_token_hash") @map("token_hash")
+  actingOrganizationId String?   @map("acting_organization_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastSeenAt           DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz
+  expiresAt            DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt            DateTime? @map("revoked_at") @db.Timestamptz
+  ip                   String?   @db.Inet
+  userAgent            String?   @map("user_agent")
+
+  user               AppUser       @relation(fields: [userId], references: [id])
+  actingOrganization Organization? @relation("ActingOrganization", fields: [actingOrganizationId], references: [id])
+
+  @@index([userId], map: "ix_sessions_user_active", where: raw("revoked_at IS NULL"))
+  @@map("sessions")
+}
+
+model Entitlement {
+  organizationId String   @map("organization_id") @db.Uuid
+  module         Module
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?  @map("created_by") @db.Uuid
+  updatedBy      String?  @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@id([organizationId, module])
+  @@map("entitlements")
+}
+
+/// Acciones administrativas y de superadmin (ADR-002 D3).
+model AuditLog {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  actorUserId    String   @map("actor_user_id") @db.Uuid
+  action         String
+  targetType     String   @map("target_type")
+  targetId       String?  @map("target_id") @db.Uuid
+  details        Json     @default("{}")
+  occurredAt     DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  @@index([organizationId, occurredAt(sort: Desc)], map: "ix_audit_log_org")
+  @@map("audit_log")
 }
