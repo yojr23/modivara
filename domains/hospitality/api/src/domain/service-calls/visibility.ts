@@ -3,7 +3,7 @@ import type { Permission } from '@modivara/core-contracts';
 import type { ServiceCall } from './service-call.js';
 
 export interface Viewer {
-  userId: string;
+  actorUserId: string;
   /** Local desde el que consulta (contexto autorizado en el servidor). */
   locationId: string;
   permissions: ReadonlySet<Permission>;

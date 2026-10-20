@@ -57,20 +57,20 @@ describe('AcknowledgeCall / CompleteCall', () => {
 });
 
 describe('ListActiveCalls', () => {
-  const viewer = (over = {}) => ({ userId: 'u', locationId: w.ctx.locationId, permissions: new Set(['hospitality.calls.read'] as const), ...over });
+  const viewer = (over = {}) => ({ ...w.ctx, permissions: new Set(['hospitality.calls.read'] as const), ...over });
 
   it('lista activos con nombre "Zona · Mesa" y excluye completados', async () => {
-    const list = await w.listActive.execute({ organizationId: w.ctx.organizationId, viewer: viewer() });
+    const list = await w.listActive.execute(viewer());
     expect(list).toMatchObject([{ id: callId, tableName: 'Terraza · 5', status: 'pending', pressCount: 1 }]);
     await w.acknowledge.execute({ ...w.ctx, callId });
     await w.complete.execute({ ...w.ctx, callId });
-    expect(await w.listActive.execute({ organizationId: w.ctx.organizationId, viewer: viewer() })).toEqual([]);
+    expect(await w.listActive.execute(viewer())).toEqual([]);
   });
 
   it('filtra con canSeeCall: sin permiso o de otro local no ve nada', async () => {
-    expect(await w.listActive.execute({ organizationId: w.ctx.organizationId, viewer: viewer({ permissions: new Set() }) })).toEqual([]);
+    expect(await w.listActive.execute(viewer({ permissions: new Set() }))).toEqual([]);
     // Un local que Core no reconoce se rechaza antes de listar.
-    await expect(w.listActive.execute({ organizationId: w.ctx.organizationId, viewer: viewer({ locationId: crypto.randomUUID() }) })).rejects.toBeInstanceOf(LocationUnavailableError);
+    await expect(w.listActive.execute(viewer({ locationId: crypto.randomUUID() }))).rejects.toBeInstanceOf(LocationUnavailableError);
     expect(canSeeCall(viewer(), (await w.calls.listActive(w.ctx.locationId))[0]!)).toBe(true);
   });
 });

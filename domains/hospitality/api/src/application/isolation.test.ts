@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocationUnavailableError, NotFoundError } from '../domain/errors.js';
-import type { Viewer } from '../domain/service-calls/visibility.js';
 import { buildWorld, seedTableWithButton, type World } from '../testing/world.js';
 
 let w: World;
@@ -83,8 +82,8 @@ describe('aislamiento por negocio y local', () => {
 
   it('listados: valida el local con Core antes de consultar', async () => {
     const { sameLocationOtherOrg } = intruders();
-    const viewer: Viewer = { userId: 'u', locationId: w.ctx.locationId, permissions: new Set(['hospitality.calls.read'] as const) };
-    await expect(w.listActive.execute({ organizationId: sameLocationOtherOrg.organizationId, viewer })).rejects.toBeInstanceOf(LocationUnavailableError);
+    const permissions = new Set(['hospitality.calls.read'] as const);
+    await expect(w.listActive.execute({ ...sameLocationOtherOrg, permissions })).rejects.toBeInstanceOf(LocationUnavailableError);
     await expect(w.listUnknown.execute(sameLocationOtherOrg)).rejects.toBeInstanceOf(LocationUnavailableError);
     await expect(w.connectivity.execute(sameLocationOtherOrg)).rejects.toBeInstanceOf(LocationUnavailableError);
   });

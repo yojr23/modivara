@@ -1,4 +1,4 @@
-import { type CoreAccessPort, findActiveLocation } from '@modivara/core-contracts';
+import { type CoreAccessPort, findActiveLocation, type Permission } from '@modivara/core-contracts';
 import { LocationUnavailableError, NotFoundError } from '../domain/errors.js';
 import type { CallChange, NotificationPort } from './ports/notification.port.js';
 import type { ServiceCall } from '../domain/service-calls/service-call.js';
@@ -10,6 +10,11 @@ export interface TenantContext {
 
 export interface ActorContext extends TenantContext {
   actorUserId: string;
+}
+
+/** Contexto común de los listados con permisos (convención de los 4 dominios). */
+export interface PermittedContext extends ActorContext {
+  permissions: ReadonlySet<Permission>;
 }
 
 /** El local debe existir, estar activo y pertenecer a la organización autorizada (DATA-001 §1). */

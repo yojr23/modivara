@@ -83,7 +83,7 @@ describe('isDebounced', () => {
 
 describe('canSeeCall', () => {
   const call = newCall();
-  const viewer = (over = {}) => ({ userId: 'u', locationId: call.locationId, permissions: new Set(['hospitality.calls.read'] as const), ...over });
+  const viewer = (over = {}) => ({ actorUserId: 'u', locationId: call.locationId, permissions: new Set(['hospitality.calls.read'] as const), ...over });
   it('modo all: con permiso en el mismo local', () => expect(canSeeCall(viewer(), call, 'all')).toBe(true));
   it('sin permiso no ve', () => expect(canSeeCall(viewer({ permissions: new Set() }), call)).toBe(false));
   it('otro local no ve', () => expect(canSeeCall(viewer({ locationId: uid() }), call)).toBe(false));
