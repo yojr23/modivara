@@ -1,51 +1,61 @@
+import type { DomainEvent } from '@modivara/core-contracts';
 import type {
+  BalanceKey,
   BalanceQuery,
+  LedgerTransaction,
   MovementQuery,
-  RecordedMovement,
   StockLedger,
   StockQueries,
 } from '../application/ports/stock-ledger.port.js';
-import type { DomainEvent } from '@modivara/core-contracts';
 import { StockBalance } from '../domain/stock-balance.js';
-import { type RegisterMovementInput, StockMovement } from '../domain/stock-movement.js';
+import type { StockMovement } from '../domain/stock-movement.js';
 
 /**
- * Doble del ledger con las mismas reglas que el adaptador real: idempotencia por (negocio, key),
- * saldo sin negativos y todo-o-nada (se trabaja sobre una copia del saldo y se confirma al final).
+ * In-memory double with the same contract as the real adapter: calls on the same balance key are
+ * serialized, work happens on a copy of the balance and is committed only if `work` resolves
+ * (otherwise nothing is left behind: no balance, movement or outbox event).
  */
 export class InMemoryStockLedger implements StockLedger, StockQueries {
   private readonly balances = new Map<string, StockBalance>();
   private readonly movements: StockMovement[] = [];
   private readonly byKey = new Map<string, StockMovement>();
+  private readonly locks = new Map<string, Promise<void>>();
   /** Equivale a la tabla outbox_events. */
   readonly outbox: DomainEvent[] = [];
 
-  async record(input: RegisterMovementInput): Promise<RecordedMovement> {
-    const orgId = input.stockLocation.organizationId;
-    const existing = this.byKey.get(`${orgId}:${input.idempotencyKey}`);
-    if (existing) return { movement: existing, replayed: true };
+  async withLockedBalance<T>(key: BalanceKey, work: (tx: LedgerTransaction) => Promise<T>): Promise<T> {
+    const lockKey = `${key.stockLocationId}:${key.productId}`;
+    const previous = this.locks.get(lockKey) ?? Promise.resolve();
+    let release!: () => void;
+    const tail = previous.then(() => new Promise<void>((resolve) => (release = resolve)));
+    this.locks.set(lockKey, tail);
+    await previous;
+    try {
+      const current = this.balances.get(lockKey);
+      const balance = current ? StockBalance.restore(current.toProps()) : StockBalance.zero(key, new Date());
+      let saved: StockMovement | null = null;
+      const tx: LedgerTransaction = {
+        balance,
+        findByIdempotencyKey: async ({ organizationId, idempotencyKey }) =>
+          this.byKey.get(`${organizationId}:${idempotencyKey}`) ?? null,
+        save: async (movement) => {
+          saved = movement;
+        },
+      };
+      const result = await work(tx);
+      if (saved) this.commit(lockKey, balance, saved);
+      return result;
+    } finally {
+      release();
+      if (this.locks.get(lockKey) === tail) this.locks.delete(lockKey);
+    }
+  }
 
-    const key = `${input.stockLocation.id}:${input.product.id}`;
-    const current = this.balances.get(key);
-    const work = current
-      ? StockBalance.restore(current.toProps())
-      : StockBalance.zero(
-          {
-            stockLocationId: input.stockLocation.id,
-            productId: input.product.id,
-            organizationId: orgId,
-            locationId: input.stockLocation.locationId,
-          },
-          input.occurredAt,
-        );
-
-    const movement = StockMovement.register(work, input); // si lanza, no se confirmó nada
-
-    this.balances.set(key, work);
+  private commit(lockKey: string, balance: StockBalance, movement: StockMovement): void {
+    this.balances.set(lockKey, balance);
     this.movements.push(movement);
-    this.byKey.set(`${orgId}:${input.idempotencyKey}`, movement);
+    this.byKey.set(`${movement.organizationId}:${movement.idempotencyKey}`, movement);
     this.outbox.push(...movement.pullEvents());
-    return { movement, replayed: false };
   }
 
   async listBalances(q: BalanceQuery): Promise<StockBalance[]> {

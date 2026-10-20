@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SEEDED_MOVEMENT_REASONS } from '@modivara/commerce-contracts';
 import { ConflictError, InsufficientStockError, InvalidQuantityError, LocationUnavailableError, NotFoundError, ReasonDirectionMismatchError } from '../../domain/index.js';
+import { newId } from '@modivara/core-contracts';
+import { Quantity, StockMovement } from '../../domain/index.js';
 import { LOC, ORG, OTHER_LOC, OTHER_ORG, setup, USER } from '../../testing/fixtures.js';
 
 beforeEach(() => {
@@ -273,5 +275,59 @@ describe('movimientos', () => {
     const all = await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC, productId: s.product.id });
     expect(all.map((m) => m.delta.toString())).toEqual(['-2.000', '-1.000', '10.000']);
     expect(await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC, limit: 1 })).toHaveLength(1);
+  });
+});
+
+describe('ledger transaccional (withLockedBalance)', () => {
+  async function stocked(initial: string) {
+    const s = await setup();
+    const target = { ...s.actor, stockLocationId: s.stockLocation.id, productId: s.product.id };
+    const compra = await s.reason('Compra');
+    const venta = await s.reason('Venta');
+    await s.h.registerMovement.execute({ ...target, direction: 'in', reasonId: compra.id, quantity: initial, idempotencyKey: s.idem() });
+    return { ...s, target, venta };
+  }
+
+  it('dos salidas concurrentes que juntas superan el saldo: una se rechaza', async () => {
+    const s = await stocked('10');
+    const out = () => s.h.registerMovement.execute({ ...s.target, direction: 'out', reasonId: s.venta.id, quantity: '6', idempotencyKey: s.idem() });
+    const results = await Promise.allSettled([out(), out()]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+    expect(rejected.reason).toBeInstanceOf(InsufficientStockError);
+    expect((await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC }))[0]?.quantity.toString()).toBe('4.000');
+  });
+
+  it('la misma key en paralelo se aplica una sola vez', async () => {
+    const s = await stocked('10');
+    const key = s.idem();
+    const out = () => s.h.registerMovement.execute({ ...s.target, direction: 'out', reasonId: s.venta.id, quantity: '3', idempotencyKey: key });
+    const [a, b] = await Promise.all([out(), out()]);
+    expect([a.replayed, b.replayed].sort()).toEqual([false, true]);
+    expect(a.movement.id).toBe(b.movement.id);
+    expect((await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC }))[0]?.quantity.toString()).toBe('7.000');
+  });
+
+  it('si el trabajo falla tras guardar, rollback sin rastro (saldo, movimiento ni outbox)', async () => {
+    const s = await stocked('10');
+    const outbox = s.h.ledger.outbox.length;
+    const key = { stockLocationId: s.stockLocation.id, productId: s.product.id, organizationId: ORG, locationId: LOC };
+    await expect(
+      s.h.ledger.withLockedBalance(key, async (tx) => {
+        const m = StockMovement.register(tx.balance, {
+          id: newId(), eventId: newId(), product: s.product, stockLocation: s.stockLocation, reason: s.venta,
+          change: { kind: 'out', quantity: Quantity.parse('4') }, actorUserId: USER, idempotencyKey: s.idem(), occurredAt: new Date(),
+        });
+        await tx.save(m);
+        throw new Error('boom');
+      }),
+    ).rejects.toThrow('boom');
+    expect(s.h.ledger.outbox).toHaveLength(outbox);
+    expect(await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC })).toHaveLength(1);
+    expect((await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC }))[0]?.quantity.toString()).toBe('10.000');
+    // el candado se libera: la siguiente operación procede
+    await expect(
+      s.h.registerMovement.execute({ ...s.target, direction: 'out', reasonId: s.venta.id, quantity: '1', idempotencyKey: s.idem() }),
+    ).resolves.toBeDefined();
   });
 });

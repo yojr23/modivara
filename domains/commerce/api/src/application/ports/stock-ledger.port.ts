@@ -1,22 +1,35 @@
 import type { StockBalance } from '../../domain/stock-balance.js';
-import type { RegisterMovementInput, StockMovement } from '../../domain/stock-movement.js';
+import type { StockMovement } from '../../domain/stock-movement.js';
 
-export interface RecordedMovement {
-  movement: StockMovement;
-  /** true si la idempotency_key ya existía: se devolvió el movimiento original sin aplicar nada. */
-  replayed: boolean;
+/** Row of stock_balances that a movement locks (DATA-001 §4). */
+export interface BalanceKey {
+  stockLocationId: string;
+  productId: string;
+  organizationId: string;
+  locationId: string;
 }
 
 /**
- * Escritura del libro de stock. `record` es atómico: en UNA transacción
- *  1. si (organización, idempotencyKey) ya existe, devuelve ese movimiento (`replayed`);
- *  2. toma el saldo (lo crea en 0 si falta) con bloqueo y llama `StockMovement.register(balance, input)`
- *     — que rechaza el saldo negativo y valida motivo/dirección;
- *  3. guarda saldo + movimiento + eventos de `movement.pullEvents()` en el outbox.
- * Si algo falla, no queda nada a medias.
+ * Work inside the ledger transaction. The adapter holds no business rules: the use case calls
+ * `StockMovement.register(tx.balance, …)` once and then `tx.save`.
+ */
+export interface LedgerTransaction {
+  /** Locked balance (zero if it did not exist). `StockMovement.register` mutates it in place. */
+  readonly balance: StockBalance;
+  /** Idempotency is per (business, key). */
+  findByIdempotencyKey(query: { organizationId: string; idempotencyKey: string }): Promise<StockMovement | null>;
+  /** Writes movement + `tx.balance` + the movement's pending events (outbox) as one unit. */
+  save(movement: StockMovement): Promise<void>;
+}
+
+/**
+ * Bounded transactional port. `withLockedBalance` opens a transaction, locks the balance row
+ * (`INSERT … ON CONFLICT DO NOTHING` + `SELECT … FOR UPDATE`) and runs `work`. If `work` resolves, it
+ * commits; if it throws, it rolls back and leaves no trace. Calls on the same key are serialized.
+ * Callers must keep `work` short: it only talks to `tx`.
  */
 export interface StockLedger {
-  record(input: RegisterMovementInput): Promise<RecordedMovement>;
+  withLockedBalance<T>(key: BalanceKey, work: (tx: LedgerTransaction) => Promise<T>): Promise<T>;
 }
 
 export interface BalanceQuery {

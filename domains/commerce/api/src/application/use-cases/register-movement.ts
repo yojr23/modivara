@@ -1,13 +1,19 @@
 import { type CoreAccessPort, newId } from '@modivara/core-contracts';
 import type { MovementDirection } from '@modivara/commerce-contracts';
-import type { MovementChange } from '../../domain/stock-movement.js';
+import { type MovementChange, StockMovement } from '../../domain/stock-movement.js';
 import { Quantity } from '../../domain/quantity.js';
 import { NotFoundError } from '../../domain/errors.js';
 import type { MovementReasonRepository } from '../ports/movement-reason.repository.js';
 import type { ProductRepository } from '../ports/product.repository.js';
-import type { RecordedMovement, StockLedger } from '../ports/stock-ledger.port.js';
+import type { StockLedger } from '../ports/stock-ledger.port.js';
 import type { StockLocationRepository } from '../ports/stock-location.repository.js';
 import { type StockContext, requireLocation, requireProduct, requireStockLocation } from './shared.js';
+
+export interface RecordedMovement {
+  movement: StockMovement;
+  /** true si la idempotency_key ya existía: se devolvió el movimiento original sin aplicar nada. */
+  replayed: boolean;
+}
 
 export interface MovementTarget extends StockContext {
   stockLocationId: string;
@@ -23,7 +29,7 @@ export interface RegisterMovementCommand extends MovementTarget {
   quantity: string;
 }
 
-/** Carga y valida las referencias y delega el registro atómico al ledger. Compartido con AdjustToCount. */
+/** Carga y valida las referencias y orquesta el registro: bloquea el saldo, idempotencia, `StockMovement.register` una vez y guarda. Compartido con AdjustToCount. */
 export class MovementRecorder {
   constructor(
     private readonly products: ProductRepository,
@@ -41,18 +47,28 @@ export class MovementRecorder {
     const reason = await this.reasons.findById({ id: target.reasonId, organizationId });
     if (!reason) throw new NotFoundError('Movement reason');
 
-    return this.ledger.record({
-      id: newId(),
-      eventId: newId(),
-      product,
-      stockLocation,
-      reason,
-      change,
-      note: target.note,
-      actorUserId: target.actorUserId,
-      idempotencyKey: target.idempotencyKey,
-      occurredAt: new Date(),
-    });
+    const occurredAt = new Date();
+    return this.ledger.withLockedBalance(
+      { stockLocationId: stockLocation.id, productId: product.id, organizationId, locationId },
+      async (tx) => {
+        const existing = await tx.findByIdempotencyKey({ organizationId, idempotencyKey: target.idempotencyKey });
+        if (existing) return { movement: existing, replayed: true };
+        const movement = StockMovement.register(tx.balance, {
+          id: newId(),
+          eventId: newId(),
+          product,
+          stockLocation,
+          reason,
+          change,
+          note: target.note,
+          actorUserId: target.actorUserId,
+          idempotencyKey: target.idempotencyKey,
+          occurredAt,
+        });
+        await tx.save(movement);
+        return { movement, replayed: false };
+      },
+    );
   }
 }
 
