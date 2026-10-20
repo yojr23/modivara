@@ -1,4 +1,4 @@
-import { RESERVED_SLUGS, slugSchema } from '@modivara/core-contracts';
+import { isReservedSlug, isValidSlug } from '@modivara/core-contracts';
 import { InvalidValueError } from './errors.js';
 
 export interface OrganizationProps {
@@ -16,10 +16,10 @@ export class Organization {
     const isPlatform = input.isPlatform ?? false;
     const slug = input.slug;
     // El slug no se normaliza aquí: debe llegar ya en su forma canónica.
-    if (!slugSchema.safeParse(slug).success || slug !== slug.trim().toLowerCase()) {
+    if (!isValidSlug(slug)) {
       throw new InvalidValueError(`Invalid slug: ${slug}`);
     }
-    if (!isPlatform && (RESERVED_SLUGS as readonly string[]).includes(slug)) {
+    if (!isPlatform && isReservedSlug(slug)) {
       throw new InvalidValueError(`Reserved slug: ${slug}`);
     }
     const name = input.name.trim();

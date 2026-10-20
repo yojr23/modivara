@@ -1,4 +1,4 @@
-import { usernameSchema } from '@modivara/core-contracts';
+import { isValidUsername } from '@modivara/core-contracts';
 import { InvalidValueError } from './errors.js';
 
 /** Política de bloqueo (TECH-001 §16.3): 5 fallos dentro de 15 minutos. */
@@ -30,7 +30,7 @@ export class AppUser {
     isOwner?: boolean;
     now: Date;
   }): AppUser {
-    if (!usernameSchema.safeParse(input.username).success || input.username !== input.username.toLowerCase()) {
+    if (!isValidUsername(input.username)) {
       throw new InvalidValueError(`Invalid username: ${input.username}`);
     }
     const displayName = input.displayName.trim();

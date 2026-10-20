@@ -1,42 +1,28 @@
 import { z } from 'zod';
+import {
+  PASSWORD_MAX, PASSWORD_MIN, PASSWORD_NUMBER_REGEX, PASSWORD_UPPERCASE_REGEX,
+  SLUG_MAX, SLUG_MIN, SLUG_REGEX, USERNAME_MAX, USERNAME_MIN, USERNAME_REGEX, isReservedSlug,
+} from './rules.js';
 
 /** Módulos habilitables por negocio (DATA-001 §2, core.module). */
 export const MODULES = ['hospitality', 'commerce', 'analytics'] as const;
 export type ModuleName = (typeof MODULES)[number];
 
-/** Slugs que el sistema usa en rutas o infraestructura; no se asignan a clientes (DATA-001 §2). */
-export const RESERVED_SLUGS = ['labs', 'api', 'sim', 'assets', 'login', 'static'] as const;
-
-// OPEN: longitudes de slug (3–40) y username (3–32) son propuesta de DATA-001 §8.1, pendientes de confirmar.
 /** Formato de slug; sirve para identificar el negocio en el login (incluye `labs`). */
-export const slugSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .min(3)
-  .max(40)
-  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+export const slugSchema = z.string().trim().toLowerCase().min(SLUG_MIN).max(SLUG_MAX).regex(SLUG_REGEX);
 
 /** Slug asignable a un negocio cliente: formato válido y no reservado. */
-export const customerSlugSchema = slugSchema.refine((s) => !(RESERVED_SLUGS as readonly string[]).includes(s), {
-  message: 'reserved_slug',
-});
+export const customerSlugSchema = slugSchema.refine((s) => !isReservedSlug(s), { message: 'reserved_slug' });
 
-// OPEN: longitud de username (3–32) es propuesta de DATA-001 §8.1.
-export const usernameSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .regex(/^[a-z0-9._-]{3,32}$/);
+export const usernameSchema = z.string().trim().toLowerCase().min(USERNAME_MIN).max(USERNAME_MAX).regex(USERNAME_REGEX);
 
-// OPEN: el máximo de 128 no está en los documentos; evita enviar cadenas enormes al hash.
-/** Política de contraseña (TECH-001 §16.3): mínimo 8, al menos 1 mayúscula y 1 número. */
+/** Política de contraseña (TECH-001 §16.3). */
 export const passwordSchema = z
   .string()
-  .min(8)
-  .max(128)
-  .regex(/[A-Z]/, 'needs_uppercase')
-  .regex(/[0-9]/, 'needs_number');
+  .min(PASSWORD_MIN)
+  .max(PASSWORD_MAX)
+  .regex(PASSWORD_UPPERCASE_REGEX, 'needs_uppercase')
+  .regex(PASSWORD_NUMBER_REGEX, 'needs_number');
 
 export const loginRequestSchema = z.object({
   slug: slugSchema,

@@ -4,11 +4,11 @@ import {
   loginRequestSchema,
   loginResponseSchema,
   passwordSchema,
-  RESERVED_SLUGS,
   sessionActorSchema,
   slugSchema,
   usernameSchema,
 } from './identity.js';
+import { RESERVED_SLUGS } from './rules.js';
 
 const uuid = '0197c0de-0000-7000-8000-000000000001';
 
