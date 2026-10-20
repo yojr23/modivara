@@ -8,8 +8,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?definir en .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir en .env}
       POSTGRES_DB: ${POSTGRES_DB:?definir en .env}
+      CORE_DB_PASSWORD: ${CORE_DB_PASSWORD:?definir en .env}
+      HOSPITALITY_DB_PASSWORD: ${HOSPITALITY_DB_PASSWORD:?definir en .env}
+      COMMERCE_DB_PASSWORD: ${COMMERCE_DB_PASSWORD:?definir en .env}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?definir en .env}
     volumes:
       - pgdata:/var/lib/postgresql
+      - ./infra/postgres/init-schemas.sh:/docker-entrypoint-initdb.d/init-schemas.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -20,9 +25,17 @@ services:
     volumes:
       - ./infra/mosquitto:/mosquitto/config
 
+  # Cada servicio recibe solo sus variables: ni la API ve la clave del superusuario de Postgres
+  # ni el simulador ve credenciales de la base.
   api:
     build: { context: ., target: api }
-    env_file: .env
+    environment:
+      API_PORT: 3000
+      MQTT_URL: mqtt://mqtt:1883
+      CORE_DATABASE_URL: postgresql://core_app:${CORE_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=core
+      HOSPITALITY_DATABASE_URL: postgresql://hospitality_app:${HOSPITALITY_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=hospitality
+      COMMERCE_DATABASE_URL: postgresql://commerce_app:${COMMERCE_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=commerce
+      ANALYTICS_DATABASE_URL: postgresql://analytics_app:${ANALYTICS_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=analytics
     depends_on:
       db: { condition: service_healthy }
       mqtt: { condition: service_started }
@@ -32,7 +45,14 @@ services:
 
   button-sim:
     build: { context: ., target: button-sim }
-    env_file: .env
+    environment:
+      SIM_API_URL: http://api:3000/api/v1
+      SIM_GATEWAY_KEY: ${SIM_GATEWAY_KEY:?definir en .env}
+      SIM_TRANSPORT: ${SIM_TRANSPORT:-http}
+      SIM_DEVICES: ${SIM_DEVICES:-}
+      MQTT_URL: mqtt://mqtt:1883
+      SIM_GATEWAY_ID: ${SIM_GATEWAY_ID:-}
+      SIM_MQTT_PASSWORD: ${SIM_MQTT_PASSWORD:-}
     depends_on: [api]
 
   caddy:
