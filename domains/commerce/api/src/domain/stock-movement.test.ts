@@ -1,10 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OTHER_ORG, setup, USER } from '../testing/fixtures.js';
 import { InvalidMovementError, InactiveEntityError, InsufficientStockError, OrganizationMismatchError, ReasonDirectionMismatchError } from './errors.js';
 import type { MovementReason } from './movement-reason.js';
 import { Quantity } from './quantity.js';
 import { StockBalance } from './stock-balance.js';
 import { type MovementChange, StockMovement } from './stock-movement.js';
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-19T15:00:00.000Z'));
+});
+afterEach(() => vi.useRealTimers());
 
 async function scenario(start = '10') {
   const s = await setup();

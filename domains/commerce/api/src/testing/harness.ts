@@ -13,7 +13,7 @@ import {
   SeedMovementReasons,
   UpdateProduct,
 } from '../application/index.js';
-import { FakeCoreAccess, FixedClock, SequentialIds } from './fakes.js';
+import { FakeCoreAccess, SequentialIds } from './fakes.js';
 import { InMemoryMovementReasonRepository, InMemoryProductRepository, InMemoryStockLocationRepository } from './in-memory-repositories.js';
 import { InMemoryStockLedger } from './in-memory-stock-ledger.js';
 
@@ -25,18 +25,17 @@ export function createHarness() {
   const ledger = new InMemoryStockLedger();
   const core = new FakeCoreAccess();
   const ids = new SequentialIds();
-  const clock = new FixedClock();
-  const recorder = new MovementRecorder(products, stockLocations, reasons, ledger, core, ids, clock);
+  const recorder = new MovementRecorder(products, stockLocations, reasons, ledger, core, ids);
   return {
-    products, stockLocations, reasons, ledger, core, ids, clock,
-    createProduct: new CreateProduct(products, ids, clock),
-    updateProduct: new UpdateProduct(products, clock),
-    deactivateProduct: new DeactivateProduct(products, clock),
-    ensureDefaultStockLocation: new EnsureDefaultStockLocation(stockLocations, core, ids, clock),
-    createStockLocation: new CreateStockLocation(stockLocations, core, ids, clock),
-    seedMovementReasons: new SeedMovementReasons(reasons, ids, clock),
-    createMovementReason: new CreateMovementReason(reasons, ids, clock),
-    deactivateMovementReason: new DeactivateMovementReason(reasons, clock),
+    products, stockLocations, reasons, ledger, core, ids,
+    createProduct: new CreateProduct(products, ids),
+    updateProduct: new UpdateProduct(products),
+    deactivateProduct: new DeactivateProduct(products),
+    ensureDefaultStockLocation: new EnsureDefaultStockLocation(stockLocations, core, ids),
+    createStockLocation: new CreateStockLocation(stockLocations, core, ids),
+    seedMovementReasons: new SeedMovementReasons(reasons, ids),
+    createMovementReason: new CreateMovementReason(reasons, ids),
+    deactivateMovementReason: new DeactivateMovementReason(reasons),
     registerMovement: new RegisterMovement(recorder),
     adjustToCount: new AdjustToCount(recorder),
     getBalances: new GetBalances(ledger),

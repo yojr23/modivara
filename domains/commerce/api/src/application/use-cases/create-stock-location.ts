@@ -1,7 +1,6 @@
 import type { CoreAccessPort } from '@modivara/core-contracts';
 import { StockLocation } from '../../domain/stock-location.js';
 import { ConflictError } from '../errors.js';
-import type { Clock } from '../ports/clock.port.js';
 import type { IdGenerator } from '../ports/id-generator.port.js';
 import type { StockLocationRepository } from '../ports/stock-location.repository.js';
 import { type ActorContext, requireLocation } from './shared.js';
@@ -11,7 +10,6 @@ export class CreateStockLocation {
     private readonly stockLocations: StockLocationRepository,
     private readonly core: CoreAccessPort,
     private readonly ids: IdGenerator,
-    private readonly clock: Clock,
   ) {}
 
   async execute(input: ActorContext & { locationId: string; name: string }): Promise<StockLocation> {
@@ -22,7 +20,7 @@ export class CreateStockLocation {
       locationId: input.locationId,
       name: input.name,
       actorUserId: input.actorUserId,
-      now: this.clock.now(),
+      now: new Date(),
     });
     if (await this.stockLocations.findActiveByName(input.organizationId, input.locationId, created.name)) {
       throw new ConflictError(`Ya existe un lugar de stock llamado "${created.name}" en el local`);

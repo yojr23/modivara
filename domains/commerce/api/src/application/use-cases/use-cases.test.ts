@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SEEDED_MOVEMENT_REASONS } from '@modivara/commerce-contracts';
 import { InsufficientStockError, InvalidQuantityError, ReasonDirectionMismatchError } from '../../domain/index.js';
 import { LOC, ORG, OTHER_LOC, OTHER_ORG, setup, USER } from '../../testing/fixtures.js';
 import { ConflictError, LocationUnavailableError, NotFoundError } from '../errors.js';
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-19T15:00:00.000Z'));
+});
+afterEach(() => vi.useRealTimers());
 
 describe('catálogo', () => {
   it('rechaza producto duplicado por nombre (sin distinguir mayúsculas) o SKU, pero solo entre activos', async () => {

@@ -3,7 +3,6 @@ import type { MovementDirection } from '@modivara/commerce-contracts';
 import type { MovementChange } from '../../domain/stock-movement.js';
 import { Quantity } from '../../domain/quantity.js';
 import { NotFoundError } from '../errors.js';
-import type { Clock } from '../ports/clock.port.js';
 import type { IdGenerator } from '../ports/id-generator.port.js';
 import type { MovementReasonRepository } from '../ports/movement-reason.repository.js';
 import type { ProductRepository } from '../ports/product.repository.js';
@@ -34,7 +33,6 @@ export class MovementRecorder {
     private readonly ledger: StockLedger,
     private readonly core: CoreAccessPort,
     private readonly ids: IdGenerator,
-    private readonly clock: Clock,
   ) {}
 
   async record(target: MovementTarget, change: MovementChange): Promise<RecordedMovement> {
@@ -55,7 +53,7 @@ export class MovementRecorder {
       note: target.note,
       actorUserId: target.actorUserId,
       idempotencyKey: target.idempotencyKey,
-      occurredAt: this.clock.now(),
+      occurredAt: new Date(),
     });
   }
 }

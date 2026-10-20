@@ -1,7 +1,6 @@
 import type { Unit } from '@modivara/commerce-contracts';
 import { Product } from '../../domain/product.js';
 import { ConflictError } from '../errors.js';
-import type { Clock } from '../ports/clock.port.js';
 import type { IdGenerator } from '../ports/id-generator.port.js';
 import type { ProductRepository } from '../ports/product.repository.js';
 import type { ActorContext } from './shared.js';
@@ -17,11 +16,10 @@ export class CreateProduct {
   constructor(
     private readonly products: ProductRepository,
     private readonly ids: IdGenerator,
-    private readonly clock: Clock,
   ) {}
 
   async execute(input: CreateProductCommand): Promise<Product> {
-    const product = Product.create({ ...input, id: this.ids.next(), now: this.clock.now() });
+    const product = Product.create({ ...input, id: this.ids.next(), now: new Date() });
     if (await this.products.findActiveByName(product.organizationId, product.name)) {
       throw new ConflictError(`Ya existe un producto activo llamado "${product.name}"`);
     }

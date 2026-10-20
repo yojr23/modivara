@@ -1,6 +1,5 @@
 import type { CoreAccessPort } from '@modivara/core-contracts';
 import { StockLocation } from '../../domain/stock-location.js';
-import type { Clock } from '../ports/clock.port.js';
 import type { IdGenerator } from '../ports/id-generator.port.js';
 import type { StockLocationRepository } from '../ports/stock-location.repository.js';
 import { type ActorContext, requireLocation } from './shared.js';
@@ -11,7 +10,6 @@ export class EnsureDefaultStockLocation {
     private readonly stockLocations: StockLocationRepository,
     private readonly core: CoreAccessPort,
     private readonly ids: IdGenerator,
-    private readonly clock: Clock,
   ) {}
 
   async execute(input: ActorContext & { locationId: string }): Promise<StockLocation> {
@@ -24,7 +22,7 @@ export class EnsureDefaultStockLocation {
       locationId: input.locationId,
       isDefault: true,
       actorUserId: input.actorUserId,
-      now: this.clock.now(),
+      now: new Date(),
     });
     await this.stockLocations.save(created);
     return created;

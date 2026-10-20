@@ -1,16 +1,5 @@
 import type { CoreAccessPort, LocationRef } from '@modivara/core-contracts';
-import type { Clock } from '../application/ports/clock.port.js';
 import type { IdGenerator } from '../application/ports/id-generator.port.js';
-
-export class FixedClock implements Clock {
-  constructor(private current = new Date('2026-10-19T15:00:00.000Z')) {}
-  now(): Date {
-    return this.current;
-  }
-  advance(ms: number): void {
-    this.current = new Date(this.current.getTime() + ms);
-  }
-}
 
 /** Ids con forma de uuid y orden predecible. */
 export class SequentialIds implements IdGenerator {

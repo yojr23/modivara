@@ -1,6 +1,5 @@
 import { ConflictError } from '../errors.js';
 import type { Product } from '../../domain/product.js';
-import type { Clock } from '../ports/clock.port.js';
 import type { ProductRepository } from '../ports/product.repository.js';
 import { type ActorContext, requireProduct } from './shared.js';
 
@@ -14,12 +13,11 @@ export interface UpdateProductCommand extends ActorContext {
 export class UpdateProduct {
   constructor(
     private readonly products: ProductRepository,
-    private readonly clock: Clock,
   ) {}
 
   async execute(input: UpdateProductCommand): Promise<Product> {
     const product = await requireProduct(this.products, input.organizationId, input.productId);
-    product.update({ name: input.name, sku: input.sku, category: input.category }, input.actorUserId, this.clock.now());
+    product.update({ name: input.name, sku: input.sku, category: input.category }, input.actorUserId, new Date());
 
     const sameName = await this.products.findActiveByName(product.organizationId, product.name);
     if (sameName && sameName.id !== product.id) throw new ConflictError(`Ya existe un producto activo llamado "${product.name}"`);
