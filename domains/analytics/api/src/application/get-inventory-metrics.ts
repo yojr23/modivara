@@ -1,0 +1,37 @@
+import type { InventoryMetrics, InventoryMetricsQuery } from '@modivara/analytics-contracts';
+import { computeInventoryMetrics, resolveRange } from '../domain/index.js';
+import { LocationNotFoundError } from './errors.js';
+import type { Clock, CoreAccessPort, StockMovementFactRepository } from './ports/index.js';
+
+export interface GetInventoryMetricsInput {
+  organizationId: string;
+  locationId: string;
+  query: InventoryMetricsQuery;
+}
+
+export class GetInventoryMetrics {
+  constructor(
+    private readonly facts: StockMovementFactRepository,
+    private readonly core: CoreAccessPort,
+    private readonly clock: Clock = { now: () => new Date() },
+  ) {}
+
+  async execute(input: GetInventoryMetricsInput): Promise<InventoryMetrics> {
+    const location = await this.core.getLocation(input.locationId);
+    if (!location || location.organizationId !== input.organizationId) throw new LocationNotFoundError(input.locationId);
+
+    const { query } = input;
+    const range = resolveRange(query, this.clock.now(), location.timezone);
+    const scope = {
+      organizationId: input.organizationId,
+      locationId: input.locationId,
+      productId: query.product_id,
+      stockLocationId: query.stock_location_id,
+    };
+    const [movements, latest] = await Promise.all([
+      this.facts.findOccurredBetween({ ...scope, range }),
+      this.facts.findLatestPerPlaceAndProduct(scope),
+    ]);
+    return computeInventoryMetrics(movements, latest, { timeZone: location.timezone, groupBy: query.group_by, range });
+  }
+}
