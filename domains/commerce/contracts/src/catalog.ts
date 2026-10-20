@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseMilli, SIGNED_DECIMAL_PATTERN, UNSIGNED_DECIMAL_PATTERN } from './decimal.js';
 
 /** DATA-001 §4: `commerce.unit` y `commerce.movement_direction`. */
 export const UNITS = ['unit', 'bottle', 'kg', 'g', 'l', 'ml'] as const;
@@ -32,12 +33,9 @@ export const NOTE_MAX_LENGTH = 500;
  * Cantidades NUMERIC(12,3) como string decimal: hasta 9 enteros y 3 decimales.
  * Nunca number: la coma flotante no representa 0.1 + 0.2 = 0.3.
  */
-export const DECIMAL_PATTERN = /^\d{1,9}(\.\d{1,3})?$/;
-export const unsignedQuantitySchema = z.string().regex(DECIMAL_PATTERN, 'Cantidad inválida (máx. 9 enteros y 3 decimales)');
-export const signedQuantitySchema = z
-  .string()
-  .regex(/^-?\d{1,9}(\.\d{1,3})?$/, 'Cantidad inválida (máx. 9 enteros y 3 decimales)');
+export const unsignedQuantitySchema = z.string().regex(UNSIGNED_DECIMAL_PATTERN, 'Cantidad inválida (máx. 9 enteros y 3 decimales)');
+export const signedQuantitySchema = z.string().regex(SIGNED_DECIMAL_PATTERN, 'Cantidad inválida (máx. 9 enteros y 3 decimales)');
 
 export function isZeroQuantity(value: string): boolean {
-  return /^-?0+(\.0+)?$/.test(value);
+  return SIGNED_DECIMAL_PATTERN.test(value) && parseMilli(value) === 0n;
 }
