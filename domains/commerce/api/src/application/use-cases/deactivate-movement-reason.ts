@@ -8,7 +8,7 @@ export class DeactivateMovementReason {
   ) {}
 
   async execute(input: ActorContext & { reasonId: string }): Promise<void> {
-    const reason = await this.reasons.findById(input.organizationId, input.reasonId);
+    const reason = await this.reasons.findById({ id: input.reasonId, organizationId: input.organizationId });
     if (!reason) throw new NotFoundError('Movement reason');
     reason.deactivate(input.actorUserId, new Date());
     await this.reasons.save(reason);

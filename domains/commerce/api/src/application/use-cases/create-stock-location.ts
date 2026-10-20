@@ -20,7 +20,7 @@ export class CreateStockLocation {
       actorUserId: input.actorUserId,
       now: new Date(),
     });
-    if (await this.stockLocations.findActiveByName(input.organizationId, input.locationId, created.name)) {
+    if (await this.stockLocations.findActiveByName({ organizationId: input.organizationId, locationId: input.locationId, name: created.name })) {
       throw new ConflictError(`A stock location named "${created.name}" already exists in the location`);
     }
     await this.stockLocations.save(created);

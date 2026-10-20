@@ -36,9 +36,9 @@ export class MovementRecorder {
   async record(target: MovementTarget, change: MovementChange): Promise<RecordedMovement> {
     const { organizationId, locationId } = target;
     await requireLocation(this.core, organizationId, locationId);
-    const stockLocation = await requireStockLocation(this.stockLocations, organizationId, target.stockLocationId, locationId);
-    const product = await requireProduct(this.products, organizationId, target.productId);
-    const reason = await this.reasons.findById(organizationId, target.reasonId);
+    const stockLocation = await requireStockLocation(this.stockLocations, { id: target.stockLocationId, organizationId, locationId });
+    const product = await requireProduct(this.products, { id: target.productId, organizationId });
+    const reason = await this.reasons.findById({ id: target.reasonId, organizationId });
     if (!reason) throw new NotFoundError('Movement reason');
 
     return this.ledger.record({

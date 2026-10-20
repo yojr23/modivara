@@ -10,7 +10,7 @@ export class CreateMovementReason {
 
   async execute(input: ActorContext & { name: string; direction: MovementDirection }): Promise<MovementReason> {
     const reason = MovementReason.create({ ...input, id: newId(), now: new Date() });
-    if (await this.reasons.findActiveByName(reason.organizationId, reason.name)) {
+    if (await this.reasons.findActiveByName({ organizationId: reason.organizationId, name: reason.name })) {
       throw new ConflictError(`An active reason named "${reason.name}" already exists`);
     }
     await this.reasons.save(reason);

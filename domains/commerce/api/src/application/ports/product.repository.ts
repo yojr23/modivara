@@ -1,10 +1,10 @@
 import type { Product } from '../../domain/product.js';
 
-/** Todas las búsquedas van acotadas por negocio: un id de otro negocio no existe. */
+/** Every lookup is scoped by tenant: an id from another business does not exist. */
 export interface ProductRepository {
   save(product: Product): Promise<void>;
-  findById(organizationId: string, id: string): Promise<Product | null>;
-  /** Comparación sin distinguir mayúsculas, solo entre activos (uq_products_name). */
-  findActiveByName(organizationId: string, name: string): Promise<Product | null>;
-  findActiveBySku(organizationId: string, sku: string): Promise<Product | null>;
+  findById(query: { id: string; organizationId: string }): Promise<Product | null>;
+  /** Case-insensitive, active rows only (uq_products_name). */
+  findActiveByName(query: { organizationId: string; name: string }): Promise<Product | null>;
+  findActiveBySku(query: { organizationId: string; sku: string }): Promise<Product | null>;
 }

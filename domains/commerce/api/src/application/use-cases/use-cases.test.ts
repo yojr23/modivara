@@ -35,6 +35,17 @@ describe('catálogo', () => {
     await expect(h.updateProduct.execute({ ...actor, productId: ron.id, name: product.name })).rejects.toThrow(ConflictError);
   });
 
+  it('al actualizar solo consulta unicidad de lo que cambió', async () => {
+    const { h, actor, product } = await setup();
+    const byName = vi.spyOn(h.products, 'findActiveByName');
+    const bySku = vi.spyOn(h.products, 'findActiveBySku');
+    await h.updateProduct.execute({ ...actor, productId: product.id, category: 'Bebidas' });
+    await h.updateProduct.execute({ ...actor, productId: product.id, name: product.name });
+    expect([byName.mock.calls.length, bySku.mock.calls.length]).toEqual([0, 0]);
+    await h.updateProduct.execute({ ...actor, productId: product.id, name: 'Cerveza 2', sku: 'C-2' });
+    expect([byName.mock.calls.length, bySku.mock.calls.length]).toEqual([1, 1]);
+  });
+
   it('un producto de otro negocio no existe', async () => {
     const { h, product } = await setup();
     await expect(
@@ -183,7 +194,7 @@ describe('movimientos', () => {
     await s.h.seedMovementReasons.execute(intruder);
     const sl = await s.h.ensureDefaultStockLocation.execute(intruder);
     const p = await s.h.createProduct.execute({ ...intruder, name: 'Cerveza', unit: 'bottle' });
-    const compra = (await s.h.reasons.findActiveByName(OTHER_ORG, 'Compra'))!;
+    const compra = (await s.h.reasons.findActiveByName({ organizationId: OTHER_ORG, name: 'Compra' }))!;
     const key = s.idem();
     const mine = await s.h.registerMovement.execute({ ...s.target, direction: 'in', reasonId: s.compra.id, quantity: '1', idempotencyKey: key });
     const theirs = await s.h.registerMovement.execute({ ...intruder, stockLocationId: sl.id, productId: p.id, direction: 'in', reasonId: compra.id, quantity: '9', idempotencyKey: key });

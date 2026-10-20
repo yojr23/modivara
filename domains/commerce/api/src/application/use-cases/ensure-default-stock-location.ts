@@ -12,7 +12,7 @@ export class EnsureDefaultStockLocation {
 
   async execute(input: StockContext): Promise<StockLocation> {
     await requireLocation(this.core, input.organizationId, input.locationId);
-    const existing = await this.stockLocations.findActiveDefault(input.organizationId, input.locationId);
+    const existing = await this.stockLocations.findActiveDefault({ organizationId: input.organizationId, locationId: input.locationId });
     if (existing) return existing;
     const created = StockLocation.create({
       id: newId(),

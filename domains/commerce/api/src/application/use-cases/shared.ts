@@ -23,20 +23,18 @@ export async function requireLocation(core: CoreAccessPort, organizationId: stri
   return location;
 }
 
-export async function requireProduct(repo: ProductRepository, organizationId: string, id: string): Promise<Product> {
-  const product = await repo.findById(organizationId, id);
+export async function requireProduct(repo: ProductRepository, query: { id: string; organizationId: string }): Promise<Product> {
+  const product = await repo.findById(query);
   if (!product) throw new NotFoundError('Product');
   return product;
 }
 
+/** A stock location of another location counts as missing: its existence is not revealed. */
 export async function requireStockLocation(
   repo: StockLocationRepository,
-  organizationId: string,
-  id: string,
-  locationId?: string,
+  query: { id: string; organizationId: string; locationId: string },
 ): Promise<StockLocation> {
-  const found = await repo.findById(organizationId, id);
-  // Un lugar de otro local se trata como inexistente: no se revela que existe.
-  if (!found || (locationId !== undefined && found.locationId !== locationId)) throw new NotFoundError('Stock location');
+  const found = await repo.findById(query);
+  if (!found) throw new NotFoundError('Stock location');
   return found;
 }

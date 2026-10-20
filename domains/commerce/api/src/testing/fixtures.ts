@@ -19,7 +19,7 @@ export async function setup(overrides: { unit?: Unit } = {}) {
   await h.seedMovementReasons.execute(actor);
   const product = await h.createProduct.execute({ ...actor, name: 'Cerveza', unit: overrides.unit ?? 'bottle' });
   const reason = async (name: string) => {
-    const r = await h.reasons.findActiveByName(ORG, name);
+    const r = await h.reasons.findActiveByName({ organizationId: ORG, name });
     if (!r) throw new Error(`motivo ${name} no sembrado`);
     return r;
   };

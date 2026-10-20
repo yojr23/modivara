@@ -13,7 +13,7 @@ export class SeedMovementReasons {
   async execute(input: ActorContext): Promise<MovementReason[]> {
     const created: MovementReason[] = [];
     for (const seed of SEEDED_MOVEMENT_REASONS) {
-      if (await this.reasons.findActiveByName(input.organizationId, seed.name)) continue;
+      if (await this.reasons.findActiveByName({ organizationId: input.organizationId, name: seed.name })) continue;
       const reason = MovementReason.create({ ...seed, ...input, id: newId(), now: new Date() });
       await this.reasons.save(reason);
       created.push(reason);
