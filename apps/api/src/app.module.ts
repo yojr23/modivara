@@ -14,7 +14,7 @@ class HealthController {
 
 // El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio.
 @Module({
-  imports: [CoreModule, HospitalityModule, CommerceModule, AnalyticsModule],
+  imports: [CoreModule.forRoot(), HospitalityModule, CommerceModule, AnalyticsModule],
   controllers: [HealthController],
 })
 export class AppModule {}

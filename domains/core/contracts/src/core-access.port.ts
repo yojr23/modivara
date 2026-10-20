@@ -13,3 +13,6 @@ export interface LocationRef {
 export interface CoreAccessPort {
   getLocation(locationId: string): Promise<LocationRef | null>;
 }
+
+/** Token de inyección bajo el que `CoreModule` exporta el `CoreAccessPort`; otros dominios lo inyectan sin importar internos de core. */
+export const CORE_ACCESS_PORT = 'CORE_ACCESS_PORT';
