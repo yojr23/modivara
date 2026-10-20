@@ -41,7 +41,7 @@ describe('AcknowledgeCall / CompleteCall', () => {
   it('conflicto concurrente: el segundo en reconocer recibe el estado actual', async () => {
     w.calls.beforeSave = async () => {
       w.calls.beforeSave = undefined;
-      const other = (await w.calls.findById(callId, w.ctx.locationId))!;
+      const other = (await w.calls.findById({ ...w.ctx, id: callId }))!;
       other.acknowledge(crypto.randomUUID(), new Date());
       await w.calls.save(other);
     };
@@ -71,6 +71,6 @@ describe('ListActiveCalls', () => {
     expect(await w.listActive.execute(viewer({ permissions: new Set() }))).toEqual([]);
     // Un local que Core no reconoce se rechaza antes de listar.
     await expect(w.listActive.execute(viewer({ locationId: crypto.randomUUID() }))).rejects.toBeInstanceOf(LocationUnavailableError);
-    expect(canSeeCall(viewer(), (await w.calls.listActive(w.ctx.locationId))[0]!)).toBe(true);
+    expect(canSeeCall(viewer(), (await w.calls.listActive(w.ctx))[0]!)).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import type { CoreAccessPort } from '@modivara/core-contracts';
 import type { CallStatus, CallType, CallVisibility } from '@modivara/hospitality-contracts';
 import { canSeeCall } from '../domain/service-calls/visibility.js';
-import { type PermittedContext, requireActiveLocation } from './support.js';
+import { type PermittedContext, requireActiveLocation, scopeOf } from './support.js';
 import type { DiningTableRepository, ServiceCallRepository, ZoneRepository } from './ports/index.js';
 
 export interface ActiveCallView {
@@ -28,10 +28,10 @@ export class ListActiveCalls {
   // OPEN: la visibilidad vive en location_settings (DATA-001 §3) y aún no hay puerto para leerla; hoy es siempre 'all'.
   async execute(input: PermittedContext & { visibility?: CallVisibility }): Promise<ActiveCallView[]> {
     await requireActiveLocation(this.core, input);
-    const visible = (await this.calls.listActive(input.locationId)).filter((c) => canSeeCall(input, c, input.visibility ?? 'all'));
+    const visible = (await this.calls.listActive(scopeOf(input))).filter((c) => canSeeCall(input, c, input.visibility ?? 'all'));
     if (visible.length === 0) return [];
-    const tables = new Map((await this.tables.listByLocation(input.locationId)).map((t) => [t.id, t]));
-    const zones = new Map((await this.zones.listByLocation(input.locationId)).map((z) => [z.id, z]));
+    const tables = new Map((await this.tables.listByLocation(scopeOf(input))).map((t) => [t.id, t]));
+    const zones = new Map((await this.zones.listByLocation(scopeOf(input))).map((z) => [z.id, z]));
     return visible
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map((c) => {

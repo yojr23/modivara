@@ -3,7 +3,7 @@ import { Device } from '../domain/devices/device.js';
 import { DeviceAssignment } from '../domain/devices/device-assignment.js';
 import { DeviceAlreadyAssignedError, DuplicateError, NotFoundError } from '../domain/errors.js';
 import type { DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository } from './ports/index.js';
-import { type ActorContext, requireActiveLocation, owned, type TenantContext } from './support.js';
+import { type ActorContext, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
 
 export class RegisterDevice {
   constructor(
@@ -14,7 +14,7 @@ export class RegisterDevice {
   async execute(input: ActorContext & { code: string; model?: string | null }): Promise<Device> {
     await requireActiveLocation(this.core, input);
     const device = Device.create({ ...input, createdBy: input.actorUserId, now: new Date() });
-    if (await this.devices.findActiveByCode(input.locationId, device.code)) throw new DuplicateError('device');
+    if (await this.devices.findActiveByCode({ ...scopeOf(input), code: device.code })) throw new DuplicateError('device');
     await this.devices.save(device);
     return device;
   }
@@ -28,15 +28,15 @@ export class AssignDevice {
   ) {}
 
   async execute(input: ActorContext & { deviceId: string; tableId: string }): Promise<DeviceAssignment> {
-    const device = owned(await this.devices.findById(input.deviceId, input.locationId), input, 'device');
+    const device = owned(await this.devices.findById({ ...scopeOf(input), id: input.deviceId }), input, 'device');
     if (!device.isActive) throw new NotFoundError('device');
-    const table = owned(await this.tables.findById(input.tableId, input.locationId), input, 'table');
+    const table = owned(await this.tables.findById({ ...scopeOf(input), id: input.tableId }), input, 'table');
     if (!table.isActive) throw new NotFoundError('table');
     // Botón y mesa deben ser del mismo local; el tenant de la asignación sale de las entidades, no del input.
     if (device.locationId !== table.locationId || device.organizationId !== table.organizationId) throw new NotFoundError('table');
     // Un botón en una sola mesa a la vez; una mesa puede tener varios botones.
     // OPEN: ¿asignar un botón ya asignado debe moverlo en un paso? Por ahora se rechaza y hay que desasignarlo primero.
-    const current = await this.assignments.findActiveByDevice(device.id);
+    const current = await this.assignments.findActiveByDevice({ ...scopeOf(input), deviceId: device.id });
     if (current) throw new DeviceAlreadyAssignedError(current.tableId);
     const assignment = DeviceAssignment.create({
       organizationId: device.organizationId,
@@ -57,7 +57,7 @@ export class UnassignDevice {
   ) {}
 
   async execute(input: ActorContext & { deviceId: string }): Promise<DeviceAssignment> {
-    const assignment = owned(await this.assignments.findActiveByDevice(input.deviceId), input, 'device assignment');
+    const assignment = owned(await this.assignments.findActiveByDevice({ ...scopeOf(input), deviceId: input.deviceId }), input, 'device assignment');
     assignment.unassign(input.actorUserId, new Date());
     await this.assignments.save(assignment);
     return assignment;
@@ -81,7 +81,7 @@ export class ListUnknownDevices {
   async execute(input: TenantContext): Promise<UnknownDevice[]> {
     await requireActiveLocation(this.core, input);
     const byCode = new Map<string, UnknownDevice>();
-    for (const event of await this.events.listUnknown(input.locationId)) {
+    for (const event of await this.events.listUnknown(scopeOf(input))) {
       const seen = byCode.get(event.deviceCode);
       if (!seen) byCode.set(event.deviceCode, { deviceCode: event.deviceCode, pressCount: 1, lastReceivedAt: event.receivedAt });
       else {
@@ -91,7 +91,7 @@ export class ListUnknownDevices {
     }
     const result: UnknownDevice[] = [];
     for (const unknown of byCode.values()) {
-      if (!(await this.devices.findActiveByCode(input.locationId, unknown.deviceCode))) result.push(unknown);
+      if (!(await this.devices.findActiveByCode({ ...scopeOf(input), code: unknown.deviceCode }))) result.push(unknown);
     }
     return result.sort((a, b) => b.lastReceivedAt.getTime() - a.lastReceivedAt.getTime());
   }

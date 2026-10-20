@@ -16,12 +16,9 @@ import type {
   ServiceCallRepository,
   ZoneRepository,
 } from './ports/index.js';
-import { notifyAfterSave } from './support.js';
+import { notifyAfterSave, scopeOf } from './support.js';
 
 const MAX_ATTEMPTS = 3;
-
-const sameTenant = (e: { organizationId: string; locationId: string }, t: { organizationId: string; locationId: string }) =>
-  e.organizationId === t.organizationId && e.locationId === t.locationId;
 
 /** Flujo de una pulsación (DATA-001 §3). */
 export class RegisterButtonPress implements IoTInputPort {
@@ -66,8 +63,7 @@ export class RegisterButtonPress implements IoTInputPort {
       return { result, deviceEventId: eventId, serviceCallId };
     };
 
-    const found = await this.devices.findActiveByCode(press.locationId, press.deviceCode);
-    const device = found && sameTenant(found, press) ? found : null;
+    const device = await this.devices.findActiveByCode({ ...scopeOf(press), code: press.deviceCode });
     if (!device) return record('unknown_device', null, null);
 
     // DATA-001 §1: el local debe existir, estar activo y ser del negocio del gateway antes de crear o reutilizar llamados.
@@ -75,20 +71,19 @@ export class RegisterButtonPress implements IoTInputPort {
     const location = await findActiveLocation(this.core, press.organizationId, press.locationId);
     if (!location) return record('unassigned_device', device.id, null);
 
-    const assignment = await this.assignments.findActiveByDevice(device.id);
-    const candidate = assignment ? await this.tables.findById(assignment.tableId, press.locationId) : null;
-    const table = candidate && sameTenant(candidate, press) ? candidate : null;
+    const assignment = await this.assignments.findActiveByDevice({ ...scopeOf(press), deviceId: device.id });
+    const table = assignment ? await this.tables.findById({ ...scopeOf(press), id: assignment.tableId }) : null;
     if (!table?.isActive) return record('unassigned_device', device.id, null);
 
-    const last = await this.events.findLastPress(device.id, press.buttonKey);
+    const last = await this.events.findLastPress({ ...scopeOf(press), deviceId: device.id, buttonKey: press.buttonKey });
     // OPEN: ¿la señal es solo el botón (DATA-001 §3 literal) o botón + tecla? Se usa botón + tecla.
     if (isDebounced(last?.receivedAt ?? null, now)) return record('debounced', device.id, null);
 
-    const zone = table.zoneId ? await this.zones.findById(table.zoneId, press.locationId) : null;
+    const zone = table.zoneId ? await this.zones.findById({ ...scopeOf(press), id: table.zoneId }) : null;
 
     // ponytail: la base resuelve la carrera con el upsert atómico (DATA-001 §3); aquí se reintenta ante conflicto.
     for (let attempt = 1; ; attempt++) {
-      const active = await this.calls.findActive(table.id, press.callType);
+      const active = await this.calls.findActive({ ...scopeOf(press), tableId: table.id, callType: press.callType });
       const created = !active;
       const call =
         active ??

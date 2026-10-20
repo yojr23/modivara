@@ -6,8 +6,10 @@ import type {
   DeviceEventRepository,
   DeviceRepository,
   DiningTableRepository,
+  ById,
   GatewayRepository,
   NotificationPort,
+  Scope,
   ServiceCallRepository,
   ZoneRepository,
 } from '../application/ports/index.js';
@@ -21,6 +23,8 @@ import type { CallTransitionRecord } from '../domain/service-calls/transitions.j
 import { DiningTable } from '../domain/tables/dining-table.js';
 import { Zone } from '../domain/tables/zone.js';
 
+
+const inScope = (e: Scope, s: Scope) => e.organizationId === s.organizationId && e.locationId === s.locationId;
 
 /** Guarda `toProps()` y rehidrata con `restore`, igual que lo haría una base de datos. */
 class Store<T extends { id: string; toProps(): P }, P> {
@@ -38,21 +42,21 @@ export class InMemoryServiceCallRepository implements ServiceCallRepository {
   /** Para simular que otro usuario cambió la solicitud entre la lectura y el guardado. */
   beforeSave?: (call: ServiceCall) => Promise<void> | void;
 
-  async findById(id: string, locationId: string) {
+  async findById({ id, ...scope }: ById) {
     const c = this.store.get(id);
-    return c && c.locationId === locationId ? c : null;
+    return c && inScope(c, scope) ? c : null;
   }
-  async findActive(tableId: string, callType: CallType) {
-    return this.store.all().find((c) => c.tableId === tableId && c.callType === callType && c.isActive) ?? null;
+  async findActive({ tableId, callType, ...scope }: Scope & { tableId: string; callType: CallType }) {
+    return this.store.all().find((c) => inScope(c, scope) && c.tableId === tableId && c.callType === callType && c.isActive) ?? null;
   }
-  async listActive(locationId: string) {
-    return this.store.all().filter((c) => c.locationId === locationId && c.isActive);
+  async listActive(scope: Scope) {
+    return this.store.all().filter((c) => inScope(c, scope) && c.isActive);
   }
   async save(call: ServiceCall) {
     await this.beforeSave?.(call);
     const stored = this.store.get(call.id);
     if (!stored) {
-      const clash = await this.findActive(call.tableId, call.callType);
+      const clash = await this.findActive({ organizationId: call.organizationId, locationId: call.locationId, tableId: call.tableId, callType: call.callType });
       if (clash && call.isActive) throw new ConcurrencyConflictError(clash);
     } else if (stored.status !== call.persistedStatus) {
       throw new ConcurrencyConflictError(stored);
@@ -66,60 +70,60 @@ export class InMemoryServiceCallRepository implements ServiceCallRepository {
 
 export class InMemoryZoneRepository implements ZoneRepository {
   private readonly store = new Store(Zone.restore);
-  async findById(id: string, locationId: string) { const z = this.store.get(id); return z && z.locationId === locationId ? z : null; }
-  async findActiveByName(locationId: string, name: string) {
-    return this.store.all().find((z) => z.locationId === locationId && z.isActive && z.name.toLowerCase() === name.trim().toLowerCase()) ?? null;
+  async findById({ id, ...scope }: ById) { const z = this.store.get(id); return z && inScope(z, scope) ? z : null; }
+  async findActiveByName({ name, ...scope }: Scope & { name: string }) {
+    return this.store.all().find((z) => inScope(z, scope) && z.isActive && z.name.toLowerCase() === name.trim().toLowerCase()) ?? null;
   }
-  async listByLocation(locationId: string) { return this.store.all().filter((z) => z.locationId === locationId); }
+  async listByLocation(scope: Scope) { return this.store.all().filter((z) => inScope(z, scope)); }
   async save(zone: Zone) { this.store.put(zone); }
 }
 
 export class InMemoryDiningTableRepository implements DiningTableRepository {
   private readonly store = new Store(DiningTable.restore);
-  async findById(id: string, locationId: string) { const t = this.store.get(id); return t && t.locationId === locationId ? t : null; }
-  async findActiveByLabel(locationId: string, zoneId: string | null, label: string) {
+  async findById({ id, ...scope }: ById) { const t = this.store.get(id); return t && inScope(t, scope) ? t : null; }
+  async findActiveByLabel({ zoneId, label, ...scope }: Scope & { zoneId: string | null; label: string }) {
     return (
-      this.store.all().find((t) => t.locationId === locationId && t.isActive && t.zoneId === zoneId && t.label.toLowerCase() === label.trim().toLowerCase()) ?? null
+      this.store.all().find((t) => inScope(t, scope) && t.isActive && t.zoneId === zoneId && t.label.toLowerCase() === label.trim().toLowerCase()) ?? null
     );
   }
-  async listByLocation(locationId: string) { return this.store.all().filter((t) => t.locationId === locationId); }
+  async listByLocation(scope: Scope) { return this.store.all().filter((t) => inScope(t, scope)); }
   async save(table: DiningTable) { this.store.put(table); }
 }
 
 export class InMemoryDeviceRepository implements DeviceRepository {
   private readonly store = new Store(Device.restore);
-  async findById(id: string, locationId: string) { const d = this.store.get(id); return d && d.locationId === locationId ? d : null; }
-  async findActiveByCode(locationId: string, code: string) {
-    return this.store.all().find((d) => d.locationId === locationId && d.isActive && d.code === code) ?? null;
+  async findById({ id, ...scope }: ById) { const d = this.store.get(id); return d && inScope(d, scope) ? d : null; }
+  async findActiveByCode({ code, ...scope }: Scope & { code: string }) {
+    return this.store.all().find((d) => inScope(d, scope) && d.isActive && d.code === code) ?? null;
   }
   async save(device: Device) { this.store.put(device); }
 }
 
 export class InMemoryDeviceAssignmentRepository implements DeviceAssignmentRepository {
   private readonly store = new Store(DeviceAssignment.restore);
-  async findActiveByDevice(deviceId: string) { return this.store.all().find((a) => a.deviceId === deviceId && a.isActive) ?? null; }
-  async listActiveByTable(tableId: string) { return this.store.all().filter((a) => a.tableId === tableId && a.isActive); }
+  async findActiveByDevice({ deviceId, ...scope }: Scope & { deviceId: string }) { return this.store.all().find((a) => inScope(a, scope) && a.deviceId === deviceId && a.isActive) ?? null; }
+  async listActiveByTable({ tableId, ...scope }: Scope & { tableId: string }) { return this.store.all().filter((a) => inScope(a, scope) && a.tableId === tableId && a.isActive); }
   async save(assignment: DeviceAssignment) { this.store.put(assignment); }
   history() { return this.store.all(); }
 }
 
 export class InMemoryGatewayRepository implements GatewayRepository {
   private readonly store = new Store(Gateway.restore);
-  async findById(id: string) { return this.store.get(id); }
+  async findById({ id, ...scope }: ById) { const g = this.store.get(id); return g && inScope(g, scope) ? g : null; }
   async findByKeyHash(keyHash: string) { return this.store.all().find((g) => g.keyHash === keyHash) ?? null; }
-  async listByLocation(locationId: string) { return this.store.all().filter((g) => g.locationId === locationId); }
+  async listByLocation(scope: Scope) { return this.store.all().filter((g) => inScope(g, scope)); }
   async save(gateway: Gateway) { this.store.put(gateway); }
 }
 
 export class InMemoryDeviceEventRepository implements DeviceEventRepository {
   private readonly store = new Store(DeviceEvent.restore);
-  async findLastPress(deviceId: string, buttonKey: string | null) {
+  async findLastPress({ deviceId, buttonKey, ...scope }: Scope & { deviceId: string; buttonKey: string | null }) {
     const counted = this.store
       .all()
-      .filter((e) => e.deviceId === deviceId && e.buttonKey === buttonKey && (e.result === 'call_created' || e.result === 'repeat_press'));
+      .filter((e) => inScope(e, scope) && e.deviceId === deviceId && e.buttonKey === buttonKey && (e.result === 'call_created' || e.result === 'repeat_press'));
     return counted.sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime())[0] ?? null;
   }
-  async listUnknown(locationId: string) { return this.store.all().filter((e) => e.locationId === locationId && e.result === 'unknown_device'); }
+  async listUnknown(scope: Scope) { return this.store.all().filter((e) => inScope(e, scope) && e.result === 'unknown_device'); }
   async save(event: DeviceEvent) { this.store.put(event); }
   all() { return this.store.all(); }
 }

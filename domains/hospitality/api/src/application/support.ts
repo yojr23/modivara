@@ -12,6 +12,9 @@ export interface ActorContext extends TenantContext {
   actorUserId: string;
 }
 
+/** Solo el tenant: lo que acota toda consulta de un repositorio. */
+export const scopeOf = ({ organizationId, locationId }: TenantContext): TenantContext => ({ organizationId, locationId });
+
 /** Contexto común de los listados con permisos (convención de los 4 dominios). */
 export interface PermittedContext extends ActorContext {
   permissions: ReadonlySet<Permission>;

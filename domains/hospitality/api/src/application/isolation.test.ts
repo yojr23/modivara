@@ -93,4 +93,17 @@ describe('aislamiento por negocio y local', () => {
     expect(out.result).toBe('unknown_device');
     expect(w.calls.all()).toHaveLength(1);
   });
+
+  it('los repositorios acotan por negocio y local, no solo por local', async () => {
+    const other = { organizationId: crypto.randomUUID(), locationId: w.ctx.locationId };
+    expect(await w.calls.findById({ ...other, id: callId })).toBeNull();
+    expect(await w.calls.findActive({ ...other, tableId, callType: 'attention' })).toBeNull();
+    expect(await w.calls.listActive(other)).toEqual([]);
+    expect(await w.devices.findById({ ...other, id: deviceId })).toBeNull();
+    expect(await w.assignments.findActiveByDevice({ ...other, deviceId })).toBeNull();
+    expect(await w.assignments.listActiveByTable({ ...other, tableId })).toEqual([]);
+    expect(await w.gateways.findById({ ...other, id: gatewayId })).toBeNull();
+    expect(await w.events.findLastPress({ ...other, deviceId, buttonKey: null })).toBeNull();
+    expect(await w.calls.findActive({ ...w.ctx, tableId, callType: 'attention' })).not.toBeNull();
+  });
 });
