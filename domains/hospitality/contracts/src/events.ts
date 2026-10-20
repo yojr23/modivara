@@ -1,5 +1,6 @@
 import { defineEvent } from '@modivara/core-contracts';
 import { z } from 'zod';
+import { CALL_TYPES } from './enums.js';
 
 const instant = z.iso.datetime({ offset: true });
 
@@ -13,7 +14,7 @@ export const serviceCallCreatedEventSchema = defineEvent(
     table_label: z.string(),
     zone_id: z.uuid().nullable(),
     zone_name: z.string().nullable(),
-    call_type: z.enum(['attention']),
+    call_type: z.enum(CALL_TYPES),
     created_at: instant,
   }),
 );
@@ -48,7 +49,7 @@ export type ServiceCallAcknowledgedPayload = ServiceCallAcknowledgedEvent['paylo
 export type ServiceCallCompletedPayload = ServiceCallCompletedEvent['payload'];
 
 export const HOSPITALITY_EVENT_TYPES = {
-  serviceCallCreated: 'hospitality.service_call.created',
-  serviceCallAcknowledged: 'hospitality.service_call.acknowledged',
-  serviceCallCompleted: 'hospitality.service_call.completed',
+  serviceCallCreated: serviceCallCreatedEventSchema.shape.event_type.value,
+  serviceCallAcknowledged: serviceCallAcknowledgedEventSchema.shape.event_type.value,
+  serviceCallCompleted: serviceCallCompletedEventSchema.shape.event_type.value,
 } as const;

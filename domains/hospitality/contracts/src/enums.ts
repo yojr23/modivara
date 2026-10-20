@@ -19,5 +19,13 @@ export const TRANSPORTS = ['http', 'mqtt'] as const;
 export type Transport = (typeof TRANSPORTS)[number];
 
 /** Resultado de procesar una señal de botón (DATA-001 §3, `device_event_result`). */
-export const DEVICE_EVENT_RESULTS = ['call_created', 'repeat_press', 'debounced', 'unknown_device', 'unassigned_device'] as const;
+export const DEVICE_EVENT_RESULTS = [
+  'call_created',
+  'repeat_press',
+  'debounced',
+  'unknown_device',
+  'unassigned_device',
+  /** El local o su negocio está inactivo, o el local es de otro negocio. */
+  'location_inactive',
+] as const;
 export type DeviceEventResult = (typeof DEVICE_EVENT_RESULTS)[number];
