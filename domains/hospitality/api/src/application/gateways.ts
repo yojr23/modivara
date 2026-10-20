@@ -2,7 +2,7 @@ import type { CoreAccessPort } from '@modivara/core-contracts';
 import { Gateway } from '../domain/devices/gateway.js';
 import { NotFoundError } from '../domain/errors.js';
 import type { GatewayRepository } from './ports/index.js';
-import { type ActorContext, assertLocation, owned, type TenantContext } from './support.js';
+import { type ActorContext, requireActiveLocation, owned, type TenantContext } from './support.js';
 
 export class CreateGateway {
   constructor(
@@ -12,7 +12,7 @@ export class CreateGateway {
 
   /** `plainKey` se devuelve una sola vez; solo el hash SHA-256 queda guardado. */
   async execute(input: ActorContext & { name: string }): Promise<{ gateway: Gateway; plainKey: string }> {
-    await assertLocation(this.core, input);
+    await requireActiveLocation(this.core, input);
     const created = Gateway.create({ ...input, createdBy: input.actorUserId, now: new Date() });
     await this.gateways.save(created.gateway);
     return created;
@@ -48,7 +48,7 @@ export class GetConnectivity {
 
   /** `anyDisconnected` alimenta el aviso "Botones desconectados" del tablero. */
   async execute(input: TenantContext): Promise<{ gateways: GatewayConnectivity[]; anyDisconnected: boolean }> {
-    await assertLocation(this.core, input);
+    await requireActiveLocation(this.core, input);
     const now = new Date();
     const gateways = (await this.gateways.listByLocation(input.locationId))
       .filter((g) => g.isActive)

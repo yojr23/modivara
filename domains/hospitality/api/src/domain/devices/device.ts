@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '@modivara/core-contracts';
 import { ValidationError } from '../errors.js';
 
 export interface DeviceProps {
@@ -21,7 +21,7 @@ export class Device {
     const code = input.code.trim();
     if (!code) throw new ValidationError('Device code is required');
     return new Device({
-      id: randomUUID(),
+      id: newId(),
       organizationId: input.organizationId,
       locationId: input.locationId,
       code,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { serviceCallAcknowledgedEventSchema, serviceCallCompletedEventSchema, serviceCallCreatedEventSchema } from '@modivara/hospitality-contracts';
 import { ServiceCall } from '../domain/service-calls/service-call.js';
-import { toEventEnvelope } from './event-envelope.js';
+import { toEventEnvelope } from '@modivara/core-contracts';
 
 const uid = () => crypto.randomUUID();
 
@@ -13,11 +13,11 @@ describe('eventos del agregado vs contrato publicado', () => {
       table: { id: uid(), label: '5', zoneId: uid(), zoneName: 'Terraza' },
       callType: 'attention', deviceEventId: uid(), correlationId: uid(), now: new Date('2026-10-19T10:00:00Z'),
     });
-    expect(serviceCallCreatedEventSchema.safeParse(toEventEnvelope(c.events[0]!)).success).toBe(true);
-    c.markPersisted();
+    expect(serviceCallCreatedEventSchema.safeParse(toEventEnvelope(c.pullEvents()[0]!)).success).toBe(true);
     c.acknowledge(uid(), new Date('2026-10-19T10:00:01Z'));
     c.complete(uid(), new Date('2026-10-19T10:00:02Z'));
-    expect(serviceCallAcknowledgedEventSchema.safeParse(toEventEnvelope(c.events[0]!)).success).toBe(true);
-    expect(serviceCallCompletedEventSchema.safeParse(toEventEnvelope(c.events[1]!)).success).toBe(true);
+    const [ack, done] = c.pullEvents();
+    expect(serviceCallAcknowledgedEventSchema.safeParse(toEventEnvelope(ack!)).success).toBe(true);
+    expect(serviceCallCompletedEventSchema.safeParse(toEventEnvelope(done!)).success).toBe(true);
   });
 });

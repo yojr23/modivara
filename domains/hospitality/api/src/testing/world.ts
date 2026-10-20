@@ -33,7 +33,7 @@ export function buildWorld() {
   const assignments = new InMemoryDeviceAssignmentRepository();
   const gateways = new InMemoryGatewayRepository();
   const events = new InMemoryDeviceEventRepository();
-  const notifications = new RecordingNotifications();
+  const notifications = new RecordingNotifications((id) => calls.all().some((c) => c.id === id));
 
   const ctx = { organizationId, locationId, actorUserId };
   const press = (over: Partial<NormalizedPress> = {}): NormalizedPress => ({

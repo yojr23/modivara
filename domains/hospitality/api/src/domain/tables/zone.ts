@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '@modivara/core-contracts';
 import { ValidationError } from '../errors.js';
 
 export interface ZoneProps {
@@ -19,7 +19,7 @@ export class Zone {
     const name = input.name.trim();
     if (!name) throw new ValidationError('Zone name is required');
     return new Zone({
-      id: randomUUID(),
+      id: newId(),
       organizationId: input.organizationId,
       locationId: input.locationId,
       name,

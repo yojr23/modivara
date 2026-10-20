@@ -50,7 +50,7 @@ describe('RegisterButtonPress', () => {
     expect(w.calls.transitions).toMatchObject([{ action: 'create', deviceEventId: out.deviceEventId, serviceCallId: call!.id }]);
     expect(w.calls.outbox).toHaveLength(1);
     expect(w.calls.outbox[0]).toMatchObject({ eventType: 'hospitality.service_call.created', payload: { table_label: '5', zone_name: 'Terraza' } });
-    expect(w.notifications.sent).toEqual([{ change: 'created', callId: call!.id, persistedStatus: 'pending' }]);
+    expect(w.notifications.sent).toEqual([{ change: 'created', callId: call!.id, saved: true }]);
   });
 
   it('receivedAt viene del reloj del servidor; sentAt solo se conserva', async () => {

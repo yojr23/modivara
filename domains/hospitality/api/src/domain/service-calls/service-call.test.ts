@@ -26,23 +26,26 @@ describe('ServiceCall', () => {
     expect(c.status).toBe('pending');
     expect(c.pressCount).toBe(1);
     expect(c.persistedStatus).toBeNull();
-    expect(c.transitions).toHaveLength(1);
-    expect(c.transitions[0]).toMatchObject({ action: 'create', fromStatus: null, toStatus: 'pending', actorUserId: null });
+    const transitions = c.pullTransitions();
+    expect(transitions).toHaveLength(1);
+    expect(transitions[0]).toMatchObject({ action: 'create', fromStatus: null, toStatus: 'pending', actorUserId: null });
   });
 
   it('registerPress suma y actualiza lastPressAt sin transición ni evento nuevos', () => {
     const c = newCall();
-    c.markPersisted();
+    c.pullEvents();
+    c.pullTransitions();
     c.registerPress(at(10));
     expect(c.pressCount).toBe(2);
     expect(c.lastPressAt).toEqual(at(10));
-    expect(c.transitions).toHaveLength(0);
-    expect(c.events).toHaveLength(0);
+    expect(c.pullTransitions()).toHaveLength(0);
+    expect(c.pullEvents()).toHaveLength(0);
   });
 
   it('acknowledge -> complete registra actor, fechas, transiciones y eventos válidos', () => {
     const c = newCall();
-    c.markPersisted();
+    c.pullEvents();
+    c.pullTransitions();
     c.registerPress(at(5));
     c.acknowledge('u1', at(30));
     expect(c.status).toBe('in_progress');
@@ -50,8 +53,8 @@ describe('ServiceCall', () => {
     c.complete(uid(), at(60));
     expect(c.status).toBe('completed');
     expect(c.completedAt).toEqual(at(60));
-    expect(c.transitions.map((t) => t.action)).toEqual(['acknowledge', 'complete']);
-    expect(c.events[0]!.payload).toMatchObject({ press_count: 2 });
+    expect(c.pullTransitions().map((t) => t.action)).toEqual(['acknowledge', 'complete']);
+    expect(c.pullEvents()[0]!.payload).toMatchObject({ press_count: 2 });
   });
 
   it('completed es final', () => {
@@ -62,11 +65,11 @@ describe('ServiceCall', () => {
     expect(() => c.complete('u', at(3))).toThrow(InvalidTransitionError);
   });
 
-  it('markPersisted limpia pendientes y fija el estado cargado', () => {
+  it('pullEvents devuelve y vacía los pendientes; restore fija el estado cargado', () => {
     const c = newCall();
-    c.markPersisted();
-    expect(c.events).toHaveLength(0);
-    expect(c.persistedStatus).toBe('pending');
+    expect(c.pullEvents()).toHaveLength(1);
+    expect(c.pullEvents()).toHaveLength(0);
+    expect(ServiceCall.restore(c.toProps()).persistedStatus).toBe('pending');
   });
 });
 

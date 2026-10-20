@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '@modivara/core-contracts';
 import { InvalidStateError } from '../errors.js';
 
 export interface DeviceAssignmentProps {
@@ -19,7 +19,7 @@ export class DeviceAssignment {
 
   static create(input: { organizationId: string; locationId: string; deviceId: string; tableId: string; assignedBy: string; now: Date }): DeviceAssignment {
     return new DeviceAssignment({
-      id: randomUUID(),
+      id: newId(),
       organizationId: input.organizationId,
       locationId: input.locationId,
       deviceId: input.deviceId,

@@ -1,4 +1,4 @@
-import type { CoreAccessPort, LocationRef } from '@modivara/core-contracts';
+import type { CoreAccessPort, DomainEvent, LocationRef } from '@modivara/core-contracts';
 import type { CallType } from '@modivara/hospitality-contracts';
 import type {
   CallChange,
@@ -15,7 +15,6 @@ import { Device } from '../domain/devices/device.js';
 import { DeviceAssignment } from '../domain/devices/device-assignment.js';
 import { DeviceEvent } from '../domain/devices/device-event.js';
 import { Gateway } from '../domain/devices/gateway.js';
-import type { DomainEvent } from '../domain/domain-event.js';
 import { ConcurrencyConflictError } from '../domain/errors.js';
 import { ServiceCall } from '../domain/service-calls/service-call.js';
 import type { CallTransitionRecord } from '../domain/service-calls/transitions.js';
@@ -59,9 +58,8 @@ export class InMemoryServiceCallRepository implements ServiceCallRepository {
       throw new ConcurrencyConflictError(stored);
     }
     this.store.put(call);
-    this.transitions.push(...call.transitions.map((t) => ({ ...t, serviceCallId: call.id })));
-    this.outbox.push(...call.events);
-    call.markPersisted();
+    this.transitions.push(...call.pullTransitions().map((t) => ({ ...t, serviceCallId: call.id })));
+    this.outbox.push(...call.pullEvents());
   }
   all() { return this.store.all(); }
 }
@@ -127,12 +125,13 @@ export class InMemoryDeviceEventRepository implements DeviceEventRepository {
 }
 
 export class RecordingNotifications implements NotificationPort {
-  /** `persistedStatus` no nulo al avisar = el agregado ya estaba guardado. */
-  readonly sent: { change: CallChange; callId: string; persistedStatus: string | null }[] = [];
+  /** `saved`: el llamado ya existía en el repositorio al avisar (el aviso va después de guardar). */
+  readonly sent: { change: CallChange; callId: string; saved: boolean }[] = [];
   fail = false;
+  constructor(private readonly isSaved: (callId: string) => boolean = () => true) {}
   async callChanged(change: CallChange, call: ServiceCall) {
     if (this.fail) throw new Error('socket down');
-    this.sent.push({ change, callId: call.id, persistedStatus: call.persistedStatus });
+    this.sent.push({ change, callId: call.id, saved: this.isSaved(call.id) });
   }
 }
 

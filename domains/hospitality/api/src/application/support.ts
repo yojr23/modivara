@@ -1,4 +1,4 @@
-import type { CoreAccessPort } from '@modivara/core-contracts';
+import { type CoreAccessPort, findActiveLocation } from '@modivara/core-contracts';
 import { LocationUnavailableError, NotFoundError } from '../domain/errors.js';
 import type { CallChange, NotificationPort } from './ports/notification.port.js';
 import type { ServiceCall } from '../domain/service-calls/service-call.js';
@@ -13,11 +13,8 @@ export interface ActorContext extends TenantContext {
 }
 
 /** El local debe existir, estar activo y pertenecer a la organización autorizada (DATA-001 §1). */
-export async function assertLocation(core: CoreAccessPort, ctx: TenantContext): Promise<void> {
-  const location = await core.getLocation(ctx.locationId);
-  if (!location || !location.active || location.id !== ctx.locationId || location.organizationId !== ctx.organizationId) {
-    throw new LocationUnavailableError(ctx.locationId);
-  }
+export async function requireActiveLocation(core: CoreAccessPort, ctx: TenantContext): Promise<void> {
+  if (!(await findActiveLocation(core, ctx.organizationId, ctx.locationId))) throw new LocationUnavailableError();
 }
 
 /**

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '@modivara/core-contracts';
 import type { DeviceEventResult, Transport } from '@modivara/hospitality-contracts';
 
 export interface DeviceEventProps {
@@ -26,7 +26,7 @@ export class DeviceEvent {
   private constructor(private readonly props: DeviceEventProps) {}
 
   static create(input: Omit<DeviceEventProps, 'id' | 'serviceCallId'> & { id?: string; serviceCallId?: string | null }): DeviceEvent {
-    return new DeviceEvent({ ...input, id: input.id ?? randomUUID(), serviceCallId: input.serviceCallId ?? null });
+    return new DeviceEvent({ ...input, id: input.id ?? newId(), serviceCallId: input.serviceCallId ?? null });
   }
 
   static restore(props: DeviceEventProps): DeviceEvent {

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { AggregateRoot, type DomainEvent, newId } from '@modivara/core-contracts';
 import type {
   CallStatus,
   CallType,
@@ -6,7 +6,6 @@ import type {
   ServiceCallCompletedPayload,
   ServiceCallCreatedPayload,
 } from '@modivara/hospitality-contracts';
-import type { DomainEvent } from '../domain-event.js';
 import { type CallTransitionRecord, transition } from './transitions.js';
 
 export type ServiceCallDomainEvent =
@@ -50,17 +49,18 @@ export interface CreateServiceCallInput {
   now: Date;
 }
 
-export class ServiceCall {
-  private readonly pendingTransitions: CallTransitionRecord[] = [];
-  private readonly pendingEvents: ServiceCallDomainEvent[] = [];
+export class ServiceCall extends AggregateRoot {
+  private pendingTransitions: CallTransitionRecord[] = [];
 
   private constructor(
     private props: ServiceCallProps,
-    private loadedStatus: CallStatus | null,
-  ) {}
+    private readonly loadedStatus: CallStatus | null,
+  ) {
+    super();
+  }
 
   static create(input: CreateServiceCallInput): ServiceCall {
-    const id = randomUUID();
+    const id = newId();
     const call = new ServiceCall(
       {
         id,
@@ -88,7 +88,7 @@ export class ServiceCall {
       deviceEventId: input.deviceEventId,
       occurredAt: input.now,
     });
-    call.pendingEvents.push(
+    call.record(
       call.event('hospitality.service_call.created', input.correlationId, input.now, {
         service_call_id: id,
         table_id: input.table.id,
@@ -122,10 +122,15 @@ export class ServiceCall {
   get updatedAt() { return this.props.updatedAt; }
   get isActive() { return this.props.status !== 'completed'; }
 
-  /** Estado con el que se leyó de persistencia: el repositorio lo usa para detectar concurrencia. `null` si es nuevo. */
+  /** Estado con el que se leyó de persistencia: el repositorio lo usa para detectar concurrencia. `null` si es nuevo. Una instancia sirve para un solo guardado. */
   get persistedStatus(): CallStatus | null { return this.loadedStatus; }
-  get transitions(): readonly CallTransitionRecord[] { return this.pendingTransitions; }
-  get events(): readonly ServiceCallDomainEvent[] { return this.pendingEvents; }
+
+  /** Devuelve y vacía las transiciones pendientes; lo llama el repositorio junto con `pullEvents()` al persistir. */
+  pullTransitions(): CallTransitionRecord[] {
+    const pending = this.pendingTransitions;
+    this.pendingTransitions = [];
+    return pending;
+  }
 
   /** Nueva pulsación con la solicitud activa: suma sin crear transición ni evento (DATA-001 §3). */
   registerPress(now: Date): void {
@@ -134,45 +139,38 @@ export class ServiceCall {
     this.props.updatedAt = now;
   }
 
-  acknowledge(actorId: string, now: Date, correlationId: string = randomUUID()): void {
-    const t = transition(this.props, 'acknowledge', actorId, now);
+  acknowledge(actorUserId: string, now: Date, correlationId: string = newId()): void {
+    const t = transition(this.props, 'acknowledge', actorUserId, now);
     this.props.status = t.status;
     this.props.acknowledgedAt = now;
-    this.props.acknowledgedBy = actorId;
+    this.props.acknowledgedBy = actorUserId;
     this.props.updatedAt = now;
     this.pendingTransitions.push(t.record);
-    this.pendingEvents.push(
+    this.record(
       this.event('hospitality.service_call.acknowledged', correlationId, now, {
         service_call_id: this.id,
         acknowledged_at: now.toISOString(),
-        acknowledged_by: actorId,
+        acknowledged_by: actorUserId,
         press_count: this.pressCount,
       }),
     );
   }
 
-  complete(actorId: string, now: Date, correlationId: string = randomUUID()): void {
-    const t = transition(this.props, 'complete', actorId, now);
+  complete(actorUserId: string, now: Date, correlationId: string = newId()): void {
+    const t = transition(this.props, 'complete', actorUserId, now);
     this.props.status = t.status;
     this.props.completedAt = now;
-    this.props.completedBy = actorId;
+    this.props.completedBy = actorUserId;
     this.props.updatedAt = now;
     this.pendingTransitions.push(t.record);
-    this.pendingEvents.push(
+    this.record(
       this.event('hospitality.service_call.completed', correlationId, now, {
         service_call_id: this.id,
         completed_at: now.toISOString(),
-        completed_by: actorId,
+        completed_by: actorUserId,
         press_count: this.pressCount,
       }),
     );
-  }
-
-  /** Lo llama el repositorio tras confirmar la transacción. */
-  markPersisted(): void {
-    this.loadedStatus = this.props.status;
-    this.pendingTransitions.length = 0;
-    this.pendingEvents.length = 0;
   }
 
   toProps(): ServiceCallProps {
@@ -186,7 +184,7 @@ export class ServiceCall {
     payload: Extract<ServiceCallDomainEvent, { eventType: T }>['payload'],
   ) {
     return {
-      eventId: randomUUID(),
+      eventId: newId(),
       eventType,
       eventVersion: 1,
       occurredAt: at,

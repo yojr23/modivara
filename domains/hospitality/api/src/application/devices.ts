@@ -3,7 +3,7 @@ import { Device } from '../domain/devices/device.js';
 import { DeviceAssignment } from '../domain/devices/device-assignment.js';
 import { DeviceAlreadyAssignedError, DuplicateError, NotFoundError } from '../domain/errors.js';
 import type { DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository } from './ports/index.js';
-import { type ActorContext, assertLocation, owned, type TenantContext } from './support.js';
+import { type ActorContext, requireActiveLocation, owned, type TenantContext } from './support.js';
 
 export class RegisterDevice {
   constructor(
@@ -12,7 +12,7 @@ export class RegisterDevice {
   ) {}
 
   async execute(input: ActorContext & { code: string; model?: string | null }): Promise<Device> {
-    await assertLocation(this.core, input);
+    await requireActiveLocation(this.core, input);
     const device = Device.create({ ...input, createdBy: input.actorUserId, now: new Date() });
     if (await this.devices.findActiveByCode(input.locationId, device.code)) throw new DuplicateError('device');
     await this.devices.save(device);
@@ -79,7 +79,7 @@ export class ListUnknownDevices {
   ) {}
 
   async execute(input: TenantContext): Promise<UnknownDevice[]> {
-    await assertLocation(this.core, input);
+    await requireActiveLocation(this.core, input);
     const byCode = new Map<string, UnknownDevice>();
     for (const event of await this.events.listUnknown(input.locationId)) {
       const seen = byCode.get(event.deviceCode);

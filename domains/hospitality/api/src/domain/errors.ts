@@ -1,24 +1,8 @@
+import { DomainError } from '@modivara/core-contracts';
 import type { ServiceCall } from './service-calls/service-call.js';
 
-/** Base de los errores de dominio: el borde HTTP los traduce por `code`, nunca por mensaje. */
-export abstract class DomainError extends Error {
-  abstract readonly code: string;
-  constructor(message: string) {
-    super(message);
-    this.name = new.target.name;
-  }
-}
-
-export class ValidationError extends DomainError {
-  readonly code = 'validation';
-}
-
-export class NotFoundError extends DomainError {
-  readonly code = 'not_found';
-  constructor(readonly entity: string) {
-    super(`${entity} not found`);
-  }
-}
+// Errores comunes: los mismos de core-contracts, para que el borde HTTP traduzca igual en los 4 dominios.
+export { ConflictError, DomainError, LocationUnavailableError, NotFoundError, ValidationError } from '@modivara/core-contracts';
 
 /** Violación de unicidad entre filas activas (nombre de zona, etiqueta de mesa, código de botón). */
 export class DuplicateError extends DomainError {
@@ -40,13 +24,6 @@ export class InvalidTransitionError extends DomainError {
 
 export class InvalidStateError extends DomainError {
   readonly code = 'invalid_state';
-}
-
-export class LocationUnavailableError extends DomainError {
-  readonly code = 'location_unavailable';
-  constructor(readonly locationId: string) {
-    super(`Location ${locationId} does not exist, is inactive or belongs to another organization`);
-  }
 }
 
 export class DeviceAlreadyAssignedError extends DomainError {

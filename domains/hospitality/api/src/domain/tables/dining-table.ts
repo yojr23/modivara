@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '@modivara/core-contracts';
 import { ValidationError } from '../errors.js';
 
 export interface DiningTableProps {
@@ -26,7 +26,7 @@ export class DiningTable {
 
   static create(input: { organizationId: string; locationId: string; zoneId?: string | null; label: string; position?: number; createdBy: string; now: Date }): DiningTable {
     return new DiningTable({
-      id: randomUUID(),
+      id: newId(),
       organizationId: input.organizationId,
       locationId: input.locationId,
       zoneId: input.zoneId ?? null,
