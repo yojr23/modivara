@@ -30,7 +30,7 @@ export function resolveRange(spec: RangeSpec, now: Date, timeZone: string): Date
     case 'last_30_days':
       return { from: day(-29), to: day(1) };
     case 'custom': {
-      if (!spec.from || !spec.to) throw new RangeError('custom exige from y to');
+      if (!spec.from || !spec.to) throw new RangeError('custom range requires from and to');
       return {
         from: startOfLocalDay(parseLocalDate(spec.from), timeZone),
         to: startOfLocalDay(addDays(parseLocalDate(spec.to), 1), timeZone), // `to` inclusivo

@@ -1,6 +1,6 @@
+import { LocationUnavailableError, findActiveLocation } from '@modivara/core-contracts';
 import type { InventoryMetrics, InventoryMetricsQuery } from '@modivara/analytics-contracts';
 import { computeInventoryMetrics, resolveRange } from '../domain/index.js';
-import { LocationUnavailableError } from './errors.js';
 import type { CoreAccessPort, StockMovementFactRepository } from './ports/index.js';
 
 export interface GetInventoryMetricsInput {
@@ -16,8 +16,8 @@ export class GetInventoryMetrics {
   ) {}
 
   async execute(input: GetInventoryMetricsInput): Promise<InventoryMetrics> {
-    const location = await this.core.getLocation(input.locationId);
-    if (!location || location.organizationId !== input.organizationId) throw new LocationUnavailableError(input.locationId);
+    const location = await findActiveLocation(this.core, input.organizationId, input.locationId);
+    if (!location) throw new LocationUnavailableError();
 
     const { query } = input;
     const range = resolveRange(query, new Date(), location.timezone);

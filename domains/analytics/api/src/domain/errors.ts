@@ -1,13 +1,22 @@
-/** Base de los errores de dominio: `code` estable para que presentation los traduzca a HTTP. */
-export abstract class AnalyticsDomainError extends Error {
-  abstract readonly code: string;
-  constructor(message: string) {
+import { DomainError } from '@modivara/core-contracts';
+
+/** An event carries an organization/location different from the fact already projected for the same aggregate. */
+export class TenantMismatchError extends DomainError {
+  readonly code = 'tenant_mismatch';
+}
+
+/** The event does not match its contract (envelope or payload). */
+export class InvalidEventError extends DomainError {
+  readonly code = 'invalid_event';
+  constructor(
+    message: string,
+    readonly issues?: unknown,
+  ) {
     super(message);
-    this.name = new.target.name;
   }
 }
 
-/** Un evento trae un negocio/local distinto al del fact ya proyectado para el mismo agregado. */
-export class TenantMismatchError extends AnalyticsDomainError {
-  readonly code = 'tenant_mismatch';
+/** The event depends on another that has not arrived yet; retryable, the event must not be marked as processed. */
+export class EventOutOfOrderError extends DomainError {
+  readonly code = 'out_of_order';
 }

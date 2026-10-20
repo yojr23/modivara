@@ -1,5 +1,4 @@
 export * from './analytics-event-subscriber.js';
-export * from './errors.js';
 export * from './get-inventory-metrics.js';
 export * from './get-service-call-metrics.js';
 export * from './ports/index.js';

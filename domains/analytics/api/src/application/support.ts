@@ -1,12 +1,12 @@
 import { eventEnvelopeSchema } from '@modivara/core-contracts';
-import { InvalidEventError } from './errors.js';
+import { InvalidEventError } from '../domain/index.js';
 
 export type ProjectionResult = 'applied' | 'duplicate' | 'ignored';
 
 /** Lee tipo e id sin validar el payload, para deduplicar y enrutar antes del parseo completo. */
 export function readEnvelope(event: unknown): { eventId: string; eventType: string } {
   const r = eventEnvelopeSchema.safeParse(event);
-  if (!r.success) throw new InvalidEventError('Sobre de evento inválido', r.error.issues);
+  if (!r.success) throw new InvalidEventError('Invalid event envelope', r.error.issues);
   return { eventId: r.data.event_id, eventType: r.data.event_type };
 }
 
@@ -17,6 +17,6 @@ export interface Parser<T> {
 
 export function parseEvent<T>(schema: Parser<T>, event: unknown): T {
   const r = schema.safeParse(event);
-  if (!r.success) throw new InvalidEventError('Payload de evento inválido', r.error.issues);
+  if (!r.success) throw new InvalidEventError('Invalid event payload', r.error.issues);
   return r.data;
 }

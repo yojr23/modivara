@@ -165,6 +165,11 @@ describe('métricas de llamados', () => {
     await expect(run({ range: 'today' }, ORG, OTHER_LOC)).rejects.toMatchObject({ code: 'location_unavailable' });
     await expect(run({ range: 'today' }, ORG, uuid(999))).rejects.toMatchObject({ code: 'location_unavailable' });
   });
+  it('un local inactivo no se consulta', async () => {
+    const core = new InMemoryCoreAccess().add({ id: LOC, organizationId: ORG, timezone: 'America/Bogota', active: false });
+    await expect(new GetServiceCallMetrics(c.calls, core).execute({ organizationId: ORG, locationId: LOC, query: today })).rejects.toMatchObject({ code: 'location_unavailable' });
+    await expect(new GetInventoryMetrics(c.stocks, core).execute({ organizationId: ORG, locationId: LOC, query: today })).rejects.toMatchObject({ code: 'location_unavailable' });
+  });
 });
 
 describe('proyección e inventario', () => {

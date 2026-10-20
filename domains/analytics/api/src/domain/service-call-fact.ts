@@ -34,7 +34,7 @@ export class ServiceCallFact {
   /** Fact vacío a la espera de eventos. */
   static create(identity: { serviceCallId: string; organizationId: string; locationId: string }): ServiceCallFact {
     for (const [k, v] of Object.entries(identity)) {
-      if (!v) throw new RangeError(`ServiceCallFact: ${k} es obligatorio`);
+      if (!v) throw new RangeError(`ServiceCallFact: ${k} is required`);
     }
     return new ServiceCallFact({
       ...identity,
@@ -89,7 +89,7 @@ export class ServiceCallFact {
 
   assertTenant(organizationId: string, locationId: string): void {
     if (organizationId !== this.props.organizationId || locationId !== this.props.locationId) {
-      throw new TenantMismatchError(`El llamado ${this.props.serviceCallId} pertenece a otro negocio o local`);
+      throw new TenantMismatchError(`service call ${this.props.serviceCallId} belongs to another organization or location`);
     }
   }
 
