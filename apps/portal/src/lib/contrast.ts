@@ -11,6 +11,6 @@ export function luminance(hex: string): number {
 
 /** Ratio de contraste WCAG entre dos colores `#rrggbb` (1 a 21). */
 export function contrastRatio(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
