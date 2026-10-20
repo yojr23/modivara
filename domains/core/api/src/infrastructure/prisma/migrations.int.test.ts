@@ -1,6 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { corePrismaForTests, resetCore } from '../../testing/integration.js';
-
 // La base garantiza las invariantes de core aunque falle la aplicación (DATA-001 §2, F1-01).
 const db = corePrismaForTests();
 const sql = (q: string) => db.$executeRawUnsafe(q);
