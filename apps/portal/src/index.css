@@ -1,1 +1,113 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/manrope';
+@import '@fontsource-variable/inter';
+
+/* Colores base de BRAND-002 §9: no se modifican; solo cambia cómo se combinan. */
+@theme {
+  --color-ink: #101e33;
+  --color-connect: #1baa95;
+  --color-interface: #3865e9;
+  --color-warm: #f7fafc;
+  --color-graphite: #182338;
+  --color-amber: #e6a03d;
+
+  --font-display: 'Manrope Variable', 'Inter Variable', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+}
+
+/* Tokens semánticos: tema claro (administración) por defecto. */
+:root {
+  --bg: #f7fafc;
+  --surface: #ffffff;
+  --sunken: #eaf0f6;
+  --fg: #182338;
+  --fg-muted: #4a5a72;
+  --border: #d3dde9;
+  --border-strong: #75849a;
+  --link: #3865e9;
+  --focus: #3865e9;
+  --primary: #1baa95;
+  --primary-hover: #19a08c;
+  --primary-fg: #101e33;
+  --pending: #e6a03d;
+  --pending-fg: #101e33;
+  --attending: #3865e9;
+  --attending-fg: #ffffff;
+  --done: #ddf3ee;
+  --done-fg: #0b5f51;
+  /* OPEN: rojo de espera > 5 min no definido en BRAND-002; valor provisional. */
+  --danger: #b3261e;
+  --danger-fg: #ffffff;
+}
+
+/* Tema oscuro (tablero de barra). */
+[data-theme='dark'] {
+  --bg: #101e33;
+  --surface: #182338;
+  --sunken: #0b1626;
+  --fg: #f7fafc;
+  --fg-muted: #a3b2c8;
+  --border: #2b3b57;
+  --border-strong: #7287a6;
+  --link: #93abf8;
+  --focus: #93abf8;
+  --primary: #1baa95;
+  --primary-hover: #2bbfa9;
+  --primary-fg: #101e33;
+  --pending: #e6a03d;
+  --pending-fg: #101e33;
+  --attending: #3865e9;
+  --attending-fg: #ffffff;
+  --done: #123631;
+  --done-fg: #5fd8c3;
+  /* OPEN: rojo de espera > 5 min no definido en BRAND-002; valor provisional. */
+  --danger: #ff9c94;
+  --danger-fg: #101e33;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-link: var(--link);
+  --color-focus: var(--focus);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-pending: var(--pending);
+  --color-pending-fg: var(--pending-fg);
+  --color-attending: var(--attending);
+  --color-attending-fg: var(--attending-fg);
+  --color-done: var(--done);
+  --color-done-fg: var(--done-fg);
+  --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
+}
+
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes call-pulse {
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--pending) 35%, transparent); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .call-pending { animation: call-pulse 1.8s ease-in-out infinite; }
+}
