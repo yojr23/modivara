@@ -179,16 +179,16 @@ export class ServiceCall {
     return { ...this.props };
   }
 
-  private event<T extends ServiceCallDomainEvent['type']>(
-    type: T,
+  private event<T extends ServiceCallDomainEvent['eventType']>(
+    eventType: T,
     correlationId: string,
     at: Date,
-    payload: Extract<ServiceCallDomainEvent, { type: T }>['payload'],
+    payload: Extract<ServiceCallDomainEvent, { eventType: T }>['payload'],
   ) {
     return {
       eventId: randomUUID(),
-      type,
-      version: 1,
+      eventType,
+      eventVersion: 1,
       occurredAt: at,
       organizationId: this.organizationId,
       locationId: this.locationId,
@@ -196,6 +196,6 @@ export class ServiceCall {
       correlationId,
       causationId: null,
       payload,
-    } as Extract<ServiceCallDomainEvent, { type: T }>;
+    } as Extract<ServiceCallDomainEvent, { eventType: T }>;
   }
 }

@@ -1,8 +1,8 @@
 /** Evento de dominio pendiente de publicar; el repositorio lo escribe en el outbox en la misma transacción. */
 export interface DomainEvent<TType extends string = string, TPayload = unknown> {
   eventId: string;
-  type: TType;
-  version: number;
+  eventType: TType;
+  eventVersion: number;
   occurredAt: Date;
   organizationId: string;
   locationId: string;

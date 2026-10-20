@@ -49,7 +49,7 @@ describe('RegisterButtonPress', () => {
     expect(call).toMatchObject({ id: out.serviceCallId, tableId: table.id, status: 'pending', pressCount: 1 });
     expect(w.calls.transitions).toMatchObject([{ action: 'create', deviceEventId: out.deviceEventId, serviceCallId: call!.id }]);
     expect(w.calls.outbox).toHaveLength(1);
-    expect(w.calls.outbox[0]).toMatchObject({ type: 'hospitality.service_call.created', payload: { table_label: '5', zone_name: 'Terraza' } });
+    expect(w.calls.outbox[0]).toMatchObject({ eventType: 'hospitality.service_call.created', payload: { table_label: '5', zone_name: 'Terraza' } });
     expect(w.notifications.sent).toEqual([{ change: 'created', callId: call!.id, persistedStatus: 'pending' }]);
   });
 

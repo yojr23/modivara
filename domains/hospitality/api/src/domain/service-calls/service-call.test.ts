@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { serviceCallAcknowledgedEventSchema, serviceCallCompletedEventSchema, serviceCallCreatedEventSchema } from '@modivara/hospitality-contracts';
+import { toEventEnvelope } from '../../application/event-envelope.js';
 import { InvalidTransitionError } from '../errors.js';
 import { ServiceCall } from './service-call.js';
 import { isDebounced } from './debounce.js';
@@ -20,12 +21,6 @@ const newCall = () =>
     now: t0,
   });
 
-// Los eventos del agregado deben cumplir el contrato publicado.
-const toWire = (e: ServiceCall['events'][number]) => ({
-  event_id: e.eventId, event_type: e.type, event_version: e.version, occurred_at: e.occurredAt.toISOString(),
-  organization_id: e.organizationId, location_id: e.locationId, aggregate_id: e.aggregateId,
-  correlation_id: e.correlationId, causation_id: e.causationId, payload: e.payload,
-});
 
 describe('ServiceCall', () => {
   it('create: pending, pressCount 1, transición create y evento created válido', () => {
@@ -35,7 +30,7 @@ describe('ServiceCall', () => {
     expect(c.persistedStatus).toBeNull();
     expect(c.transitions).toHaveLength(1);
     expect(c.transitions[0]).toMatchObject({ action: 'create', fromStatus: null, toStatus: 'pending', actorUserId: null });
-    expect(serviceCallCreatedEventSchema.safeParse(toWire(c.events[0]!)).success).toBe(true);
+    expect(serviceCallCreatedEventSchema.safeParse(toEventEnvelope(c.events[0]!)).success).toBe(true);
   });
 
   it('registerPress suma y actualiza lastPressAt sin transición ni evento nuevos', () => {
@@ -68,8 +63,8 @@ describe('ServiceCall', () => {
     const u = uid();
     c.acknowledge(u, at(1));
     c.complete(u, at(2));
-    expect(serviceCallAcknowledgedEventSchema.safeParse(toWire(c.events[0]!)).success).toBe(true);
-    expect(serviceCallCompletedEventSchema.safeParse(toWire(c.events[1]!)).success).toBe(true);
+    expect(serviceCallAcknowledgedEventSchema.safeParse(toEventEnvelope(c.events[0]!)).success).toBe(true);
+    expect(serviceCallCompletedEventSchema.safeParse(toEventEnvelope(c.events[1]!)).success).toBe(true);
   });
 
   it('completed es final', () => {

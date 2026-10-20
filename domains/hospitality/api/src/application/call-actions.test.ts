@@ -22,7 +22,7 @@ describe('AcknowledgeCall / CompleteCall', () => {
     await w.complete.execute({ ...w.ctx, callId });
     expect(w.calls.all()[0]).toMatchObject({ status: 'completed', completedBy: w.ctx.actorId });
     expect(w.calls.transitions.map((t) => t.action)).toEqual(['create', 'acknowledge', 'complete']);
-    expect(w.calls.outbox.map((e) => e.type)).toEqual([
+    expect(w.calls.outbox.map((e) => e.eventType)).toEqual([
       'hospitality.service_call.created',
       'hospitality.service_call.acknowledged',
       'hospitality.service_call.completed',
