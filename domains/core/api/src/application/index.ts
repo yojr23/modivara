@@ -1,4 +1,4 @@
-export * from './actor.js';
+export type { ActorContext } from './actor.js';
 export * from './authenticate-session.js';
 export * from './change-password.js';
 export * from './core-access.service.js';
