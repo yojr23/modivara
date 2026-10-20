@@ -27,7 +27,7 @@ const REQUIRED: Permission[] = ['platform.organizations.manage', 'platform.locat
 export class ProvisionOrganization {
   constructor(private readonly admin: AdminTransactions) {}
 
-  execute(input: ProvisionOrganizationInput): Promise<ProvisionOrganizationOutput> {
+  async execute(input: ProvisionOrganizationInput): Promise<ProvisionOrganizationOutput> {
     const { actor } = input;
     if (!actor.isPlatform) throw new PermissionDeniedError(`${REQUIRED[0]} required`);
     const slug = customerSlugSchema.safeParse(input.slug);

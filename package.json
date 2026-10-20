@@ -13,6 +13,7 @@
     "check:separability": "node scripts/check-separability.mjs",
     "migration:new": "node scripts/new-migration.mjs",
     "test:integration": "docker compose --profile test up -d --wait db-test && vitest run --config vitest.integration.config.ts",
+    "seed:core": "pnpm --filter @modivara/api... build && node --env-file-if-exists=.env apps/api/dist/seed-core.js",
     "generate": "pnpm -r --if-present generate"
   },
   "devDependencies": {

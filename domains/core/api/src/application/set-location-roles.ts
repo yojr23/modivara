@@ -17,8 +17,12 @@ export class SetLocationRoles {
       const { location } = found;
 
       let membership = await tx.memberships.findActive({ organizationId: user.organizationId, userId: user.id, locationId: location.id });
-      if (membership) membership.setRoles(input.roles);
-      else membership = LocationMembership.create({ id: newId(), user, location, roles: input.roles });
+      if (membership) {
+        const before = [...membership.roles].sort().join();
+        membership.setRoles(input.roles);
+        // Mismos roles: nada que guardar ni auditar (el seed repite esta llamada).
+        if ([...membership.roles].sort().join() === before) return membership;
+      } else membership = LocationMembership.create({ id: newId(), user, location, roles: input.roles });
       await tx.memberships.save(membership);
       await tx.audit.record({
         id: newId(),
