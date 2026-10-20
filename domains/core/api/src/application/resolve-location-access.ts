@@ -25,7 +25,7 @@ export class ResolveLocationAccess {
       throw new NotFoundError('Location not found');
     }
 
-    const membership = actor.isPlatform ? null : await this.memberships.findActive(actor.userId, location.id);
+    const membership = actor.isPlatform ? null : await this.memberships.findActive(actor.actorUserId, location.id);
     return {
       location: { id: location.id, organizationId: location.organizationId, timezone: location.timezone, active: true },
       permissions: permissionsFor(membership?.roles ?? [], actor),

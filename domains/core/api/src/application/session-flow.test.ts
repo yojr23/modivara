@@ -32,6 +32,7 @@ describe('login / sesión', () => {
       expect(out.expiresAt).toEqual(new Date('2026-11-18T10:00:00Z'));
       const stored = [...w.sessions.items.values()][0]!;
       expect(stored.tokenHash).toBe(w.tokens.hash(out.token));
+      expect(out.actor.actorUserId).toBe(stored.userId);
     });
 
     it('normaliza username y slug', async () => {

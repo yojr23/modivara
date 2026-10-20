@@ -64,7 +64,7 @@ export class World {
   actorOf(user: AppUser, extra: Partial<ActorContext> = {}): ActorContext {
     const org = [this.platform, this.sol, this.luna].find((o) => o.id === user.organizationId)!;
     return {
-      userId: user.id,
+      actorUserId: user.id,
       organizationId: user.organizationId,
       isPlatform: org.isPlatform,
       isOwner: user.isOwner,

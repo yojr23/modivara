@@ -62,7 +62,7 @@ export class Login {
       displayName: user.displayName,
       username: user.username,
       actor: {
-        userId: user.id,
+        actorUserId: user.id,
         organizationId: user.organizationId,
         isPlatform: org.isPlatform,
         isOwner: user.isOwner,

@@ -22,7 +22,7 @@ export class AuthenticateSession {
     if (session.touch(now)) await this.sessions.save(session);
 
     return {
-      userId: user.id,
+      actorUserId: user.id,
       organizationId: user.organizationId,
       isPlatform: org.isPlatform,
       isOwner: user.isOwner,

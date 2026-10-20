@@ -10,7 +10,7 @@ export class ChangePassword {
   ) {}
 
   async execute(input: { actor: ActorContext; currentPassword: string; newPassword: string }): Promise<void> {
-    const user = await this.users.findById(input.actor.userId);
+    const user = await this.users.findById(input.actor.actorUserId);
     if (!user?.isActive) throw new NotFoundError('User not found');
     assertPasswordPolicy(input.newPassword);
     if (!(await this.hasher.verify(user.passwordHash, input.currentPassword))) throw new InvalidCredentialsError();

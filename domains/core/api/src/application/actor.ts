@@ -4,7 +4,7 @@ import type { MembershipRepository, UserRepository } from './ports/index.js';
 
 /** Quién hace la petición, ya autenticado. */
 export interface ActorContext {
-  userId: string;
+  actorUserId: string;
   organizationId: string;
   isPlatform: boolean;
   isOwner: boolean;
@@ -22,7 +22,7 @@ export function effectiveOrganizationId(actor: ActorContext): string {
 // dueño, o admin en cualquier local, gestiona todos los usuarios del negocio.
 export async function canManageUsers(actor: ActorContext, memberships: MembershipRepository): Promise<boolean> {
   if (actor.isPlatform || actor.isOwner) return true;
-  const own = await memberships.listActiveByUser(actor.userId);
+  const own = await memberships.listActiveByUser(actor.actorUserId);
   return own.some((m) => permissionsFor(m.roles, actor).has('core.users.manage' satisfies Permission));
 }
 
