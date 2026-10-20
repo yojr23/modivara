@@ -10,5 +10,5 @@ export * from './use-cases/get-balances.js';
 export * from './use-cases/list-movements.js';
 export * from './use-cases/register-movement.js';
 export * from './use-cases/seed-movement-reasons.js';
-export * from './use-cases/shared.js';
+export type { ActorContext, StockContext } from './use-cases/shared.js';
 export * from './use-cases/update-product.js';
