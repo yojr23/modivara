@@ -1,3 +1,5 @@
+import type { ServiceCall } from './service-calls/service-call.js';
+
 /** Base de los errores de dominio: el borde HTTP los traduce por `code`, nunca por mensaje. */
 export abstract class DomainError extends Error {
   abstract readonly code: string;
@@ -58,5 +60,13 @@ export class TableInUseError extends DomainError {
   readonly code = 'table_in_use';
   constructor() {
     super('Table still has devices assigned');
+  }
+}
+
+/** Otro usuario o señal cambió la solicitud antes de guardar: el borde responde 409 con el estado actual. */
+export class ConcurrencyConflictError extends DomainError {
+  readonly code = 'concurrency_conflict';
+  constructor(readonly current: ServiceCall | null) {
+    super('The service call was modified concurrently');
   }
 }

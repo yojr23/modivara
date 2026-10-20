@@ -1,0 +1,82 @@
+import type { CoreAccessPort } from '@modivara/core-contracts';
+import { DuplicateError, NotFoundError, TableInUseError } from '../domain/errors.js';
+import { DiningTable } from '../domain/tables/dining-table.js';
+import { Zone } from '../domain/tables/zone.js';
+import type { Clock, DeviceAssignmentRepository, DiningTableRepository, ZoneRepository } from './ports/index.js';
+import { type ActorContext, assertLocation } from './support.js';
+
+export class CreateZone {
+  constructor(
+    private readonly core: CoreAccessPort,
+    private readonly zones: ZoneRepository,
+    private readonly clock: Clock,
+  ) {}
+
+  async execute(input: ActorContext & { name: string; position?: number }): Promise<Zone> {
+    await assertLocation(this.core, input);
+    const zone = Zone.create({ ...input, createdBy: input.actorId, now: this.clock.now() });
+    if (await this.zones.findActiveByName(input.locationId, zone.name)) throw new DuplicateError('zone');
+    await this.zones.save(zone);
+    return zone;
+  }
+}
+
+export class CreateTable {
+  constructor(
+    private readonly core: CoreAccessPort,
+    private readonly zones: ZoneRepository,
+    private readonly tables: DiningTableRepository,
+    private readonly clock: Clock,
+  ) {}
+
+  async execute(input: ActorContext & { label: string; zoneId?: string | null; position?: number }): Promise<DiningTable> {
+    await assertLocation(this.core, input);
+    if (input.zoneId) {
+      const zone = await this.zones.findById(input.zoneId, input.locationId);
+      if (!zone?.isActive) throw new NotFoundError('zone');
+    }
+    const table = DiningTable.create({ ...input, createdBy: input.actorId, now: this.clock.now() });
+    // El mismo número puede repetirse en zonas distintas, no dentro de la misma (ni dos "sin zona").
+    if (await this.tables.findActiveByLabel(input.locationId, table.zoneId, table.label)) throw new DuplicateError('table');
+    await this.tables.save(table);
+    return table;
+  }
+}
+
+export class RenameTable {
+  constructor(
+    private readonly core: CoreAccessPort,
+    private readonly tables: DiningTableRepository,
+    private readonly clock: Clock,
+  ) {}
+
+  async execute(input: ActorContext & { tableId: string; label: string }): Promise<DiningTable> {
+    await assertLocation(this.core, input);
+    const table = await this.tables.findById(input.tableId, input.locationId);
+    if (!table?.isActive) throw new NotFoundError('table');
+    table.rename(input.label, input.actorId, this.clock.now());
+    const same = await this.tables.findActiveByLabel(input.locationId, table.zoneId, table.label);
+    if (same && same.id !== table.id) throw new DuplicateError('table');
+    await this.tables.save(table);
+    return table;
+  }
+}
+
+export class DeactivateTable {
+  constructor(
+    private readonly core: CoreAccessPort,
+    private readonly tables: DiningTableRepository,
+    private readonly assignments: DeviceAssignmentRepository,
+    private readonly clock: Clock,
+  ) {}
+
+  async execute(input: ActorContext & { tableId: string }): Promise<void> {
+    await assertLocation(this.core, input);
+    const table = await this.tables.findById(input.tableId, input.locationId);
+    if (!table?.isActive) throw new NotFoundError('table');
+    // OPEN: ¿desactivar una mesa debe desasignar sus botones solos? Por ahora se exige desasignarlos antes (más fácil de relajar).
+    if ((await this.assignments.listActiveByTable(table.id)).length > 0) throw new TableInUseError();
+    table.deactivate(input.actorId, this.clock.now());
+    await this.tables.save(table);
+  }
+}
