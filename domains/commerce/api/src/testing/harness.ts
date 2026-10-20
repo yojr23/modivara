@@ -13,7 +13,7 @@ import {
   SeedMovementReasons,
   UpdateProduct,
 } from '../application/index.js';
-import { FakeCoreAccess, SequentialIds } from './fakes.js';
+import { FakeCoreAccess } from './fakes.js';
 import { InMemoryMovementReasonRepository, InMemoryProductRepository, InMemoryStockLocationRepository } from './in-memory-repositories.js';
 import { InMemoryStockLedger } from './in-memory-stock-ledger.js';
 
@@ -24,17 +24,16 @@ export function createHarness() {
   const reasons = new InMemoryMovementReasonRepository();
   const ledger = new InMemoryStockLedger();
   const core = new FakeCoreAccess();
-  const ids = new SequentialIds();
-  const recorder = new MovementRecorder(products, stockLocations, reasons, ledger, core, ids);
+  const recorder = new MovementRecorder(products, stockLocations, reasons, ledger, core);
   return {
-    products, stockLocations, reasons, ledger, core, ids,
-    createProduct: new CreateProduct(products, ids),
+    products, stockLocations, reasons, ledger, core,
+    createProduct: new CreateProduct(products),
     updateProduct: new UpdateProduct(products),
     deactivateProduct: new DeactivateProduct(products),
-    ensureDefaultStockLocation: new EnsureDefaultStockLocation(stockLocations, core, ids),
-    createStockLocation: new CreateStockLocation(stockLocations, core, ids),
-    seedMovementReasons: new SeedMovementReasons(reasons, ids),
-    createMovementReason: new CreateMovementReason(reasons, ids),
+    ensureDefaultStockLocation: new EnsureDefaultStockLocation(stockLocations, core),
+    createStockLocation: new CreateStockLocation(stockLocations, core),
+    seedMovementReasons: new SeedMovementReasons(reasons),
+    createMovementReason: new CreateMovementReason(reasons),
     deactivateMovementReason: new DeactivateMovementReason(reasons),
     registerMovement: new RegisterMovement(recorder),
     adjustToCount: new AdjustToCount(recorder),

@@ -5,7 +5,7 @@ import type {
   StockLedger,
   StockQueries,
 } from '../application/ports/stock-ledger.port.js';
-import type { DomainEvent } from '../domain/domain-event.js';
+import type { DomainEvent } from '@modivara/core-contracts';
 import { StockBalance } from '../domain/stock-balance.js';
 import { type RegisterMovementInput, StockMovement } from '../domain/stock-movement.js';
 

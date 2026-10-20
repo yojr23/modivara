@@ -29,12 +29,12 @@ export class MovementReason {
 
   static create(input: CreateMovementReasonInput): MovementReason {
     if (!MOVEMENT_DIRECTIONS.includes(input.direction)) {
-      throw new InvalidValueError(`Dirección inválida: ${input.direction}`);
+      throw new InvalidValueError(`Invalid direction: ${input.direction}`);
     }
     return new MovementReason({
       id: input.id,
       organizationId: input.organizationId,
-      name: requireText('El nombre', input.name),
+      name: requireText('Name', input.name),
       direction: input.direction,
       deactivatedAt: null,
       createdAt: input.now,
@@ -55,7 +55,7 @@ export class MovementReason {
   get isActive() { return this.props.deactivatedAt === null; }
 
   deactivate(actorUserId: string, now: Date): void {
-    if (!this.isActive) throw new InactiveEntityError('El motivo ya está desactivado');
+    if (!this.isActive) throw new InactiveEntityError('Reason is already deactivated');
     this.props.deactivatedAt = now;
     this.props.updatedAt = now;
     this.props.updatedBy = actorUserId;

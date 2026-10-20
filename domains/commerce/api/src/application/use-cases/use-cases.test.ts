@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SEEDED_MOVEMENT_REASONS } from '@modivara/commerce-contracts';
-import { InsufficientStockError, InvalidQuantityError, ReasonDirectionMismatchError } from '../../domain/index.js';
+import { ConflictError, InsufficientStockError, InvalidQuantityError, LocationUnavailableError, NotFoundError, ReasonDirectionMismatchError } from '../../domain/index.js';
 import { LOC, ORG, OTHER_LOC, OTHER_ORG, setup, USER } from '../../testing/fixtures.js';
-import { ConflictError, LocationUnavailableError, NotFoundError } from '../errors.js';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
@@ -77,7 +76,7 @@ describe('motivos', () => {
     await h.deactivateMovementReason.execute({ ...actor, reasonId: reason.id });
     await expect(
       h.registerMovement.execute({ ...actor, stockLocationId: stockLocation.id, productId: product.id, direction: 'out', reasonId: reason.id, quantity: '1', idempotencyKey: idem() }),
-    ).rejects.toThrow(/desactivado/);
+    ).rejects.toThrow(/deactivated/);
   });
 });
 

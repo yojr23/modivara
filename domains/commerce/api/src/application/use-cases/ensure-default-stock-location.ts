@@ -1,6 +1,5 @@
-import type { CoreAccessPort } from '@modivara/core-contracts';
+import { type CoreAccessPort, newId } from '@modivara/core-contracts';
 import { StockLocation } from '../../domain/stock-location.js';
-import type { IdGenerator } from '../ports/id-generator.port.js';
 import type { StockLocationRepository } from '../ports/stock-location.repository.js';
 import { type StockContext, requireLocation } from './shared.js';
 
@@ -9,7 +8,6 @@ export class EnsureDefaultStockLocation {
   constructor(
     private readonly stockLocations: StockLocationRepository,
     private readonly core: CoreAccessPort,
-    private readonly ids: IdGenerator,
   ) {}
 
   async execute(input: StockContext): Promise<StockLocation> {
@@ -17,7 +15,7 @@ export class EnsureDefaultStockLocation {
     const existing = await this.stockLocations.findActiveDefault(input.organizationId, input.locationId);
     if (existing) return existing;
     const created = StockLocation.create({
-      id: this.ids.next(),
+      id: newId(),
       organizationId: input.organizationId,
       locationId: input.locationId,
       isDefault: true,

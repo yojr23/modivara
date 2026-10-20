@@ -33,13 +33,13 @@ export class Product {
   private constructor(private props: ProductProps) {}
 
   static create(input: CreateProductInput): Product {
-    if (!UNITS.includes(input.unit)) throw new InvalidValueError(`Unidad inválida: ${input.unit}`);
+    if (!UNITS.includes(input.unit)) throw new InvalidValueError(`Invalid unit: ${input.unit}`);
     return new Product({
       id: input.id,
       organizationId: input.organizationId,
-      name: requireText('El nombre', input.name),
-      sku: optionalText('El SKU', input.sku, SKU_MAX_LENGTH),
-      category: optionalText('La categoría', input.category),
+      name: requireText('Name', input.name),
+      sku: optionalText('SKU', input.sku, SKU_MAX_LENGTH),
+      category: optionalText('Category', input.category),
       unit: input.unit,
       deactivatedAt: null,
       createdAt: input.now,
@@ -70,9 +70,9 @@ export class Product {
   ): void {
     this.assertActive();
     const p = this.props;
-    if (changes.name !== undefined) p.name = requireText('El nombre', changes.name);
-    if (changes.sku !== undefined) p.sku = optionalText('El SKU', changes.sku, SKU_MAX_LENGTH);
-    if (changes.category !== undefined) p.category = optionalText('La categoría', changes.category);
+    if (changes.name !== undefined) p.name = requireText('Name', changes.name);
+    if (changes.sku !== undefined) p.sku = optionalText('SKU', changes.sku, SKU_MAX_LENGTH);
+    if (changes.category !== undefined) p.category = optionalText('Category', changes.category);
     p.updatedAt = now;
     p.updatedBy = actorUserId;
   }
@@ -89,6 +89,6 @@ export class Product {
   }
 
   private assertActive(): void {
-    if (!this.isActive) throw new InactiveEntityError('El producto está desactivado');
+    if (!this.isActive) throw new InactiveEntityError('Product is deactivated');
   }
 }

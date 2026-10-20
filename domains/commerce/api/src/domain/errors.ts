@@ -1,11 +1,6 @@
-/** Base de los errores de dominio: `code` estable para que presentation los traduzca a HTTP. */
-export abstract class DomainError extends Error {
-  abstract readonly code: string;
-  constructor(message: string) {
-    super(message);
-    this.name = new.target.name;
-  }
-}
+import { DomainError } from '@modivara/core-contracts';
+
+export { ConflictError, DomainError, LocationUnavailableError, NotFoundError, ValidationError } from '@modivara/core-contracts';
 
 export class InvalidQuantityError extends DomainError {
   readonly code = 'invalid_quantity';
@@ -19,8 +14,9 @@ export class InvalidValueError extends DomainError {
 export class InactiveEntityError extends DomainError {
   readonly code = 'inactive_entity';
 }
-export class OrganizationMismatchError extends DomainError {
-  readonly code = 'organization_mismatch';
+/** Product, stock location, reason and balance do not share business/location. */
+export class ScopeMismatchError extends DomainError {
+  readonly code = 'scope_mismatch';
 }
 export class InvalidMovementError extends DomainError {
   readonly code = 'invalid_movement';

@@ -1,7 +1,7 @@
-import type { CoreAccessPort, LocationRef } from '@modivara/core-contracts';
+import { type CoreAccessPort, findActiveLocation, type LocationRef } from '@modivara/core-contracts';
 import type { Product } from '../../domain/product.js';
 import type { StockLocation } from '../../domain/stock-location.js';
-import { LocationUnavailableError, NotFoundError } from '../errors.js';
+import { LocationUnavailableError, NotFoundError } from '../../domain/errors.js';
 import type { ProductRepository } from '../ports/product.repository.js';
 import type { StockLocationRepository } from '../ports/stock-location.repository.js';
 
@@ -18,16 +18,14 @@ export interface StockContext extends ActorContext {
 
 /** Valida el local con Core (DATA-001 §1): existe, está activo y es del negocio. */
 export async function requireLocation(core: CoreAccessPort, organizationId: string, locationId: string): Promise<LocationRef> {
-  const location = await core.getLocation(locationId);
-  if (!location || !location.active || location.organizationId !== organizationId) {
-    throw new LocationUnavailableError('El local no existe, está inactivo o no pertenece al negocio');
-  }
+  const location = await findActiveLocation(core, organizationId, locationId);
+  if (!location) throw new LocationUnavailableError();
   return location;
 }
 
 export async function requireProduct(repo: ProductRepository, organizationId: string, id: string): Promise<Product> {
   const product = await repo.findById(organizationId, id);
-  if (!product) throw new NotFoundError('Producto no encontrado');
+  if (!product) throw new NotFoundError('Product');
   return product;
 }
 
@@ -39,6 +37,6 @@ export async function requireStockLocation(
 ): Promise<StockLocation> {
   const found = await repo.findById(organizationId, id);
   // Un lugar de otro local se trata como inexistente: no se revela que existe.
-  if (!found || (locationId !== undefined && found.locationId !== locationId)) throw new NotFoundError('Lugar de stock no encontrado');
+  if (!found || (locationId !== undefined && found.locationId !== locationId)) throw new NotFoundError('Stock location');
   return found;
 }

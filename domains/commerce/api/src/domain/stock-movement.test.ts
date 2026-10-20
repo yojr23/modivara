@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OTHER_ORG, setup, USER } from '../testing/fixtures.js';
-import { InvalidMovementError, InactiveEntityError, InsufficientStockError, OrganizationMismatchError, ReasonDirectionMismatchError } from './errors.js';
+import { InvalidMovementError, InactiveEntityError, InsufficientStockError, ScopeMismatchError, ReasonDirectionMismatchError } from './errors.js';
 import type { MovementReason } from './movement-reason.js';
 import { Quantity } from './quantity.js';
 import { StockBalance } from './stock-balance.js';
@@ -109,6 +109,6 @@ describe('StockMovement.register', () => {
   it('rechaza un motivo de otro negocio', async () => {
     const s = await scenario();
     const foreign = await s.h.createMovementReason.execute({ organizationId: OTHER_ORG, actorUserId: USER, name: 'Compra', direction: 'in' });
-    await expect(s.register(foreign, { kind: 'in', quantity: Quantity.parse('1') })).rejects.toThrow(OrganizationMismatchError);
+    await expect(s.register(foreign, { kind: 'in', quantity: Quantity.parse('1') })).rejects.toThrow(ScopeMismatchError);
   });
 });

@@ -36,7 +36,7 @@ export class StockLocation {
       id: input.id,
       organizationId: input.organizationId,
       locationId: input.locationId,
-      name: requireText('El nombre', input.name ?? (isDefault ? DEFAULT_STOCK_LOCATION_NAME : '')),
+      name: requireText('Name', input.name ?? (isDefault ? DEFAULT_STOCK_LOCATION_NAME : '')),
       isDefault,
       deactivatedAt: null,
       createdAt: input.now,
@@ -58,7 +58,7 @@ export class StockLocation {
   get isActive() { return this.props.deactivatedAt === null; }
 
   assertActive(): void {
-    if (!this.isActive) throw new InactiveEntityError('El lugar de stock está desactivado');
+    if (!this.isActive) throw new InactiveEntityError('Stock location is deactivated');
   }
 
   toProps(): StockLocationProps {

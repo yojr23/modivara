@@ -1,14 +1,4 @@
 import type { CoreAccessPort, LocationRef } from '@modivara/core-contracts';
-import type { IdGenerator } from '../application/ports/id-generator.port.js';
-
-/** Ids con forma de uuid y orden predecible. */
-export class SequentialIds implements IdGenerator {
-  private n = 0;
-  next(): string {
-    this.n += 1;
-    return `00000000-0000-4000-8000-${String(this.n).padStart(12, '0')}`;
-  }
-}
 
 export class FakeCoreAccess implements CoreAccessPort {
   private readonly locations = new Map<string, LocationRef>();

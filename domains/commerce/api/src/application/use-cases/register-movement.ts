@@ -1,9 +1,8 @@
-import type { CoreAccessPort } from '@modivara/core-contracts';
+import { type CoreAccessPort, newId } from '@modivara/core-contracts';
 import type { MovementDirection } from '@modivara/commerce-contracts';
 import type { MovementChange } from '../../domain/stock-movement.js';
 import { Quantity } from '../../domain/quantity.js';
-import { NotFoundError } from '../errors.js';
-import type { IdGenerator } from '../ports/id-generator.port.js';
+import { NotFoundError } from '../../domain/errors.js';
 import type { MovementReasonRepository } from '../ports/movement-reason.repository.js';
 import type { ProductRepository } from '../ports/product.repository.js';
 import type { RecordedMovement, StockLedger } from '../ports/stock-ledger.port.js';
@@ -32,7 +31,6 @@ export class MovementRecorder {
     private readonly reasons: MovementReasonRepository,
     private readonly ledger: StockLedger,
     private readonly core: CoreAccessPort,
-    private readonly ids: IdGenerator,
   ) {}
 
   async record(target: MovementTarget, change: MovementChange): Promise<RecordedMovement> {
@@ -41,11 +39,11 @@ export class MovementRecorder {
     const stockLocation = await requireStockLocation(this.stockLocations, organizationId, target.stockLocationId, locationId);
     const product = await requireProduct(this.products, organizationId, target.productId);
     const reason = await this.reasons.findById(organizationId, target.reasonId);
-    if (!reason) throw new NotFoundError('Motivo no encontrado');
+    if (!reason) throw new NotFoundError('Movement reason');
 
     return this.ledger.record({
-      id: this.ids.next(),
-      eventId: this.ids.next(),
+      id: newId(),
+      eventId: newId(),
       product,
       stockLocation,
       reason,

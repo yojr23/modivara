@@ -4,7 +4,7 @@ import { InvalidValueError } from './errors.js';
 /** Texto obligatorio, recortado y acotado. */
 export function requireText(label: string, value: string, max = NAME_MAX_LENGTH): string {
   const v = value.trim();
-  if (v.length === 0 || v.length > max) throw new InvalidValueError(`${label} debe tener entre 1 y ${max} caracteres`);
+  if (v.length === 0 || v.length > max) throw new InvalidValueError(`${label} must be 1 to ${max} characters long`);
   return v;
 }
 

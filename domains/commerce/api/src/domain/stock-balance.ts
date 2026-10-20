@@ -34,7 +34,7 @@ export class StockBalance {
     const next = this.props.quantity.plus(delta);
     // ponytail: sin negativos mientras se escala (TECH-001 §16.8); si cambia, quitar esta guarda y el CHECK.
     if (next.isNegative()) {
-      throw new InsufficientStockError(`Saldo insuficiente: hay ${this.props.quantity}, se pidió ${delta.negate()}`);
+      throw new InsufficientStockError(`Insufficient stock: ${this.props.quantity} on hand, ${delta.negate()} requested`);
     }
     this.props.quantity = next;
     this.props.updatedAt = now;
