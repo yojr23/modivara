@@ -16,7 +16,6 @@ import {
   InMemoryServiceCallRepository,
   InMemoryZoneRepository,
   RecordingNotifications,
-  testClock,
 } from './in-memory.js';
 
 /** Todo el dominio cableado con dobles en memoria, para las pruebas de aplicación. */
@@ -35,7 +34,6 @@ export function buildWorld() {
   const gateways = new InMemoryGatewayRepository();
   const events = new InMemoryDeviceEventRepository();
   const notifications = new RecordingNotifications();
-  const clock = testClock;
 
   const ctx = { organizationId, locationId, actorId };
   const press = (over: Partial<NormalizedPress> = {}): NormalizedPress => ({
@@ -53,19 +51,19 @@ export function buildWorld() {
 
   return {
     ctx, press, core, calls, zones, tables, devices, assignments, gateways, events, notifications,
-    registerPress: new RegisterButtonPress(devices, assignments, tables, zones, calls, events, notifications, clock),
-    acknowledge: new AcknowledgeCall(calls, notifications, clock),
-    complete: new CompleteCall(calls, notifications, clock),
-    createZone: new CreateZone(core, zones, clock),
-    createTable: new CreateTable(core, zones, tables, clock),
-    renameTable: new RenameTable(core, tables, clock),
-    deactivateTable: new DeactivateTable(core, tables, assignments, clock),
-    registerDevice: new RegisterDevice(core, devices, clock),
-    assignDevice: new AssignDevice(devices, tables, assignments, clock),
-    unassignDevice: new UnassignDevice(assignments, clock),
-    createGateway: new CreateGateway(core, gateways, clock),
-    heartbeat: new RecordHeartbeat(gateways, clock),
-    connectivity: new GetConnectivity(gateways, clock),
+    registerPress: new RegisterButtonPress(devices, assignments, tables, zones, calls, events, notifications),
+    acknowledge: new AcknowledgeCall(calls, notifications),
+    complete: new CompleteCall(calls, notifications),
+    createZone: new CreateZone(core, zones),
+    createTable: new CreateTable(core, zones, tables),
+    renameTable: new RenameTable(core, tables),
+    deactivateTable: new DeactivateTable(core, tables, assignments),
+    registerDevice: new RegisterDevice(core, devices),
+    assignDevice: new AssignDevice(devices, tables, assignments),
+    unassignDevice: new UnassignDevice(assignments),
+    createGateway: new CreateGateway(core, gateways),
+    heartbeat: new RecordHeartbeat(gateways),
+    connectivity: new GetConnectivity(gateways),
     listActive: new ListActiveCalls(calls, tables, zones),
     listUnknown: new ListUnknownDevices(events, devices),
   };

@@ -5,7 +5,6 @@ import { ConcurrencyConflictError } from '../domain/errors.js';
 import { isDebounced } from '../domain/service-calls/debounce.js';
 import { ServiceCall } from '../domain/service-calls/service-call.js';
 import type {
-  Clock,
   DeviceAssignmentRepository,
   DeviceEventRepository,
   DeviceRepository,
@@ -31,7 +30,6 @@ export class RegisterButtonPress implements IoTInputPort {
     private readonly calls: ServiceCallRepository,
     private readonly events: DeviceEventRepository,
     private readonly notifications: NotificationPort,
-    private readonly clock: Clock,
   ) {}
 
   async registerPress(press: NormalizedPress): Promise<PressOutcome> {
@@ -39,7 +37,7 @@ export class RegisterButtonPress implements IoTInputPort {
   }
 
   async execute(press: NormalizedPress): Promise<PressOutcome> {
-    const now = this.clock.now();
+    const now = new Date();
     const eventId = randomUUID();
     const correlationId = press.correlationId ?? randomUUID();
     const record = async (result: DeviceEventResult, deviceId: string | null, serviceCallId: string | null) => {

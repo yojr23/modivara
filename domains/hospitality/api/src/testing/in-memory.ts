@@ -2,7 +2,6 @@ import type { CoreAccessPort, LocationRef } from '@modivara/core-contracts';
 import type { CallType } from '@modivara/hospitality-contracts';
 import type {
   CallChange,
-  Clock,
   DeviceAssignmentRepository,
   DeviceEventRepository,
   DeviceRepository,
@@ -23,8 +22,6 @@ import type { CallTransitionRecord } from '../domain/service-calls/transitions.j
 import { DiningTable } from '../domain/tables/dining-table.js';
 import { Zone } from '../domain/tables/zone.js';
 
-/** Reloj que sigue a `Date`, para usarlo con `vi.useFakeTimers()` / `vi.setSystemTime()`. */
-export const testClock: Clock = { now: () => new Date() };
 
 /** Guarda `toProps()` y rehidrata con `restore`, igual que lo haría una base de datos. */
 class Store<T extends { id: string; toProps(): P }, P> {

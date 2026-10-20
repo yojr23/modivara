@@ -2,19 +2,18 @@ import type { CoreAccessPort } from '@modivara/core-contracts';
 import { Device } from '../domain/devices/device.js';
 import { DeviceAssignment } from '../domain/devices/device-assignment.js';
 import { DeviceAlreadyAssignedError, DuplicateError, NotFoundError } from '../domain/errors.js';
-import type { Clock, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository } from './ports/index.js';
+import type { DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository } from './ports/index.js';
 import { type ActorContext, assertLocation, type TenantContext } from './support.js';
 
 export class RegisterDevice {
   constructor(
     private readonly core: CoreAccessPort,
     private readonly devices: DeviceRepository,
-    private readonly clock: Clock,
   ) {}
 
   async execute(input: ActorContext & { code: string; model?: string | null }): Promise<Device> {
     await assertLocation(this.core, input);
-    const device = Device.create({ ...input, createdBy: input.actorId, now: this.clock.now() });
+    const device = Device.create({ ...input, createdBy: input.actorId, now: new Date() });
     if (await this.devices.findActiveByCode(input.locationId, device.code)) throw new DuplicateError('device');
     await this.devices.save(device);
     return device;
@@ -26,7 +25,6 @@ export class AssignDevice {
     private readonly devices: DeviceRepository,
     private readonly tables: DiningTableRepository,
     private readonly assignments: DeviceAssignmentRepository,
-    private readonly clock: Clock,
   ) {}
 
   async execute(input: ActorContext & { deviceId: string; tableId: string }): Promise<DeviceAssignment> {
@@ -38,7 +36,7 @@ export class AssignDevice {
     // OPEN: ¿asignar un botón ya asignado debe moverlo en un paso? Por ahora se rechaza y hay que desasignarlo primero.
     const current = await this.assignments.findActiveByDevice(device.id);
     if (current) throw new DeviceAlreadyAssignedError(current.tableId);
-    const assignment = DeviceAssignment.create({ ...input, assignedBy: input.actorId, now: this.clock.now() });
+    const assignment = DeviceAssignment.create({ ...input, assignedBy: input.actorId, now: new Date() });
     await this.assignments.save(assignment);
     return assignment;
   }
@@ -47,13 +45,12 @@ export class AssignDevice {
 export class UnassignDevice {
   constructor(
     private readonly assignments: DeviceAssignmentRepository,
-    private readonly clock: Clock,
   ) {}
 
   async execute(input: ActorContext & { deviceId: string }): Promise<DeviceAssignment> {
     const assignment = await this.assignments.findActiveByDevice(input.deviceId);
     if (!assignment || assignment.locationId !== input.locationId) throw new NotFoundError('device assignment');
-    assignment.unassign(input.actorId, this.clock.now());
+    assignment.unassign(input.actorId, new Date());
     await this.assignments.save(assignment);
     return assignment;
   }
