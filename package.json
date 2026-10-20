@@ -10,7 +10,10 @@
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test && vitest run scripts",
-    "check:separability": "node scripts/check-separability.mjs"
+    "check:separability": "node scripts/check-separability.mjs",
+    "migration:new": "node scripts/new-migration.mjs",
+    "test:integration": "docker compose --profile test up -d --wait db-test && vitest run --config vitest.integration.config.ts",
+    "generate": "pnpm -r --if-present generate"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
