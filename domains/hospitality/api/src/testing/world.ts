@@ -63,9 +63,9 @@ export function buildWorld() {
     unassignDevice: new UnassignDevice(assignments),
     createGateway: new CreateGateway(core, gateways),
     heartbeat: new RecordHeartbeat(gateways),
-    connectivity: new GetConnectivity(gateways),
-    listActive: new ListActiveCalls(calls, tables, zones),
-    listUnknown: new ListUnknownDevices(events, devices),
+    connectivity: new GetConnectivity(core, gateways),
+    listActive: new ListActiveCalls(core, calls, tables, zones),
+    listUnknown: new ListUnknownDevices(events, devices, core),
   };
 }
 

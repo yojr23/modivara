@@ -3,7 +3,7 @@ import { DuplicateError, NotFoundError, TableInUseError } from '../domain/errors
 import { DiningTable } from '../domain/tables/dining-table.js';
 import { Zone } from '../domain/tables/zone.js';
 import type { DeviceAssignmentRepository, DiningTableRepository, ZoneRepository } from './ports/index.js';
-import { type ActorContext, assertLocation } from './support.js';
+import { type ActorContext, assertLocation, owned } from './support.js';
 
 export class CreateZone {
   constructor(
@@ -30,8 +30,8 @@ export class CreateTable {
   async execute(input: ActorContext & { label: string; zoneId?: string | null; position?: number }): Promise<DiningTable> {
     await assertLocation(this.core, input);
     if (input.zoneId) {
-      const zone = await this.zones.findById(input.zoneId, input.locationId);
-      if (!zone?.isActive) throw new NotFoundError('zone');
+      const zone = owned(await this.zones.findById(input.zoneId, input.locationId), input, 'zone');
+      if (!zone.isActive) throw new NotFoundError('zone');
     }
     const table = DiningTable.create({ ...input, createdBy: input.actorId, now: new Date() });
     // El mismo número puede repetirse en zonas distintas, no dentro de la misma (ni dos "sin zona").
@@ -49,8 +49,8 @@ export class RenameTable {
 
   async execute(input: ActorContext & { tableId: string; label: string }): Promise<DiningTable> {
     await assertLocation(this.core, input);
-    const table = await this.tables.findById(input.tableId, input.locationId);
-    if (!table?.isActive) throw new NotFoundError('table');
+    const table = owned(await this.tables.findById(input.tableId, input.locationId), input, 'table');
+    if (!table.isActive) throw new NotFoundError('table');
     table.rename(input.label, input.actorId, new Date());
     const same = await this.tables.findActiveByLabel(input.locationId, table.zoneId, table.label);
     if (same && same.id !== table.id) throw new DuplicateError('table');
@@ -68,8 +68,8 @@ export class DeactivateTable {
 
   async execute(input: ActorContext & { tableId: string }): Promise<void> {
     await assertLocation(this.core, input);
-    const table = await this.tables.findById(input.tableId, input.locationId);
-    if (!table?.isActive) throw new NotFoundError('table');
+    const table = owned(await this.tables.findById(input.tableId, input.locationId), input, 'table');
+    if (!table.isActive) throw new NotFoundError('table');
     // OPEN: ¿desactivar una mesa debe desasignar sus botones solos? Por ahora se exige desasignarlos antes (más fácil de relajar).
     if ((await this.assignments.listActiveByTable(table.id)).length > 0) throw new TableInUseError();
     table.deactivate(input.actorId, new Date());

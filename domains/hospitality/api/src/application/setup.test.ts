@@ -108,7 +108,7 @@ describe('botones y asignaciones', () => {
     expect(list.map((u) => [u.deviceCode, u.pressCount]).sort()).toEqual([['X1', 2], ['X2', 1]]);
     await w.registerDevice.execute({ ...w.ctx, code: 'X1' });
     expect((await w.listUnknown.execute(w.ctx)).map((u) => u.deviceCode)).toEqual(['X2']);
-    expect(await w.listUnknown.execute({ ...w.ctx, locationId: crypto.randomUUID() })).toEqual([]);
+    await expect(w.listUnknown.execute({ ...w.ctx, locationId: crypto.randomUUID() })).rejects.toBeInstanceOf(LocationUnavailableError);
   });
 });
 
@@ -123,7 +123,7 @@ describe('gateways', () => {
   it('conectividad: señal cada 30 s, desconectado pasados 90 s', async () => {
     const { gateway } = await w.createGateway.execute({ ...w.ctx, name: 'GW' });
     expect(await w.connectivity.execute(w.ctx)).toMatchObject({ anyDisconnected: true });
-    await w.heartbeat.execute({ gatewayId: gateway.id, locationId: w.ctx.locationId });
+    await w.heartbeat.execute({ ...w.ctx, gatewayId: gateway.id });
     expect((await w.connectivity.execute(w.ctx)).anyDisconnected).toBe(false);
     vi.setSystemTime(new Date(T0.getTime() + 90_000));
     expect((await w.connectivity.execute(w.ctx)).anyDisconnected).toBe(false);
@@ -131,13 +131,13 @@ describe('gateways', () => {
     const status = await w.connectivity.execute(w.ctx);
     expect(status.anyDisconnected).toBe(true);
     expect(status.gateways[0]).toMatchObject({ connected: false, lastSeenAt: T0 });
-    await w.heartbeat.execute({ gatewayId: gateway.id, locationId: w.ctx.locationId });
+    await w.heartbeat.execute({ ...w.ctx, gatewayId: gateway.id });
     expect((await w.connectivity.execute(w.ctx)).anyDisconnected).toBe(false);
   });
 
   it('el heartbeat de otro local no encuentra el gateway; GetConnectivity aísla por local', async () => {
     const { gateway } = await w.createGateway.execute({ ...w.ctx, name: 'GW' });
-    await expect(w.heartbeat.execute({ gatewayId: gateway.id, locationId: crypto.randomUUID() })).rejects.toBeInstanceOf(NotFoundError);
-    expect((await w.connectivity.execute({ ...w.ctx, locationId: crypto.randomUUID() })).gateways).toEqual([]);
+    await expect(w.heartbeat.execute({ ...w.ctx, locationId: crypto.randomUUID(), gatewayId: gateway.id })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(w.connectivity.execute({ ...w.ctx, locationId: crypto.randomUUID() })).rejects.toBeInstanceOf(LocationUnavailableError);
   });
 });

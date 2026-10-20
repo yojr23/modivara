@@ -3,7 +3,7 @@ import { Device } from '../domain/devices/device.js';
 import { DeviceAssignment } from '../domain/devices/device-assignment.js';
 import { DeviceAlreadyAssignedError, DuplicateError, NotFoundError } from '../domain/errors.js';
 import type { DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository } from './ports/index.js';
-import { type ActorContext, assertLocation, type TenantContext } from './support.js';
+import { type ActorContext, assertLocation, owned, type TenantContext } from './support.js';
 
 export class RegisterDevice {
   constructor(
@@ -28,15 +28,24 @@ export class AssignDevice {
   ) {}
 
   async execute(input: ActorContext & { deviceId: string; tableId: string }): Promise<DeviceAssignment> {
-    const device = await this.devices.findById(input.deviceId, input.locationId);
-    if (!device?.isActive) throw new NotFoundError('device');
-    const table = await this.tables.findById(input.tableId, input.locationId);
-    if (!table?.isActive) throw new NotFoundError('table');
+    const device = owned(await this.devices.findById(input.deviceId, input.locationId), input, 'device');
+    if (!device.isActive) throw new NotFoundError('device');
+    const table = owned(await this.tables.findById(input.tableId, input.locationId), input, 'table');
+    if (!table.isActive) throw new NotFoundError('table');
+    // Botón y mesa deben ser del mismo local; el tenant de la asignación sale de las entidades, no del input.
+    if (device.locationId !== table.locationId || device.organizationId !== table.organizationId) throw new NotFoundError('table');
     // Un botón en una sola mesa a la vez; una mesa puede tener varios botones.
     // OPEN: ¿asignar un botón ya asignado debe moverlo en un paso? Por ahora se rechaza y hay que desasignarlo primero.
     const current = await this.assignments.findActiveByDevice(device.id);
     if (current) throw new DeviceAlreadyAssignedError(current.tableId);
-    const assignment = DeviceAssignment.create({ ...input, assignedBy: input.actorId, now: new Date() });
+    const assignment = DeviceAssignment.create({
+      organizationId: device.organizationId,
+      locationId: device.locationId,
+      deviceId: device.id,
+      tableId: table.id,
+      assignedBy: input.actorId,
+      now: new Date(),
+    });
     await this.assignments.save(assignment);
     return assignment;
   }
@@ -48,8 +57,7 @@ export class UnassignDevice {
   ) {}
 
   async execute(input: ActorContext & { deviceId: string }): Promise<DeviceAssignment> {
-    const assignment = await this.assignments.findActiveByDevice(input.deviceId);
-    if (!assignment || assignment.locationId !== input.locationId) throw new NotFoundError('device assignment');
+    const assignment = owned(await this.assignments.findActiveByDevice(input.deviceId), input, 'device assignment');
     assignment.unassign(input.actorId, new Date());
     await this.assignments.save(assignment);
     return assignment;
@@ -67,9 +75,11 @@ export class ListUnknownDevices {
   constructor(
     private readonly events: DeviceEventRepository,
     private readonly devices: DeviceRepository,
+    private readonly core: CoreAccessPort,
   ) {}
 
   async execute(input: TenantContext): Promise<UnknownDevice[]> {
+    await assertLocation(this.core, input);
     const byCode = new Map<string, UnknownDevice>();
     for (const event of await this.events.listUnknown(input.locationId)) {
       const seen = byCode.get(event.deviceCode);

@@ -20,6 +20,9 @@ import { notifyAfterSave } from './support.js';
 
 const MAX_ATTEMPTS = 3;
 
+const sameTenant = (e: { organizationId: string; locationId: string }, t: { organizationId: string; locationId: string }) =>
+  e.organizationId === t.organizationId && e.locationId === t.locationId;
+
 /** Flujo de una pulsación (DATA-001 §3). */
 export class RegisterButtonPress implements IoTInputPort {
   constructor(
@@ -62,11 +65,13 @@ export class RegisterButtonPress implements IoTInputPort {
       return { result, deviceEventId: eventId, serviceCallId };
     };
 
-    const device = await this.devices.findActiveByCode(press.locationId, press.deviceCode);
+    const found = await this.devices.findActiveByCode(press.locationId, press.deviceCode);
+    const device = found && sameTenant(found, press) ? found : null;
     if (!device) return record('unknown_device', null, null);
 
     const assignment = await this.assignments.findActiveByDevice(device.id);
-    const table = assignment ? await this.tables.findById(assignment.tableId, press.locationId) : null;
+    const candidate = assignment ? await this.tables.findById(assignment.tableId, press.locationId) : null;
+    const table = candidate && sameTenant(candidate, press) ? candidate : null;
     if (!table?.isActive) return record('unassigned_device', device.id, null);
 
     const last = await this.events.findLastPress(device.id, press.buttonKey);

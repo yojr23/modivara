@@ -2,7 +2,7 @@ import type { CoreAccessPort } from '@modivara/core-contracts';
 import { Gateway } from '../domain/devices/gateway.js';
 import { NotFoundError } from '../domain/errors.js';
 import type { GatewayRepository } from './ports/index.js';
-import { type ActorContext, assertLocation, type TenantContext } from './support.js';
+import { type ActorContext, assertLocation, owned, type TenantContext } from './support.js';
 
 export class CreateGateway {
   constructor(
@@ -25,9 +25,9 @@ export class RecordHeartbeat {
   ) {}
 
   /** El adaptador ya autenticó al gateway; `gatewayId` y `locationId` vienen de esa autenticación. */
-  async execute(input: { gatewayId: string; locationId: string }): Promise<void> {
-    const gateway = await this.gateways.findById(input.gatewayId);
-    if (!gateway?.isActive || gateway.locationId !== input.locationId) throw new NotFoundError('gateway');
+  async execute(input: TenantContext & { gatewayId: string }): Promise<void> {
+    const gateway = owned(await this.gateways.findById(input.gatewayId), input, 'gateway');
+    if (!gateway.isActive) throw new NotFoundError('gateway');
     gateway.recordHeartbeat(new Date());
     await this.gateways.save(gateway);
   }
@@ -42,11 +42,13 @@ export interface GatewayConnectivity {
 
 export class GetConnectivity {
   constructor(
+    private readonly core: CoreAccessPort,
     private readonly gateways: GatewayRepository,
   ) {}
 
   /** `anyDisconnected` alimenta el aviso "Botones desconectados" del tablero. */
   async execute(input: TenantContext): Promise<{ gateways: GatewayConnectivity[]; anyDisconnected: boolean }> {
+    await assertLocation(this.core, input);
     const now = new Date();
     const gateways = (await this.gateways.listByLocation(input.locationId))
       .filter((g) => g.isActive)
