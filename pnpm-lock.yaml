@@ -148,9 +148,15 @@ importers:
       '@modivara/analytics-contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@modivara/commerce-contracts':
+        specifier: workspace:*
+        version: link:../../commerce/contracts
       '@modivara/core-contracts':
         specifier: workspace:*
         version: link:../../core/contracts
+      '@modivara/hospitality-contracts':
+        specifier: workspace:*
+        version: link:../../hospitality/contracts
       '@nestjs/common':
         specifier: 12.2.0
         version: 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
