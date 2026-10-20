@@ -11,7 +11,7 @@ beforeEach(async () => {
   vi.setSystemTime(new Date('2026-10-19T10:00:00Z'));
   w = buildWorld();
   await seedTableWithButton(w, { zone: 'Terraza' });
-  callId = (await w.registerPress.execute(w.press())).serviceCallId!;
+  callId = (await w.registerPress.registerPress(w.press())).serviceCallId!;
 });
 afterEach(() => vi.useRealTimers());
 

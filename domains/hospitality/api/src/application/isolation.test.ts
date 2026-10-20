@@ -15,7 +15,7 @@ beforeEach(async () => {
   const seeded = await seedTableWithButton(w, { zone: 'Terraza' });
   tableId = seeded.table.id;
   deviceId = seeded.device.id;
-  callId = (await w.registerPress.execute(w.press())).serviceCallId!;
+  callId = (await w.registerPress.registerPress(w.press())).serviceCallId!;
   gatewayId = (await w.createGateway.execute({ ...w.ctx, name: 'GW' })).gateway.id;
 });
 afterEach(() => vi.useRealTimers());
@@ -89,7 +89,7 @@ describe('aislamiento por negocio y local', () => {
   });
 
   it('pulsación de otro negocio con el mismo local y código -> unknown_device', async () => {
-    const out = await w.registerPress.execute(w.press({ organizationId: crypto.randomUUID() }));
+    const out = await w.registerPress.registerPress(w.press({ organizationId: crypto.randomUUID() }));
     expect(out.result).toBe('unknown_device');
     expect(w.calls.all()).toHaveLength(1);
   });
@@ -103,7 +103,7 @@ describe('aislamiento por negocio y local', () => {
     expect(await w.assignments.findActiveByDevice({ ...other, deviceId })).toBeNull();
     expect(await w.assignments.listActiveByTable({ ...other, tableId })).toEqual([]);
     expect(await w.gateways.findById({ ...other, id: gatewayId })).toBeNull();
-    expect(await w.events.findLastPress({ ...other, deviceId, buttonKey: null })).toBeNull();
+    expect(w.events.lastPress({ ...other, deviceId, buttonKey: null })).toBeNull();
     expect(await w.calls.findActive({ ...w.ctx, tableId, callType: 'attention' })).not.toBeNull();
   });
 });

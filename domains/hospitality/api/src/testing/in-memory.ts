@@ -1,6 +1,8 @@
 import type { CoreAccessPort, DomainEvent, LocationRef } from '@modivara/core-contracts';
 import type { CallType } from '@modivara/hospitality-contracts';
 import type {
+  ButtonPressStore,
+  ButtonPressTx,
   CallChange,
   DeviceAssignmentRepository,
   DeviceEventRepository,
@@ -51,6 +53,29 @@ export class InMemoryServiceCallRepository implements ServiceCallRepository {
   }
   async listActive(scope: Scope) {
     return this.store.all().filter((c) => inScope(c, scope) && c.isActive);
+  }
+  /** `INSERT … ON CONFLICT … press_count + 1` síncrono (sin awaits): atómico en memoria. `undo` revierte para simular el rollback. */
+  upsertActive(candidate: ServiceCall, now: Date) {
+    const existing = this.store
+      .all()
+      .find((c) => inScope(c, candidate) && c.tableId === candidate.tableId && c.callType === candidate.callType && c.isActive);
+    if (existing) {
+      const before = existing.toProps();
+      existing.registerPress(now);
+      this.store.put(existing);
+      return { call: existing, created: false, undo: () => void this.store.rows.set(before.id, before) };
+    }
+    this.store.put(candidate);
+    const transitions = candidate.pullTransitions().map((t) => ({ ...t, serviceCallId: candidate.id }));
+    const events = candidate.pullEvents();
+    this.transitions.push(...transitions);
+    this.outbox.push(...events);
+    const undo = () => {
+      this.store.rows.delete(candidate.id);
+      for (const t of transitions) this.transitions.splice(this.transitions.indexOf(t), 1);
+      for (const e of events) this.outbox.splice(this.outbox.indexOf(e), 1);
+    };
+    return { call: candidate, created: true, undo };
   }
   async save(call: ServiceCall) {
     await this.beforeSave?.(call);
@@ -117,15 +142,64 @@ export class InMemoryGatewayRepository implements GatewayRepository {
 
 export class InMemoryDeviceEventRepository implements DeviceEventRepository {
   private readonly store = new Store(DeviceEvent.restore);
-  async findLastPress({ deviceId, buttonKey, ...scope }: Scope & { deviceId: string; buttonKey: string | null }) {
+  lastPress({ deviceId, buttonKey, ...scope }: Scope & { deviceId: string; buttonKey: string | null }) {
     const counted = this.store
       .all()
       .filter((e) => inScope(e, scope) && e.deviceId === deviceId && e.buttonKey === buttonKey && (e.result === 'call_created' || e.result === 'repeat_press'));
     return counted.sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime())[0] ?? null;
   }
   async listUnknown(scope: Scope) { return this.store.all().filter((e) => inScope(e, scope) && e.result === 'unknown_device'); }
-  async save(event: DeviceEvent) { this.store.put(event); }
+  /** Devuelve el `undo` para el rollback de la transacción simulada. */
+  add(event: DeviceEvent) {
+    this.store.put(event);
+    return () => void this.store.rows.delete(event.id);
+  }
   all() { return this.store.all(); }
+}
+
+/** Doble de `ButtonPressStore`: serializa por dispositivo y deshace todo si el trabajo falla (rollback). */
+export class InMemoryButtonPressStore implements ButtonPressStore {
+  private readonly locks = new Map<string, Promise<void>>();
+  /** Fallos inyectables para probar que no queda nada a medias. */
+  fail: { upsert?: Error; saveEvent?: Error } = {};
+
+  constructor(
+    private readonly calls: InMemoryServiceCallRepository,
+    private readonly events: InMemoryDeviceEventRepository,
+  ) {}
+
+  async saveDeviceEvent(event: DeviceEvent) {
+    this.events.add(event);
+  }
+
+  async withDeviceLock<T>(deviceId: string, work: (tx: ButtonPressTx) => Promise<T>): Promise<T> {
+    const previous = this.locks.get(deviceId) ?? Promise.resolve();
+    let release!: () => void;
+    this.locks.set(deviceId, previous.then(() => new Promise<void>((resolve) => (release = resolve))));
+    await previous;
+    const undo: (() => void)[] = [];
+    const tx: ButtonPressTx = {
+      findLastPress: async (query) => this.events.lastPress(query),
+      upsertActiveCall: async (candidate, now) => {
+        if (this.fail.upsert) throw this.fail.upsert;
+        const { undo: revert, ...result } = this.calls.upsertActive(candidate, now);
+        undo.push(revert);
+        return result;
+      },
+      saveDeviceEvent: async (event) => {
+        if (this.fail.saveEvent) throw this.fail.saveEvent;
+        undo.push(this.events.add(event));
+      },
+    };
+    try {
+      return await work(tx);
+    } catch (error) {
+      for (const revert of undo.reverse()) revert();
+      throw error;
+    } finally {
+      release();
+    }
+  }
 }
 
 export class RecordingNotifications implements NotificationPort {

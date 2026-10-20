@@ -100,10 +100,10 @@ describe('botones y asignaciones', () => {
   });
 
   it('ListUnknownDevices agrupa por código y oculta los ya registrados', async () => {
-    await w.registerPress.execute(w.press({ deviceCode: 'X1' }));
+    await w.registerPress.registerPress(w.press({ deviceCode: 'X1' }));
     vi.setSystemTime(new Date(T0.getTime() + 5_000));
-    await w.registerPress.execute(w.press({ deviceCode: 'X1' }));
-    await w.registerPress.execute(w.press({ deviceCode: 'X2' }));
+    await w.registerPress.registerPress(w.press({ deviceCode: 'X1' }));
+    await w.registerPress.registerPress(w.press({ deviceCode: 'X2' }));
     const list = await w.listUnknown.execute(w.ctx);
     expect(list.map((u) => [u.deviceCode, u.pressCount]).sort()).toEqual([['X1', 2], ['X2', 1]]);
     await w.registerDevice.execute({ ...w.ctx, code: 'X1' });

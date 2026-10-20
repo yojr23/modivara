@@ -1,4 +1,3 @@
-import type { CallType } from '@modivara/hospitality-contracts';
 import type { Device } from '../../domain/devices/device.js';
 import type { DeviceAssignment } from '../../domain/devices/device-assignment.js';
 import type { DeviceEvent } from '../../domain/devices/device-event.js';
@@ -20,8 +19,6 @@ export interface ById extends Scope {
 
 export interface ServiceCallRepository {
   findById(key: ById): Promise<ServiceCall | null>;
-  /** Solicitud activa (pending/in_progress) de la mesa y tipo (ADR-002 D4). */
-  findActive(query: Scope & { tableId: string; callType: CallType }): Promise<ServiceCall | null>;
   listActive(scope: Scope): Promise<ServiceCall[]>;
   /**
    * Persiste en UNA transacción el agregado, sus transiciones y sus eventos en el outbox, y llama a `call.pullEvents()`/`call.pullTransitions()`.
@@ -67,8 +64,5 @@ export interface GatewayRepository {
 }
 
 export interface DeviceEventRepository {
-  /** Último evento contado (call_created/repeat_press) de la misma señal: botón + tecla. */
-  findLastPress(query: Scope & { deviceId: string; buttonKey: string | null }): Promise<DeviceEvent | null>;
   listUnknown(scope: Scope): Promise<DeviceEvent[]>;
-  save(event: DeviceEvent): Promise<void>;
 }

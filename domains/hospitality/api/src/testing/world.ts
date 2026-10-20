@@ -8,6 +8,7 @@ import { RegisterButtonPress } from '../application/register-button-press.js';
 import { CreateTable, CreateZone, DeactivateTable, RenameTable } from '../application/zones-and-tables.js';
 import {
   FakeCoreAccess,
+  InMemoryButtonPressStore,
   InMemoryDeviceAssignmentRepository,
   InMemoryDeviceEventRepository,
   InMemoryDeviceRepository,
@@ -33,6 +34,7 @@ export function buildWorld() {
   const assignments = new InMemoryDeviceAssignmentRepository();
   const gateways = new InMemoryGatewayRepository();
   const events = new InMemoryDeviceEventRepository();
+  const store = new InMemoryButtonPressStore(calls, events);
   const notifications = new RecordingNotifications((id) => calls.all().some((c) => c.id === id));
 
   const ctx = { organizationId, locationId, actorUserId };
@@ -50,8 +52,8 @@ export function buildWorld() {
   });
 
   return {
-    ctx, press, core, calls, zones, tables, devices, assignments, gateways, events, notifications,
-    registerPress: new RegisterButtonPress(core, devices, assignments, tables, zones, calls, events, notifications),
+    ctx, press, core, calls, zones, tables, devices, assignments, gateways, events, store, notifications,
+    registerPress: new RegisterButtonPress(core, devices, assignments, tables, zones, store, notifications),
     acknowledge: new AcknowledgeCall(calls, notifications),
     complete: new CompleteCall(calls, notifications),
     createZone: new CreateZone(core, zones),
