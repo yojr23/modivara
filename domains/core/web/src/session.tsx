@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import type { LoginRequest, MeResponse } from '@modivara/core-contracts';
 import { ApiRequestError, coreApi } from './client.js';
@@ -12,17 +12,27 @@ export type Session =
 
 const SessionContext = createContext<Session | null>(null);
 
+/** Descarta todo el caché salvo `/me` (datos de un usuario no deben sobrevivir al cambio de sesión). */
+function dropOtherQueries(qc: QueryClient) {
+  qc.removeQueries({ predicate: (q) => !(q.queryKey[0] === ME_KEY[0] && q.queryKey[1] === ME_KEY[1]) });
+}
+function endSession(qc: QueryClient) {
+  dropOtherQueries(qc);
+  qc.setQueryData(ME_KEY, null);
+}
+
 const isUnauthorized = (e: unknown) => e instanceof ApiRequestError && e.status === 401;
 
 /** `GET /me`; un 401 significa "sin sesión" (null), no un error. */
 export function useMe() {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: ME_KEY,
     queryFn: async () => {
       try {
         return await coreApi.me();
       } catch (e) {
-        if (isUnauthorized(e)) return null;
+        if (isUnauthorized(e)) { dropOtherQueries(qc); return null; }
         throw e;
       }
     },
@@ -37,10 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data, isPending } = useMe();
 
   useEffect(() => {
-    const clear = () => {
-      qc.setQueryData(ME_KEY, null);
-      qc.removeQueries({ predicate: (q) => q.queryKey[1] !== 'me' });
-    };
+    const clear = () => endSession(qc);
     const offQueries = qc.getQueryCache().subscribe((ev) => {
       if (ev.type === 'updated' && ev.action.type === 'error' && isUnauthorized(ev.action.error)) clear();
     });
@@ -65,7 +72,10 @@ export function useLogin() {
   return useMutation({
     mutationKey: ['core-login'], // un 401 aquí es "credenciales inválidas", no sesión caducada
     mutationFn: (input: LoginRequest) => coreApi.login(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ME_KEY }),
+    onSuccess: () => {
+      dropOtherQueries(qc); // otro usuario pudo dejar datos en el caché
+      return qc.invalidateQueries({ queryKey: ME_KEY });
+    },
   });
 }
 
@@ -74,7 +84,7 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => coreApi.logout(),
     // Aunque falle la red, el portal descarta su sesión local.
-    onSettled: () => { qc.setQueryData(ME_KEY, null); qc.removeQueries({ predicate: (q) => q.queryKey[1] !== 'me' }); },
+    onSettled: () => endSession(qc),
   });
 }
 
