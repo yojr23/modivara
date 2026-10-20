@@ -1,3 +1,4 @@
+export * from './api.js';
 export * from './core-access.port.js';
 export * from './domain-event.js';
 export * from './errors.js';
