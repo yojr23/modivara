@@ -1,5 +1,5 @@
 import { isValidUsername, newId } from '@modivara/core-contracts';
-import { AccountLockedError, InvalidCredentialsError, Session } from '../domain/index.js';
+import { InvalidCredentialsError, Session } from '../domain/index.js';
 import type { ActorContext } from './actor.js';
 import type { OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './ports/index.js';
 
@@ -52,12 +52,14 @@ export class Login {
         return { kind: 'invalid' } as const;
       }
       const now = new Date();
-      // OPEN: el bloqueo se informa de forma explícita (revela que el usuario existe). ¿Responder genérico también?
-      const lockedUntil = locked.lockedUntil(now);
-      if (lockedUntil) {
+      // OPEN: hoy el bloqueo responde genérico (401 invalid_credentials, igual que usuario inexistente) para no revelar que la
+      // cuenta existe; el aviso de bloqueo al usuario legítimo por otro canal está pendiente. Riesgo conocido: quien conozca un
+      // usuario (p. ej. `labs/superadmin`) puede mantenerlo bloqueado repitiendo 5 fallos; la política «por usuario y negocio»
+      // viene de TECH-001 §16.3.
+      if (locked.lockedUntil(now)) {
         // Mismo costo que un intento real, para que el tiempo de respuesta no delate el bloqueo.
         await this.hasher.verify(await this.dummyHash(), input.password);
-        return { kind: 'locked', until: lockedUntil } as const;
+        return { kind: 'invalid' } as const;
       }
       if (!(await this.hasher.verify(locked.passwordHash, input.password))) {
         locked.registerFailedLogin(now);
@@ -67,7 +69,6 @@ export class Login {
       if (locked.registerSuccessfulLogin()) await tx.save(locked);
       return { kind: 'ok', user: locked } as const;
     });
-    if (outcome.kind === 'locked') throw new AccountLockedError(outcome.until);
     if (outcome.kind === 'invalid') throw new InvalidCredentialsError();
 
     const now = new Date();

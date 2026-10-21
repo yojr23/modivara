@@ -2,7 +2,7 @@ import { Catch, HttpException, Logger, type ArgumentsHost, type ExceptionFilter 
 import { type ApiError } from '@modivara/core-contracts';
 import type { HttpResponse } from './http.js';
 
-/** Mensaje único para credenciales inválidas y cuenta bloqueada: no distingue usuario inexistente de contraseña errónea. */
+/** Mensaje único de autenticación fallida (también para cuenta bloqueada): no distingue usuario inexistente de contraseña errónea. */
 export const GENERIC_AUTH_MESSAGE = 'Credenciales inválidas';
 
 /** 429 del límite por IP del login. */
@@ -13,8 +13,6 @@ export class TooManyRequestsError extends Error {
   }
 }
 
-// OPEN: ¿el bloqueo por intentos responde 423 con código propio (se muestra "cuenta bloqueada") o 401 igual a credenciales inválidas?
-// Se usa 423 + `account_locked` con el mensaje genérico, tal como el caso de uso ya lo distingue.
 // `location_unavailable` → 404 para no revelar si el local existe, está inactivo o es de otro negocio.
 const STATUS_BY_CODE: Record<string, number> = {
   validation: 400,
@@ -26,11 +24,10 @@ const STATUS_BY_CODE: Record<string, number> = {
   not_found: 404,
   location_unavailable: 404,
   conflict: 409,
-  account_locked: 423,
   too_many_requests: 429,
 };
 
-const GENERIC_CODES = new Set(['invalid_credentials', 'account_locked', 'session_invalid']);
+const GENERIC_CODES = new Set(['invalid_credentials', 'session_invalid']);
 
 /** Los esquemas de contrato (Zod) lanzan `ZodError`; core-api no depende de zod, se reconoce por forma. */
 const isZodError = (e: unknown): e is { issues: Array<{ path: PropertyKey[]; message: string }> } =>

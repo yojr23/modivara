@@ -12,12 +12,6 @@ export class InvalidCredentialsError extends DomainError {
     super('Invalid credentials');
   }
 }
-export class AccountLockedError extends DomainError {
-  readonly code = 'account_locked';
-  constructor(readonly retryAt: Date) {
-    super('Account temporarily locked');
-  }
-}
 export class SessionInvalidError extends DomainError {
   readonly code = 'session_invalid';
   constructor() {

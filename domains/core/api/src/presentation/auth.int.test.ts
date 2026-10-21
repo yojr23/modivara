@@ -67,12 +67,16 @@ describe('POST /auth/login', () => {
     expect(res.body.code).toBe('validation');
   });
 
-  it('5 fallos bloquean la cuenta: 423 con el mismo mensaje genérico', async () => {
-    const wrong = await login({ ...good, password: 'Wrong1234' });
-    for (let i = 0; i < 4; i++) await login({ ...good, password: 'Wrong1234' });
-    const locked = await login(good);
-    expect(locked.status).toBe(423);
-    expect(locked.body).toEqual({ code: 'account_locked', message: wrong.body.message });
+  it('cuenta bloqueada responde igual que un usuario inexistente (401 invalid_credentials) y sigue bloqueada', async () => {
+    for (let i = 0; i < 5; i++) await login({ ...good, password: 'Wrong1234' });
+    const locked = await login(good); // contraseña correcta, pero bloqueada
+    const ghost = await login({ ...good, username: 'fantasma' });
+    expect(locked.status).toBe(401);
+    expect(locked.status).toBe(ghost.status);
+    expect(locked.body).toEqual(ghost.body);
+    expect(locked.body.code).toBe('invalid_credentials');
+    expect(locked.headers['set-cookie']).toBeUndefined();
+    expect(await db.session.count()).toBe(0);
   });
 });
 

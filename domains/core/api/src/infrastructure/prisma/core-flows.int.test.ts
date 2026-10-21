@@ -3,7 +3,7 @@ import { newId } from '@modivara/core-contracts';
 import {
   AuthenticateSession, ChangePassword, CreateUser, DeactivateUser, Login, type ActorContext,
 } from '../../application/index.js';
-import { AccountLockedError, InvalidCredentialsError, SessionInvalidError } from '../../domain/index.js';
+import { InvalidCredentialsError, SessionInvalidError } from '../../domain/index.js';
 import { corePrismaForTests, resetCore, seedOrganization } from '../../testing/integration.js';
 import { Argon2PasswordHasher } from '../argon2-password-hasher.js';
 import { CryptoSessionTokenService } from '../crypto-session-token.service.js';
@@ -67,9 +67,9 @@ describe('casos de uso de core sobre PostgreSQL', () => {
     for (let i = 0; i < 5; i++) await expect(attempt('Wrong1234')).rejects.toBeInstanceOf(InvalidCredentialsError);
     expect((await db.appUser.findFirstOrThrow({ where: { username: 'ana' } })).failedLoginCount).toBe(5);
 
-    await expect(attempt(PASSWORD)).rejects.toBeInstanceOf(AccountLockedError);
+    await expect(attempt(PASSWORD)).rejects.toBeInstanceOf(InvalidCredentialsError);
     vi.setSystemTime(new Date('2026-10-19T10:14:00Z'));
-    await expect(attempt(PASSWORD)).rejects.toBeInstanceOf(AccountLockedError);
+    await expect(attempt(PASSWORD)).rejects.toBeInstanceOf(InvalidCredentialsError);
 
     vi.setSystemTime(new Date('2026-10-19T10:00:00Z').getTime() + 15 * MIN);
     await expect(attempt(PASSWORD)).resolves.toBeDefined();

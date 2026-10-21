@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AccountLockedError, InvalidCredentialsError, SessionInvalidError, WeakPasswordError } from '../domain/index.js';
+import { InvalidCredentialsError, SessionInvalidError, WeakPasswordError } from '../domain/index.js';
 import { TEST_PASSWORD, World } from '../testing/index.js';
 import { AuthenticateSession } from './authenticate-session.js';
 import { ChangePassword } from './change-password.js';
@@ -62,9 +62,9 @@ describe('login / sesión', () => {
 
     it('5 fallos bloquean aunque luego llegue la contraseña correcta, hasta vencer la ventana', async () => {
       for (let i = 0; i < 5; i++) await expect(attempt('mala')).rejects.toThrow(InvalidCredentialsError);
-      await expect(attempt(TEST_PASSWORD)).rejects.toThrow(AccountLockedError);
+      await expect(attempt(TEST_PASSWORD)).rejects.toThrow(InvalidCredentialsError);
       vi.advanceTimersByTime(14 * 60_000);
-      await expect(attempt(TEST_PASSWORD)).rejects.toThrow(AccountLockedError);
+      await expect(attempt(TEST_PASSWORD)).rejects.toThrow(InvalidCredentialsError);
       vi.advanceTimersByTime(60_000);
       await expect(attempt(TEST_PASSWORD)).resolves.toBeDefined();
     });
@@ -80,7 +80,7 @@ describe('login / sesión', () => {
     it('cuenta bloqueada: igual verifica un hash antes de responder (tiempo constante)', async () => {
       for (let i = 0; i < 5; i++) await expect(attempt('mala')).rejects.toThrow(InvalidCredentialsError);
       const verify = vi.spyOn(w.hasher, 'verify');
-      await expect(attempt(TEST_PASSWORD)).rejects.toThrow(AccountLockedError);
+      await expect(attempt(TEST_PASSWORD)).rejects.toThrow(InvalidCredentialsError);
       expect(verify).toHaveBeenCalledTimes(1);
       expect(verify.mock.calls[0]![0]).not.toBe(await w.hasher.hash(TEST_PASSWORD)); // contra un hash ficticio
     });

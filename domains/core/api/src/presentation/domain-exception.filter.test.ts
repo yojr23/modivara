@@ -1,7 +1,7 @@
 import { HttpException, Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { ConflictError, LocationUnavailableError, NotFoundError, ValidationError, apiErrorSchema, loginRequestSchema } from '@modivara/core-contracts';
-import { AccountLockedError, InvalidCredentialsError, ModuleDisabledError, PermissionDeniedError, SessionInvalidError, WeakPasswordError } from '../domain/index.js';
+import { InvalidCredentialsError, ModuleDisabledError, PermissionDeniedError, SessionInvalidError, WeakPasswordError } from '../domain/index.js';
 import { DomainExceptionFilter, GENERIC_AUTH_MESSAGE, TooManyRequestsError } from './domain-exception.filter.js';
 
 function run(error: unknown) {
@@ -19,7 +19,6 @@ describe('DomainExceptionFilter', () => {
     [new WeakPasswordError('x'), 400, 'weak_password'],
     [new LocationUnavailableError(), 404, 'location_unavailable'],
     [new InvalidCredentialsError(), 401, 'invalid_credentials'],
-    [new AccountLockedError(new Date()), 423, 'account_locked'],
     [new SessionInvalidError(), 401, 'session_invalid'],
     [new PermissionDeniedError('x'), 403, 'permission_denied'],
     [new ModuleDisabledError('x'), 403, 'module_disabled'],
@@ -30,9 +29,8 @@ describe('DomainExceptionFilter', () => {
     expect(apiErrorSchema.parse(out.body).code).toBe(code);
   });
 
-  it('credenciales inválidas y bloqueo comparten el mensaje genérico', () => {
+  it('credenciales inválidas usa el mensaje genérico', () => {
     expect((run(new InvalidCredentialsError()).body as { message: string }).message).toBe(GENERIC_AUTH_MESSAGE);
-    expect((run(new AccountLockedError(new Date())).body as { message: string }).message).toBe(GENERIC_AUTH_MESSAGE);
   });
 
   it('ZodError -> 400 validation; HttpException conserva su estado; lo desconocido -> 500 sin detalles', () => {
