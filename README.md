@@ -19,10 +19,20 @@ pnpm --filter @modivara/portal dev
 
 ```bash
 cp .env.example .env        # ajustar contraseñas locales
-# Usuarios del broker MQTT (el archivo passwd no se versiona):
-docker compose run --rm mqtt mosquitto_passwd -c -b /mosquitto/config/passwd api <clave-api>
 docker compose up --build
 ```
+
+### Usuarios del broker MQTT
+
+Sin anónimos. El hash de cada usuario queda en `infra/mosquitto/passwd` (ignorado por git); la contraseña aleatoria se imprime **una sola vez**. El mismo script crea y rota, y recarga el broker si está corriendo:
+
+```bash
+scripts/mqtt-user.sh api     # la API: lee modivara/gw/# → ponerla en MQTT_PASSWORD de la API
+scripts/mqtt-user.sh gw-01   # un usuario por gateway; el usuario es el id del gateway y solo publica en modivara/gw/gw-01/#
+```
+
+Para el simulador por MQTT: `SIM_GATEWAY_ID=gw-01` y `SIM_MQTT_PASSWORD=<la impresa>` en `.env`, `SIM_TRANSPORT=mqtt`.
+`scripts/mqtt-acl-check.sh` verifica la ACL con un broker desechable (A publica en lo suyo y no en B; `api` lee ambos; clave errónea y anónimo rechazados).
 
 El contenedor `api` aplica `prisma migrate deploy` de cada dominio al arrancar. Datos de demo de core (idempotente). La contraseña común se pasa solo a ese comando, nunca al entorno permanente del servidor:
 
