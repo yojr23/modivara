@@ -51,7 +51,12 @@ export interface DeviceRepository {
 export interface DeviceAssignmentRepository {
   findActiveByDevice(query: Scope & { deviceId: string }): Promise<DeviceAssignment | null>;
   listActiveByTable(query: Scope & { tableId: string }): Promise<DeviceAssignment[]>;
+  /** ¿Qué mesa tenía el botón en el instante `at`? Incluye el instante de asignación y excluye el de cierre. Sirve para auditar pulsaciones pasadas. */
+  findAt(query: Scope & { deviceId: string; at: Date }): Promise<DeviceAssignment | null>;
+  /** Inserta o cierra una asignación. Lanza `DeviceAlreadyAssignedError` si el botón ya tiene otra activa. */
   save(assignment: DeviceAssignment): Promise<void>;
+  /** Mueve un botón de mesa en UNA transacción: cierra `closed` (ya con `unassign`) y abre `opened`; si algo falla no cambia nada. El historial se conserva. */
+  reassign(closed: DeviceAssignment, opened: DeviceAssignment): Promise<void>;
 }
 
 export interface GatewayRepository {

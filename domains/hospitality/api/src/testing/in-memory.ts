@@ -129,7 +129,13 @@ export class InMemoryDeviceAssignmentRepository implements DeviceAssignmentRepos
   private readonly store = new Store(DeviceAssignment.restore);
   async findActiveByDevice({ deviceId, ...scope }: Scope & { deviceId: string }) { return this.store.all().find((a) => inScope(a, scope) && a.deviceId === deviceId && a.isActive) ?? null; }
   async listActiveByTable({ tableId, ...scope }: Scope & { tableId: string }) { return this.store.all().filter((a) => inScope(a, scope) && a.tableId === tableId && a.isActive); }
+  async findAt({ deviceId, at, ...scope }: Scope & { deviceId: string; at: Date }) {
+    return (
+      this.store.all().find((a) => inScope(a, scope) && a.deviceId === deviceId && a.assignedAt <= at && (a.unassignedAt === null || a.unassignedAt > at)) ?? null
+    );
+  }
   async save(assignment: DeviceAssignment) { this.store.put(assignment); }
+  async reassign(closed: DeviceAssignment, opened: DeviceAssignment) { this.store.put(closed); this.store.put(opened); }
   history() { return this.store.all(); }
 }
 
