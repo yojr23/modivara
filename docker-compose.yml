@@ -54,7 +54,6 @@ services:
     build: { context: ., target: api }
     environment:
       API_PORT: 3000
-      SEED_PASSWORD: ${SEED_PASSWORD:-}      # solo para `node dist/seed-core.js` (demo)
       MQTT_URL: mqtt://mqtt:1883
       CORE_DATABASE_URL: postgresql://core_app:${CORE_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=core
       HOSPITALITY_DATABASE_URL: postgresql://hospitality_app:${HOSPITALITY_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=hospitality
