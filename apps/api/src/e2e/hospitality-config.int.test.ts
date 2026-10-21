@@ -6,6 +6,8 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CoreModule, coreGlobalProviders } from '@modivara/core-api';
 import { HospitalityModule } from '@modivara/hospitality-api';
+import { SESSION_COOKIE, type MeResponse } from '@modivara/core-contracts';
+import type { DeviceStatusDto } from '@modivara/hospitality-contracts';
 import { seedCore } from '../seed/core.js';
 import { resetBoth } from '../seed/testing.js';
 
@@ -27,7 +29,7 @@ const cookies = new Map<string, string>();
 async function login(slug: string, username: string): Promise<string> {
   const res = await http().post('/api/v1/auth/login').send({ slug, username, password: PASSWORD });
   expect(res.status).toBe(200);
-  const cookie = (res.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('modivara_session='))!.split(';')[0]!;
+  const cookie = (res.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith(`${SESSION_COOKIE}=`))!.split(';')[0]!;
   cookies.set(`${slug}/${username}`, cookie);
   return cookie;
 }
@@ -36,11 +38,10 @@ const as = (who: string) => ({
   post: (path: string, body?: object) => http().post(`/api/v1${path}`).set('Cookie', cookies.get(who)!).send(body),
   put: (path: string, body: object) => http().put(`/api/v1${path}`).set('Cookie', cookies.get(who)!).send(body),
 });
-// apps/api no depende de los paquetes *-contracts (solo compone módulos): las respuestas se leen con tipos mínimos.
-type Me = { organization: { id: string } | null; locations: Array<{ id: string }> };
+type Me = MeResponse;
 const locationOf = async (who: string) => ((await as(who).get('/me')).body as Me).locations[0]!.id;
 const orgOf = async (who: string) => ((await as(who).get('/me')).body as Me).organization!.id;
-type DeviceStatus = { connectivity: string; tables: Array<{ table_id: string; has_button: boolean }> };
+type DeviceStatus = DeviceStatusDto;
 
 beforeAll(async () => {
   app = (await Test.createTestingModule({ imports: [E2EHostModule] }).compile()).createNestApplication();

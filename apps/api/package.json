@@ -22,6 +22,8 @@
     "rxjs": "7.8.2"
   },
   "devDependencies": {
+    "@modivara/core-contracts": "workspace:*",
+    "@modivara/hospitality-contracts": "workspace:*",
     "@nestjs/testing": "12.2.0",
     "@types/cookie-parser": "1.4.10",
     "@types/node": "24.19.2",

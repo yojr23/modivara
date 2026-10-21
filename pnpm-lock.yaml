@@ -54,6 +54,12 @@ importers:
         specifier: 7.8.2
         version: 7.8.2
     devDependencies:
+      '@modivara/core-contracts':
+        specifier: workspace:*
+        version: link:../../domains/core/contracts
+      '@modivara/hospitality-contracts':
+        specifier: workspace:*
+        version: link:../../domains/hospitality/contracts
       '@nestjs/testing':
         specifier: 12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-express@12.2.0)
