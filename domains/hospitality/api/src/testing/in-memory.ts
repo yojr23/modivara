@@ -10,12 +10,14 @@ import type {
   DiningTableRepository,
   ById,
   GatewayRepository,
+  LocationSettingsRepository,
   NotificationPort,
   Scope,
   ServiceCallRepository,
   UnknownDeviceCode,
   ZoneRepository,
 } from '../application/ports/index.js';
+import { DEFAULT_LOCATION_SETTINGS, type LocationSettings } from '../domain/settings/location-settings.js';
 import { Device } from '../domain/devices/device.js';
 import { DeviceAssignment } from '../domain/devices/device-assignment.js';
 import { DeviceEvent } from '../domain/devices/device-event.js';
@@ -94,6 +96,12 @@ export class InMemoryServiceCallRepository implements ServiceCallRepository {
   all() { return this.store.all(); }
 }
 
+export class InMemoryLocationSettingsRepository implements LocationSettingsRepository {
+  private readonly rows = new Map<string, LocationSettings>();
+  set(locationId: string, settings: LocationSettings) { this.rows.set(locationId, settings); }
+  async get({ locationId }: Scope) { return this.rows.get(locationId) ?? DEFAULT_LOCATION_SETTINGS; }
+}
+
 export class InMemoryZoneRepository implements ZoneRepository {
   private readonly store = new Store(Zone.restore);
   async findById({ id, ...scope }: ById) { const z = this.store.get(id); return z && inScope(z, scope) ? z : null; }
@@ -122,6 +130,7 @@ export class InMemoryDeviceRepository implements DeviceRepository {
   async findActiveByCode({ code, ...scope }: Scope & { code: string }) {
     return this.store.all().find((d) => inScope(d, scope) && d.isActive && d.code === code) ?? null;
   }
+  async listActiveByLocation(scope: Scope) { return this.store.all().filter((d) => inScope(d, scope) && d.isActive); }
   async save(device: Device) { this.store.put(device); }
 }
 
@@ -129,6 +138,7 @@ export class InMemoryDeviceAssignmentRepository implements DeviceAssignmentRepos
   private readonly store = new Store(DeviceAssignment.restore);
   async findActiveByDevice({ deviceId, ...scope }: Scope & { deviceId: string }) { return this.store.all().find((a) => inScope(a, scope) && a.deviceId === deviceId && a.isActive) ?? null; }
   async listActiveByTable({ tableId, ...scope }: Scope & { tableId: string }) { return this.store.all().filter((a) => inScope(a, scope) && a.tableId === tableId && a.isActive); }
+  async listActiveByLocation(scope: Scope) { return this.store.all().filter((a) => inScope(a, scope) && a.isActive); }
   async findAt({ deviceId, at, ...scope }: Scope & { deviceId: string; at: Date }) {
     return (
       this.store.all().find((a) => inScope(a, scope) && a.deviceId === deviceId && a.assignedAt <= at && (a.unassignedAt === null || a.unassignedAt > at)) ?? null

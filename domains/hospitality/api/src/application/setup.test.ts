@@ -41,8 +41,8 @@ describe('zonas y mesas', () => {
   it('renombrar respeta la unicidad; desactivar libera la etiqueta', async () => {
     const t1 = await w.createTable.execute({ ...w.ctx, label: '1' });
     await w.createTable.execute({ ...w.ctx, label: '2' });
-    await expect(w.renameTable.execute({ ...w.ctx, tableId: t1.id, label: '2' })).rejects.toBeInstanceOf(DuplicateError);
-    expect((await w.renameTable.execute({ ...w.ctx, tableId: t1.id, label: 'Barra 1' })).label).toBe('Barra 1');
+    await expect(w.updateTable.execute({ ...w.ctx, tableId: t1.id, label: '2' })).rejects.toBeInstanceOf(DuplicateError);
+    expect((await w.updateTable.execute({ ...w.ctx, tableId: t1.id, label: 'Barra 1' })).label).toBe('Barra 1');
     await w.deactivateTable.execute({ ...w.ctx, tableId: t1.id });
     await w.createTable.execute({ ...w.ctx, label: 'Barra 1' });
   });
@@ -58,7 +58,7 @@ describe('zonas y mesas', () => {
     const t = await w.createTable.execute({ ...w.ctx, label: '1' });
     const other = { ...w.ctx, locationId: crypto.randomUUID() };
     w.core.add({ id: other.locationId, organizationId: other.organizationId, timezone: 'UTC', active: true });
-    await expect(w.renameTable.execute({ ...other, tableId: t.id, label: 'x' })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(w.updateTable.execute({ ...other, tableId: t.id, label: 'x' })).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 

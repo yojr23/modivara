@@ -23,6 +23,11 @@ export class PrismaDeviceRepository implements DeviceRepository {
     return r && toDomain(r);
   }
 
+  async listActiveByLocation({ organizationId, locationId }: Scope) {
+    const rows = await this.db.device.findMany({ where: { organizationId, locationId, deactivatedAt: null }, orderBy: { id: 'asc' } });
+    return rows.map(toDomain);
+  }
+
   save(device: Device) {
     const p = device.toProps();
     const data = { model: p.model, deactivatedAt: p.deactivatedAt };

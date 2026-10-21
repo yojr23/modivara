@@ -4,12 +4,14 @@ export { HospitalityModule } from './hospitality.module.js';
 
 export { AcknowledgeCall, type CallActionInput } from './application/acknowledge-call.js';
 export { CompleteCall } from './application/complete-call.js';
-export { AssignDevice, ListUnknownDevices, RegisterDevice, UnassignDevice, type UnknownDevice } from './application/devices.js';
-export { CreateGateway, type ConnectivityStatus, GetConnectivity, type GatewayConnectivity, RecordHeartbeat } from './application/gateways.js';
+export { AssignDevice, type DeviceView, ListDevices, ListUnknownDevices, RegisterDevice, UnassignDevice, type UnknownDevice } from './application/devices.js';
+export { CreateGateway, type ConnectivityStatus, type DeviceStatus, GetConnectivity, GetDeviceStatus, type GatewayConnectivity, RecordHeartbeat } from './application/gateways.js';
 export { type ActiveCallView, ListActiveCalls } from './application/list-active-calls.js';
 export { RegisterButtonPress } from './application/register-button-press.js';
 export { type ActorContext, type PermittedContext, type TenantContext } from './application/support.js';
-export { CreateTable, CreateZone, DeactivateTable, RenameTable } from './application/zones-and-tables.js';
+export {
+  CreateTable, CreateZone, DeactivateTable, DeactivateZone, ListTables, ListZones, type TableView, UpdateTable, UpdateZone,
+} from './application/zones-and-tables.js';
 
 export type {
   ButtonPressStore,
@@ -22,6 +24,7 @@ export type {
   DiningTableRepository,
   GatewayRepository,
   IoTInputPort,
+  LocationSettingsRepository,
   NormalizedPress,
   NotificationPort,
   PressOutcome,

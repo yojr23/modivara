@@ -1,7 +1,7 @@
 import type { CoreAccessPort } from '@modivara/core-contracts';
 import { Gateway } from '../domain/devices/gateway.js';
 import { NotFoundError } from '../domain/errors.js';
-import type { GatewayRepository } from './ports/index.js';
+import type { DeviceAssignmentRepository, DiningTableRepository, GatewayRepository } from './ports/index.js';
 import { type ActorContext, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
 
 export class CreateGateway {
@@ -60,5 +60,29 @@ export class GetConnectivity {
       .map((g) => ({ gatewayId: g.id, name: g.name, lastSeenAt: g.lastSeenAt, connected: g.isConnected(now) }));
     const status = gateways.length === 0 ? 'no_gateways' : gateways.some((g) => !g.connected) ? 'some_disconnected' : 'all_connected';
     return { gateways, status };
+  }
+}
+
+export interface DeviceStatus {
+  connectivity: ConnectivityStatus;
+  tables: Array<{ tableId: string; hasButton: boolean }>;
+}
+
+/** Lo que ven admin y staff: ¿cada mesa tiene botón? y ¿hay gateways desconectados? Nada técnico (DATA-001 §2 `hospitality.devices.status`). */
+export class GetDeviceStatus {
+  constructor(
+    private readonly core: CoreAccessPort,
+    private readonly tables: DiningTableRepository,
+    private readonly assignments: DeviceAssignmentRepository,
+    private readonly connectivity: GetConnectivity,
+  ) {}
+
+  async execute(input: TenantContext): Promise<DeviceStatus> {
+    await requireActiveLocation(this.core, input);
+    const withButton = new Set((await this.assignments.listActiveByLocation(scopeOf(input))).map((a) => a.tableId));
+    const tables = (await this.tables.listByLocation(scopeOf(input)))
+      .filter((t) => t.isActive)
+      .map((t) => ({ tableId: t.id, hasButton: withButton.has(t.id) }));
+    return { connectivity: (await this.connectivity.execute(input)).status, tables };
   }
 }

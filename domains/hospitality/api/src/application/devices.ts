@@ -80,3 +80,23 @@ export class ListUnknownDevices {
     return codes.sort((a, b) => b.lastReceivedAt.getTime() - a.lastReceivedAt.getTime());
   }
 }
+
+export interface DeviceView {
+  device: Device;
+  tableId: string | null;
+}
+
+/** Botones activos del local con la mesa a la que están asignados (consola de plataforma). */
+export class ListDevices {
+  constructor(
+    private readonly core: CoreAccessPort,
+    private readonly devices: DeviceRepository,
+    private readonly assignments: DeviceAssignmentRepository,
+  ) {}
+
+  async execute(input: TenantContext): Promise<DeviceView[]> {
+    await requireActiveLocation(this.core, input);
+    const tableByDevice = new Map((await this.assignments.listActiveByLocation(scopeOf(input))).map((a) => [a.deviceId, a.tableId]));
+    return (await this.devices.listActiveByLocation(scopeOf(input))).map((device) => ({ device, tableId: tableByDevice.get(device.id) ?? null }));
+  }
+}

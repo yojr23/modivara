@@ -9,3 +9,4 @@ export * from './service-calls/transitions.js';
 export * from './service-calls/visibility.js';
 export * from './tables/dining-table.js';
 export * from './tables/zone.js';
+export * from './settings/location-settings.js';

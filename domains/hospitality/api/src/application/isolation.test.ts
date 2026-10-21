@@ -58,13 +58,13 @@ describe('aislamiento por negocio y local', () => {
 
   it('Rename/Deactivate/CreateTable/CreateZone/RegisterDevice/CreateGateway: otro negocio -> local no disponible; otro local -> NotFound', async () => {
     const { sameLocationOtherOrg, otherLocation } = intruders();
-    await expect(w.renameTable.execute({ ...sameLocationOtherOrg, tableId, label: 'x' })).rejects.toBeInstanceOf(LocationUnavailableError);
+    await expect(w.updateTable.execute({ ...sameLocationOtherOrg, tableId, label: 'x' })).rejects.toBeInstanceOf(LocationUnavailableError);
     await expect(w.deactivateTable.execute({ ...sameLocationOtherOrg, tableId })).rejects.toBeInstanceOf(LocationUnavailableError);
     await expect(w.createZone.execute({ ...sameLocationOtherOrg, name: 'Z' })).rejects.toBeInstanceOf(LocationUnavailableError);
     await expect(w.createTable.execute({ ...sameLocationOtherOrg, label: '9' })).rejects.toBeInstanceOf(LocationUnavailableError);
     await expect(w.registerDevice.execute({ ...sameLocationOtherOrg, code: 'Z' })).rejects.toBeInstanceOf(LocationUnavailableError);
     await expect(w.createGateway.execute({ ...sameLocationOtherOrg, name: 'Z' })).rejects.toBeInstanceOf(LocationUnavailableError);
-    await expect(w.renameTable.execute({ ...otherLocation, tableId, label: 'x' })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(w.updateTable.execute({ ...otherLocation, tableId, label: 'x' })).rejects.toBeInstanceOf(NotFoundError);
     await expect(w.deactivateTable.execute({ ...otherLocation, tableId })).rejects.toBeInstanceOf(NotFoundError);
   });
 

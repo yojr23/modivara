@@ -1,11 +1,11 @@
 import { AcknowledgeCall } from '../application/acknowledge-call.js';
 import { CompleteCall } from '../application/complete-call.js';
-import { AssignDevice, ListUnknownDevices, RegisterDevice, UnassignDevice } from '../application/devices.js';
-import { CreateGateway, GetConnectivity, RecordHeartbeat } from '../application/gateways.js';
+import { AssignDevice, ListDevices, ListUnknownDevices, RegisterDevice, UnassignDevice } from '../application/devices.js';
+import { CreateGateway, GetConnectivity, GetDeviceStatus, RecordHeartbeat } from '../application/gateways.js';
 import { ListActiveCalls } from '../application/list-active-calls.js';
 import type { NormalizedPress } from '../application/ports/index.js';
 import { RegisterButtonPress } from '../application/register-button-press.js';
-import { CreateTable, CreateZone, DeactivateTable, RenameTable } from '../application/zones-and-tables.js';
+import { CreateTable, CreateZone, DeactivateTable, DeactivateZone, ListTables, ListZones, UpdateTable, UpdateZone } from '../application/zones-and-tables.js';
 import {
   FakeCoreAccess,
   InMemoryButtonPressStore,
@@ -14,6 +14,7 @@ import {
   InMemoryDeviceRepository,
   InMemoryDiningTableRepository,
   InMemoryGatewayRepository,
+  InMemoryLocationSettingsRepository,
   InMemoryServiceCallRepository,
   InMemoryZoneRepository,
   RecordingNotifications,
@@ -33,10 +34,12 @@ export function buildWorld() {
   const devices = new InMemoryDeviceRepository();
   const assignments = new InMemoryDeviceAssignmentRepository();
   const gateways = new InMemoryGatewayRepository();
+  const settings = new InMemoryLocationSettingsRepository();
   const events = new InMemoryDeviceEventRepository(devices);
   const store = new InMemoryButtonPressStore(calls, events);
   const notifications = new RecordingNotifications((id) => calls.all().some((c) => c.id === id));
 
+  const connectivity = new GetConnectivity(core, gateways);
   const ctx = { organizationId, locationId, actorUserId };
   const press = (over: Partial<NormalizedPress> = {}): NormalizedPress => ({
     gatewayId: crypto.randomUUID(),
@@ -52,21 +55,27 @@ export function buildWorld() {
   });
 
   return {
-    ctx, press, core, calls, zones, tables, devices, assignments, gateways, events, store, notifications,
+    ctx, press, core, settings, calls, zones, tables, devices, assignments, gateways, events, store, notifications,
     registerPress: new RegisterButtonPress(core, devices, assignments, tables, zones, store, notifications),
     acknowledge: new AcknowledgeCall(calls, notifications),
     complete: new CompleteCall(calls, notifications),
     createZone: new CreateZone(core, zones),
     createTable: new CreateTable(core, zones, tables),
-    renameTable: new RenameTable(core, tables),
+    updateTable: new UpdateTable(core, zones, tables),
+    listZones: new ListZones(core, zones),
+    updateZone: new UpdateZone(core, zones),
+    deactivateZone: new DeactivateZone(core, zones, tables),
+    listTables: new ListTables(core, zones, tables),
+    listDevices: new ListDevices(core, devices, assignments),
+    deviceStatus: new GetDeviceStatus(core, tables, assignments, connectivity),
     deactivateTable: new DeactivateTable(core, tables, assignments),
     registerDevice: new RegisterDevice(core, devices),
     assignDevice: new AssignDevice(devices, tables, assignments),
     unassignDevice: new UnassignDevice(assignments),
     createGateway: new CreateGateway(core, gateways),
     heartbeat: new RecordHeartbeat(gateways),
-    connectivity: new GetConnectivity(core, gateways),
-    listActive: new ListActiveCalls(core, calls, tables, zones),
+    connectivity,
+    listActive: new ListActiveCalls(core, calls, tables, zones, settings),
     listUnknown: new ListUnknownDevices(events, core),
   };
 }

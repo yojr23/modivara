@@ -1,8 +1,8 @@
 import type { CoreAccessPort } from '@modivara/core-contracts';
-import type { CallStatus, CallType, CallVisibility } from '@modivara/hospitality-contracts';
+import type { CallStatus, CallType } from '@modivara/hospitality-contracts';
 import { canSeeCall } from '../domain/service-calls/visibility.js';
 import { type PermittedContext, requireActiveLocation, scopeOf } from './support.js';
-import type { DiningTableRepository, ServiceCallRepository, ZoneRepository } from './ports/index.js';
+import type { DiningTableRepository, LocationSettingsRepository, ServiceCallRepository, ZoneRepository } from './ports/index.js';
 
 export interface ActiveCallView {
   id: string;
@@ -23,12 +23,13 @@ export class ListActiveCalls {
     private readonly calls: ServiceCallRepository,
     private readonly tables: DiningTableRepository,
     private readonly zones: ZoneRepository,
+    private readonly settings: LocationSettingsRepository,
   ) {}
 
-  // OPEN: la visibilidad vive en location_settings (DATA-001 §3) y aún no hay puerto para leerla; hoy es siempre 'all'.
-  async execute(input: PermittedContext & { visibility?: CallVisibility }): Promise<ActiveCallView[]> {
+  async execute(input: PermittedContext): Promise<ActiveCallView[]> {
     await requireActiveLocation(this.core, input);
-    const visible = (await this.calls.listActive(scopeOf(input))).filter((c) => canSeeCall(input, c, input.visibility ?? 'all'));
+    const { callVisibility } = await this.settings.get(scopeOf(input));
+    const visible = (await this.calls.listActive(scopeOf(input))).filter((c) => canSeeCall(input, c, callVisibility));
     if (visible.length === 0) return [];
     const tables = new Map((await this.tables.listByLocation(scopeOf(input))).map((t) => [t.id, t]));
     const zones = new Map((await this.zones.listByLocation(scopeOf(input))).map((z) => [z.id, z]));

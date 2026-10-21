@@ -63,6 +63,14 @@ export class DiningTable {
     this.props.updatedBy = by;
   }
 
+  update(patch: { label?: string; zoneId?: string | null; position?: number }, by: string, now: Date): void {
+    if (patch.label !== undefined) this.props.label = cleanLabel(patch.label);
+    if (patch.zoneId !== undefined) this.props.zoneId = patch.zoneId;
+    if (patch.position !== undefined) this.props.position = patch.position;
+    this.props.updatedAt = now;
+    this.props.updatedBy = by;
+  }
+
   deactivate(by: string, now: Date): void {
     if (!this.isActive) return;
     this.props.deactivatedAt = now;

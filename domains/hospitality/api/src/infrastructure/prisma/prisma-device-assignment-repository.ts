@@ -35,6 +35,11 @@ export class PrismaDeviceAssignmentRepository implements DeviceAssignmentReposit
     return rows.map(toDomain);
   }
 
+  async listActiveByLocation({ organizationId, locationId }: Scope) {
+    const rows = await this.db.deviceAssignment.findMany({ where: { organizationId, locationId, unassignedAt: null }, orderBy: { id: 'asc' } });
+    return rows.map(toDomain);
+  }
+
   async findAt({ deviceId, at, organizationId, locationId }: Scope & { deviceId: string; at: Date }) {
     const r = await this.db.deviceAssignment.findFirst({
       where: { organizationId, locationId, deviceId, assignedAt: { lte: at }, OR: [{ unassignedAt: null }, { unassignedAt: { gt: at } }] },

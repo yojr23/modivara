@@ -40,5 +40,18 @@ export class Zone {
   get name() { return this.props.name; }
   get position() { return this.props.position; }
   get isActive() { return this.props.deactivatedAt === null; }
+  update(patch: { name?: string; position?: number }): void {
+    if (patch.name !== undefined) {
+      const name = patch.name.trim();
+      if (!name) throw new ValidationError('Zone name is required');
+      this.props.name = name;
+    }
+    if (patch.position !== undefined) this.props.position = patch.position;
+  }
+
+  deactivate(now: Date): void {
+    if (this.isActive) this.props.deactivatedAt = now;
+  }
+
   toProps(): ZoneProps { return { ...this.props }; }
 }

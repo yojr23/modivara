@@ -3,6 +3,7 @@ import type { DeviceAssignment } from '../../domain/devices/device-assignment.js
 import type { Gateway } from '../../domain/devices/gateway.js';
 import type { ServiceCall } from '../../domain/service-calls/service-call.js';
 import type { DiningTable } from '../../domain/tables/dining-table.js';
+import type { LocationSettings } from '../../domain/settings/location-settings.js';
 import type { Zone } from '../../domain/tables/zone.js';
 
 /** Todo repositorio consulta acotado por negocio y local: un local nunca ve filas de otro (DATA-001 §1). */
@@ -27,6 +28,11 @@ export interface ServiceCallRepository {
   save(call: ServiceCall): Promise<void>;
 }
 
+/** Ajustes del local (DATA-001 §3). Sin fila valen los valores por defecto: nunca devuelve `null`. */
+export interface LocationSettingsRepository {
+  get(scope: Scope): Promise<LocationSettings>;
+}
+
 export interface ZoneRepository {
   findById(key: ById): Promise<Zone | null>;
   findActiveByName(query: Scope & { name: string }): Promise<Zone | null>;
@@ -45,12 +51,14 @@ export interface DiningTableRepository {
 export interface DeviceRepository {
   findById(key: ById): Promise<Device | null>;
   findActiveByCode(query: Scope & { code: string }): Promise<Device | null>;
+  listActiveByLocation(scope: Scope): Promise<Device[]>;
   save(device: Device): Promise<void>;
 }
 
 export interface DeviceAssignmentRepository {
   findActiveByDevice(query: Scope & { deviceId: string }): Promise<DeviceAssignment | null>;
   listActiveByTable(query: Scope & { tableId: string }): Promise<DeviceAssignment[]>;
+  listActiveByLocation(scope: Scope): Promise<DeviceAssignment[]>;
   /** ¿Qué mesa tenía el botón en el instante `at`? Incluye el instante de asignación y excluye el de cierre. Sirve para auditar pulsaciones pasadas. */
   findAt(query: Scope & { deviceId: string; at: Date }): Promise<DeviceAssignment | null>;
   /** Inserta o cierra una asignación. Lanza `DeviceAlreadyAssignedError` si el botón ya tiene otra activa. */
