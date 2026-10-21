@@ -4,7 +4,7 @@ import {
 } from '@modivara/core-api';
 
 type Role = 'admin' | 'staff' | 'inventory';
-interface BusinessSeed {
+export interface BusinessSeed {
   slug: string;
   name: string;
   location: string;
@@ -13,9 +13,9 @@ interface BusinessSeed {
 
 // DATA-001 §7. OPEN: el documento no fija el username del superadmin, el nombre del local ni los usuarios de bar-demo-pisos
 // (se crea `admin` para poder probar el aislamiento H1); tampoco qué módulos contrata cada demo (se habilitan los tres).
-const SUPERADMIN = { username: 'superadmin', displayName: 'Superadmin' };
-const MODULES = ['hospitality', 'commerce', 'analytics'] as const;
-const BUSINESSES: BusinessSeed[] = [
+export const SUPERADMIN = { username: 'superadmin', displayName: 'Superadmin' };
+export const MODULES = ['hospitality', 'commerce', 'analytics'] as const;
+export const BUSINESSES: BusinessSeed[] = [
   {
     slug: 'bar-demo', name: 'Bar Demo', location: 'Principal',
     users: [

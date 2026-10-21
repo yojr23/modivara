@@ -44,6 +44,13 @@ docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<clave de demo>' a
 
 Usuarios: `labs/superadmin`, `bar-demo/{admin,barra,mesero1,inventario1}`, `bar-demo-pisos/admin`.
 
+Datos de demo de hospitality (después de `seed:core`; idempotente, se niega con `NODE_ENV=production`): `bar-demo` con 15 mesas sin zonas, un gateway y los botones `btn-01…btn-15` asignados; `bar-demo-pisos` con las zonas «Terraza» y «2º piso» y números de mesa repetidos por zona. La clave del gateway se imprime **una sola vez**, solo cuando se crea (`SIM_GATEWAY_KEY=…`): cópiala al `.env` para el simulador.
+
+```bash
+docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<la misma clave de demo>' api sh -c 'cd /repo/apps/api && node dist/seed-hospitality.js'
+# con una base propia (CORE_DATABASE_URL y HOSPITALITY_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:hospitality
+```
+
 Portal en `http://localhost`, API en `http://localhost/api/v1/health`, simulador en `http://<ip-del-pc>/sim` desde el celular (misma Wi‑Fi).
 
 ## Estructura
