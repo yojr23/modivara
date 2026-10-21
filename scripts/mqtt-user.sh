@@ -14,15 +14,16 @@ container="${MQTT_CONTAINER:-$(cd "$root" && docker compose ps -q mqtt 2>/dev/nu
 password="$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 32)"
 
 [ -f "$dir/passwd" ] || { : >"$dir/passwd"; }   # mosquitto no arranca sin el archivo
-# La contraseña viaja por entorno (no por argumentos visibles en `ps` del host).
+# La contraseña viaja por entorno: `-e U -e P` sin valor copia la variable exportada, así no aparece en los argumentos de `docker` (ps del host).
+export U="$user" P="$password"
 cmd='mosquitto_passwd -b /mosquitto/config/passwd "$U" "$P" && chmod 0700 /mosquitto/config/passwd'
 if [ -n "$container" ]; then
-  docker exec -e "U=$user" -e "P=$password" "$container" sh -c "$cmd"
+  docker exec -e U -e P "$container" sh -c "$cmd"
   # OPEN: recarga por SIGHUP (Mosquitto relee passwd y acl sin cortar conexiones ya abiertas); no documentado en TECH-001.
   docker kill -s HUP "$container" >/dev/null
   reloaded="broker recargado"
 else
-  (cd "$root" && docker compose run --rm -T -e "U=$user" -e "P=$password" mqtt sh -c "$cmd")
+  (cd "$root" && docker compose run --rm -T -e U -e P mqtt sh -c "$cmd")
   reloaded="broker apagado: se leerá al iniciar"
 fi
 echo "usuario: $user"
