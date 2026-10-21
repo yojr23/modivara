@@ -7,7 +7,7 @@ import {
 import { AssignDevice, ListDevices, ListUnknownDevices, RegisterDevice, UnassignDevice } from '../application/devices.js';
 import { CreateGateway, GetConnectivity } from '../application/gateways.js';
 import { ValidationError } from '../domain/errors.js';
-import { contextOf, CurrentActor, RequireModule, RequirePermission } from './decorators.js';
+import { contextOf, CurrentActor, idOf, RequireModule, RequirePermission } from './decorators.js';
 import { HospitalityConflictFilter } from './conflict.filter.js';
 
 // OPEN: ventana por defecto de «detectados sin asignar» cuando no llega `since` (¿7 días?, ¿hasta cuándo se conservan las señales?).
@@ -77,15 +77,15 @@ export class PlatformController {
   @HttpCode(204)
   @RequirePermission('platform.device_assignments.manage')
   async assignDevice(
-    @CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('deviceId') deviceId: string, @Body() body: unknown,
+    @CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('deviceId') rawDeviceId: string, @Body() body: unknown,
   ): Promise<void> {
-    await this.assign.execute({ ...contextOf(actor, locationId), deviceId, tableId: assignDeviceSchema.parse(body).table_id });
+    await this.assign.execute({ ...contextOf(actor, locationId), deviceId: idOf(rawDeviceId), tableId: assignDeviceSchema.parse(body).table_id });
   }
 
   @Post(P.platformUnassignDevice)
   @HttpCode(204)
   @RequirePermission('platform.device_assignments.manage')
-  async unassignDevice(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('deviceId') deviceId: string): Promise<void> {
-    await this.unassign.execute({ ...contextOf(actor, locationId), deviceId });
+  async unassignDevice(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('deviceId') rawDeviceId: string): Promise<void> {
+    await this.unassign.execute({ ...contextOf(actor, locationId), deviceId: idOf(rawDeviceId) });
   }
 }

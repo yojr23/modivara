@@ -3,7 +3,7 @@ import type { RequestActor } from '@modivara/core-contracts';
 import { createZoneSchema, HOSPITALITY_API_PATHS as P, updateZoneSchema, type ZoneDto } from '@modivara/hospitality-contracts';
 import { CreateZone, DeactivateZone, ListZones, UpdateZone } from '../application/zones-and-tables.js';
 import type { Zone } from '../domain/tables/zone.js';
-import { contextOf, CurrentActor, RequireModule, RequirePermission } from './decorators.js';
+import { contextOf, CurrentActor, idOf, RequireModule, RequirePermission } from './decorators.js';
 import { HospitalityConflictFilter } from './conflict.filter.js';
 
 const toDto = (z: Zone): ZoneDto => ({ id: z.id, name: z.name, position: z.position });
@@ -32,14 +32,14 @@ export class ZonesController {
 
   @Patch(P.zone)
   async edit(
-    @CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('zoneId') zoneId: string, @Body() body: unknown,
+    @CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('zoneId') rawZoneId: string, @Body() body: unknown,
   ): Promise<ZoneDto> {
-    return toDto(await this.update.execute({ ...contextOf(actor, locationId), zoneId, ...updateZoneSchema.parse(body) }));
+    return toDto(await this.update.execute({ ...contextOf(actor, locationId), zoneId: idOf(rawZoneId), ...updateZoneSchema.parse(body) }));
   }
 
   @Post(P.zoneDeactivate)
   @HttpCode(204)
-  async remove(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('zoneId') zoneId: string): Promise<void> {
-    await this.deactivate.execute({ ...contextOf(actor, locationId), zoneId });
+  async remove(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('zoneId') rawZoneId: string): Promise<void> {
+    await this.deactivate.execute({ ...contextOf(actor, locationId), zoneId: idOf(rawZoneId) });
   }
 }

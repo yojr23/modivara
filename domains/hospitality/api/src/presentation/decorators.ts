@@ -17,6 +17,9 @@ export const CurrentActor = createParamDecorator((_data: unknown, context: Execu
 });
 
 /** Contexto de los casos de uso: el negocio sale del actor y el local de la ruta, nunca del cuerpo. */
+/** Id de ruta (zona, mesa, dispositivo) validado como UUID: un valor inválido es 400, nunca un 500 de la base. */
+export const idOf = (raw: string): string => idParamSchema.parse(raw);
+
 export const contextOf = (actor: RequestActor, locationId: string): ActorContext => ({
   organizationId: effectiveOrganizationId(actor),
   locationId: idParamSchema.parse(locationId),

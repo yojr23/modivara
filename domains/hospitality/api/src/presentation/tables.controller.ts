@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, UseFilters
 import type { RequestActor } from '@modivara/core-contracts';
 import { createTableSchema, HOSPITALITY_API_PATHS as P, updateTableSchema, type TableDto } from '@modivara/hospitality-contracts';
 import { CreateTable, DeactivateTable, ListTables, UpdateTable, type TableView } from '../application/zones-and-tables.js';
-import { contextOf, CurrentActor, RequireModule, RequirePermission } from './decorators.js';
+import { contextOf, CurrentActor, idOf, RequireModule, RequirePermission } from './decorators.js';
 import { HospitalityConflictFilter } from './conflict.filter.js';
 
 const toDto = ({ table, zoneName }: TableView): TableDto => ({
@@ -36,8 +36,9 @@ export class TablesController {
 
   @Patch(P.table)
   async edit(
-    @CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('tableId') tableId: string, @Body() body: unknown,
+    @CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('tableId') rawTableId: string, @Body() body: unknown,
   ): Promise<TableDto> {
+    const tableId = idOf(rawTableId);
     const { zone_id, ...rest } = updateTableSchema.parse(body);
     const ctx = contextOf(actor, locationId);
     await this.update.execute({ ...ctx, tableId, ...rest, ...(zone_id !== undefined && { zoneId: zone_id }) });
@@ -46,8 +47,8 @@ export class TablesController {
 
   @Post(P.tableDeactivate)
   @HttpCode(204)
-  async remove(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('tableId') tableId: string): Promise<void> {
-    await this.deactivate.execute({ ...contextOf(actor, locationId), tableId });
+  async remove(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('tableId') rawTableId: string): Promise<void> {
+    await this.deactivate.execute({ ...contextOf(actor, locationId), tableId: idOf(rawTableId) });
   }
 
   private async one(ctx: ReturnType<typeof contextOf>, tableId: string): Promise<TableDto> {
