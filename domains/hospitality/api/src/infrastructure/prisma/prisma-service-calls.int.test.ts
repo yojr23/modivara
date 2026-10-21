@@ -171,6 +171,24 @@ describe('PrismaServiceCallRepository', () => {
     expect((await calls.findById({ ...t, id }))!.pressCount).toBe(2);
   });
 
+  it('pulsación entre la carga y el guardado: el evento de outbox lleva el press_count final', async () => {
+    const s = await setup(2);
+    const id = await created(s);
+    const stale = (await calls.findById({ ...t, id }))!;
+    await press.registerPress(s.normalized('btn-2'));
+    stale.acknowledge(waiter, new Date());
+    await calls.save(stale);
+    const ack = await db.outboxEvent.findFirstOrThrow({ where: { eventType: 'hospitality.service_call.acknowledged' } });
+    expect((ack.payload as { press_count: number }).press_count).toBe(2);
+
+    const stale2 = (await calls.findById({ ...t, id }))!;
+    await db.$executeRaw`UPDATE service_calls SET press_count = 3 WHERE id = ${id}::uuid`;
+    stale2.complete(waiter, new Date());
+    await calls.save(stale2);
+    const done = await db.outboxEvent.findFirstOrThrow({ where: { eventType: 'hospitality.service_call.completed' } });
+    expect((done.payload as { press_count: number }).press_count).toBe(3);
+  });
+
   it('crear un segundo llamado activo para la misma mesa y tipo es ConcurrencyConflictError', async () => {
     const s = await setup(1);
     await created(s);

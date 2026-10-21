@@ -32,15 +32,17 @@ export class PrismaServiceCallRepository implements ServiceCallRepository {
           await tx.serviceCall.create({ data: p });
         } else {
           // Optimista: solo cambia si sigue en el estado leído (DATA-001 "Reconocer y finalizar").
-          // press_count y last_press_at son de las pulsaciones concurrentes (upsert atómico): no se pisan.
-          const { count } = await tx.serviceCall.updateMany({
-            where: { id: p.id, organizationId: p.organizationId, locationId: p.locationId, status: call.persistedStatus },
-            data: {
-              status: p.status, acknowledgedAt: p.acknowledgedAt, acknowledgedBy: p.acknowledgedBy,
-              completedAt: p.completedAt, completedBy: p.completedBy, updatedAt: p.updatedAt,
-            },
-          });
-          if (count === 0) throw new ConcurrencyConflictError(null);
+          // press_count y last_press_at son de las pulsaciones concurrentes (upsert atómico): no se pisan,
+          // y el RETURNING trae el press_count vigente para el evento de outbox de esta misma transacción.
+          const rows = await tx.$queryRaw<{ press_count: number }[]>`
+            UPDATE service_calls
+            SET status = ${p.status}::call_status, acknowledged_at = ${p.acknowledgedAt}::timestamptz, acknowledged_by = ${p.acknowledgedBy}::uuid,
+                completed_at = ${p.completedAt}::timestamptz, completed_by = ${p.completedBy}::uuid, updated_at = ${p.updatedAt}::timestamptz
+            WHERE id = ${p.id}::uuid AND organization_id = ${p.organizationId}::uuid AND location_id = ${p.locationId}::uuid
+              AND status = ${call.persistedStatus}::call_status
+            RETURNING press_count`;
+          if (rows.length === 0) throw new ConcurrencyConflictError(null);
+          call.syncPressCount(rows[0]!.press_count);
         }
         await persistTransitionsAndOutbox(tx, call);
       });

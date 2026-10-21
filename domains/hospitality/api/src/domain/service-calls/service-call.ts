@@ -139,6 +139,14 @@ export class ServiceCall extends AggregateRoot {
     this.props.updatedAt = now;
   }
 
+  /** Pulsaciones vigentes según la base (RETURNING del UPDATE): corrige el valor leído al cargar, también en los eventos pendientes. */
+  syncPressCount(pressCount: number): void {
+    this.props.pressCount = pressCount;
+    for (const e of this.pullEvents()) {
+      this.record('press_count' in (e.payload as object) ? { ...e, payload: { ...(e.payload as object), press_count: pressCount } } : e);
+    }
+  }
+
   acknowledge(actorUserId: string, now: Date, correlationId: string = newId()): void {
     const t = transition(this.props, 'acknowledge', actorUserId, now);
     this.props.status = t.status;
