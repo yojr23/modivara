@@ -1,22 +1,10 @@
-import { NotFoundError, permissionsFor, type Permission } from '@modivara/core-contracts';
+import { effectiveOrganizationId, NotFoundError, permissionsFor, type Permission, type RequestActor } from '@modivara/core-contracts';
 import { PermissionDeniedError, type AppUser } from '../domain/index.js';
 import type { MembershipRepository, UserRepository } from './ports/index.js';
 
-/** Quién hace la petición, ya autenticado. */
-export interface ActorContext {
-  actorUserId: string;
-  organizationId: string;
-  isPlatform: boolean;
-  isOwner: boolean;
-  sessionId: string;
-  /** Solo superadmin: negocio sobre el que opera ahora. */
-  actingOrganizationId: string | null;
-}
-
-/** Negocio sobre el que actúa: el propio, o el elegido si es superadmin. */
-export function effectiveOrganizationId(actor: ActorContext): string {
-  return actor.isPlatform ? (actor.actingOrganizationId ?? actor.organizationId) : actor.organizationId;
-}
+/** Quién hace la petición, ya autenticado (contrato `RequestActor` de core-contracts). */
+export type ActorContext = RequestActor;
+export { effectiveOrganizationId };
 
 const MANAGE = 'core.users.manage' satisfies Permission;
 

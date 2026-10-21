@@ -58,6 +58,8 @@ export class CoreModule implements OnModuleDestroy {
     const databaseUrl = options.databaseUrl ?? process.env.CORE_DATABASE_URL;
     return {
       module: CoreModule,
+      // Global: otros dominios inyectan CORE_ACCESS_PORT por token sin importar core-api (ADR-002 D1).
+      global: true,
       controllers: [AuthController, UsersController, PlatformController],
       providers: [
         LoginRateLimiter,

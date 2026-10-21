@@ -11,3 +11,22 @@ export const REQUIRED_MODULE_KEY = 'modivara:module';
 export const REQUEST_ACTOR_KEY = 'actor';
 /** Parámetro de ruta que identifica el local en las rutas por local. */
 export const LOCATION_ID_PARAM = 'locationId';
+
+/**
+ * Actor autenticado que `SessionGuard` deja en `request[REQUEST_ACTOR_KEY]`. Contrato para que cualquier dominio
+ * lo lea sin importar internos de core. El tenant sale siempre de aquí, nunca del cliente.
+ */
+export interface RequestActor {
+  actorUserId: string;
+  organizationId: string;
+  isPlatform: boolean;
+  isOwner: boolean;
+  sessionId: string;
+  /** Solo superadmin: negocio sobre el que opera ahora. */
+  actingOrganizationId: string | null;
+}
+
+/** Negocio sobre el que actúa: el propio, o el elegido si es superadmin. */
+export function effectiveOrganizationId(actor: RequestActor): string {
+  return actor.isPlatform ? (actor.actingOrganizationId ?? actor.organizationId) : actor.organizationId;
+}
