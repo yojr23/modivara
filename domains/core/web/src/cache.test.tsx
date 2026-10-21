@@ -56,3 +56,15 @@ it('un login borra los datos que dejó otro usuario', async () => {
   await act(() => result.current.login.mutateAsync({ slug: 'demo', username: 'ana', password: 'x' }));
   expect(qc.getQueryData(SECRET)).toBeUndefined();
 });
+
+it('una respuesta en vuelo del usuario anterior no repuebla el caché tras logout', async () => {
+  const { qc, wrapper } = setup((u) => (u.endsWith('/auth/logout') ? new Response(null, { status: 204 }) : json(makeMe())));
+  const { result } = renderHook(() => ({ s: useSession(), out: useLogout() }), { wrapper });
+  await waitFor(() => expect(result.current.s.status).toBe('authenticated'));
+  let release!: (v: string[]) => void;
+  const inFlight = qc.fetchQuery({ queryKey: SECRET, queryFn: () => new Promise<string[]>((r) => (release = r)) }).catch(() => undefined);
+  await act(() => result.current.out.mutateAsync());
+  release(['mesa 5']);
+  await inFlight;
+  expect(qc.getQueryData(SECRET)).toBeUndefined();
+});

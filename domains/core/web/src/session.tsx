@@ -14,7 +14,10 @@ const SessionContext = createContext<Session | null>(null);
 
 /** Descarta todo el caché salvo `/me` (datos de un usuario no deben sobrevivir al cambio de sesión). */
 function dropOtherQueries(qc: QueryClient) {
-  qc.removeQueries({ predicate: (q) => !(q.queryKey[0] === ME_KEY[0] && q.queryKey[1] === ME_KEY[1]) });
+  const predicate = (q: { queryKey: readonly unknown[] }) => !(q.queryKey[0] === ME_KEY[0] && q.queryKey[1] === ME_KEY[1]);
+  // Cancelar antes de borrar: una respuesta en vuelo del usuario anterior no debe volver a escribirse en el caché.
+  void qc.cancelQueries({ predicate });
+  qc.removeQueries({ predicate });
 }
 function endSession(qc: QueryClient) {
   dropOtherQueries(qc);
