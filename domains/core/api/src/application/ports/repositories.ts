@@ -42,6 +42,8 @@ export interface UserRepository {
   findActiveByUsername(ref: { organizationId: string; username: string }): Promise<AppUser | null>;
   /** Usuarios activos del negocio, por username. */
   listActive(ref: { organizationId: string }): Promise<AppUser[]>;
+  /** Todos los usuarios del negocio, también los desactivados (el seed no debe recrearlos). */
+  listAll(ref: { organizationId: string }): Promise<AppUser[]>;
   save(user: AppUser): Promise<void>;
   /**
    * Sección crítica del login por usuario: el adaptador abre una transacción, bloquea la fila

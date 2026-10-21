@@ -45,6 +45,11 @@ export class PrismaUserRepository implements UserRepository {
     return rows.map(toDomain);
   }
 
+  async listAll({ organizationId }: { organizationId: string }) {
+    const rows = await this.prisma.appUser.findMany({ where: { organizationId }, orderBy: [{ username: 'asc' }, { createdAt: 'asc' }] });
+    return rows.map(toDomain);
+  }
+
   save(u: AppUser) {
     return saveUser(this.prisma, u);
   }

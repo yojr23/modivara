@@ -56,6 +56,9 @@ export class InMemoryUserRepository implements UserRepository {
   async listActive({ organizationId }: { organizationId: string }) {
     return [...this.items.values()].filter((u) => u.organizationId === organizationId && u.isActive).sort((a, b) => a.username.localeCompare(b.username));
   }
+  async listAll({ organizationId }: { organizationId: string }) {
+    return [...this.items.values()].filter((u) => u.organizationId === organizationId).sort((a, b) => a.username.localeCompare(b.username));
+  }
   async save(u: AppUser) { this.saves++; this.items.set(u.id, u); }
 
   readonly #locks = new Map<string, Promise<unknown>>();
