@@ -24,6 +24,15 @@ docker compose run --rm mqtt mosquitto_passwd -c -b /mosquitto/config/passwd api
 docker compose up --build
 ```
 
+El contenedor `api` aplica `prisma migrate deploy` de cada dominio al arrancar. Datos de demo de core (idempotente; contraseña común en `SEED_PASSWORD` del `.env`):
+
+```bash
+docker compose exec api sh -c 'cd /repo/apps/api && node dist/seed-core.js'
+# con una base propia (CORE_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:core
+```
+
+Usuarios: `labs/superadmin`, `bar-demo/{admin,barra,mesero1,inventario1}`, `bar-demo-pisos/admin`.
+
 Portal en `http://localhost`, API en `http://localhost/api/v1/health`, simulador en `http://<ip-del-pc>/sim` desde el celular (misma Wi‑Fi).
 
 ## Estructura

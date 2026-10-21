@@ -14,7 +14,8 @@ COPY --from=build --chown=node:node /repo /repo
 WORKDIR /repo/apps/api
 USER node
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+# Migra cada dominio con su URL y arranca; el seed (`node dist/seed-core.js`) se corre aparte, ver README.
+CMD ["/repo/scripts/api-start.sh"]
 
 FROM base AS button-sim
 ENV NODE_ENV=production
