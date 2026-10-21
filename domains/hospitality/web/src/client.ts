@@ -1,3 +1,4 @@
+import { apiErrorSchema } from '@modivara/core-contracts';
 import {
   HOSPITALITY_API_PATHS as P, deviceSchema, deviceStatusSchema, gatewayCreatedSchema, gatewaySchema,
   tableSchema, unknownDeviceSchema, zoneSchema,
@@ -26,16 +27,6 @@ export class InvalidResponseError extends Error {
 export class NetworkError extends Error {
   constructor() { super('network_error'); this.name = 'NetworkError'; }
 }
-
-// OPEN: depender de core-contracts (apiErrorSchema) en vez de duplicar este esquema.
-const apiErrorSchema: Parser<{ code: string; message?: string }> = {
-  safeParse: (d) => {
-    const o = d as { code?: unknown; message?: unknown } | null;
-    return o && typeof o === 'object' && typeof o.code === 'string'
-      ? { success: true, data: { code: o.code, ...(typeof o.message === 'string' ? { message: o.message } : {}) } }
-      : { success: false };
-  },
-};
 
 /** Traduce cualquier error a un estado de UI. 409 cubre duplicados y conflictos de estado. */
 export function toErrorState(e: unknown): ErrorState {

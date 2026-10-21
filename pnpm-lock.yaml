@@ -517,6 +517,9 @@ importers:
 
   domains/hospitality/web:
     dependencies:
+      '@modivara/core-contracts':
+        specifier: workspace:*
+        version: link:../../core/contracts
       '@modivara/hospitality-contracts':
         specifier: workspace:*
         version: link:../contracts
