@@ -6,6 +6,9 @@ import {
   WeakPasswordError,
   type AppUser,
 } from '../domain/index.js';
+import { newId } from '@modivara/core-contracts';
+import { Location } from '../domain/index.js';
+import { ListUsers } from './list-users.js';
 import { TEST_PASSWORD, World } from '../testing/index.js';
 import type { ActorContext } from './actor.js';
 import { AuthenticateSession } from './authenticate-session.js';
@@ -165,6 +168,59 @@ describe('administración de usuarios', () => {
     it('exige permiso y roles válidos', async () => {
       await expect(setRoles.execute({ actor: staffCtx, userId: staff.id, locationId: w.solCenter.id, roles: ['admin'] })).rejects.toThrow(PermissionDeniedError);
       await expect(setRoles.execute({ actor: ownerCtx, userId: staff.id, locationId: w.solCenter.id, roles: [] })).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('alcance por local (sin toma lateral de cuentas)', () => {
+    let terraza: Location;
+    let adminA: AppUser, adminB: AppUser, staffB: AppUser, both: AppUser, ctxA: ActorContext, ctxB: ActorContext, ctxBoth: ActorContext;
+    beforeEach(async () => {
+      terraza = Location.create({ id: newId(), organizationId: w.sol.id, name: 'Terraza' });
+      await w.locations.save(terraza);
+      adminA = admin; // admin en Centro (local A)
+      adminB = await w.addUser(w.sol, 'jefeb', { roles: ['admin'], location: terraza });
+      staffB = await w.addUser(w.sol, 'meserob', { roles: ['staff'], location: terraza });
+      both = await w.addUser(w.sol, 'ambos', { roles: ['admin'], location: w.solCenter });
+      await setRoles.execute({ actor: ownerCtx, userId: both.id, locationId: terraza.id, roles: ['admin'] });
+      [ctxA, ctxB, ctxBoth] = [adminA, adminB, both].map((u) => w.actorOf(u)) as [ActorContext, ActorContext, ActorContext];
+    });
+
+    it('el admin del local A no gestiona al admin ni al staff del local B (404)', async () => {
+      for (const target of [adminB, staffB]) {
+        await expect(reset.execute({ actor: ctxA, userId: target.id, newPassword: 'Reinicio99' })).rejects.toThrow(NotFoundError);
+        await expect(deactivate.execute({ actor: ctxA, userId: target.id })).rejects.toThrow(NotFoundError);
+        await expect(revoke.execute({ actor: ctxA, userId: target.id })).rejects.toThrow(NotFoundError);
+        await expect(setRoles.execute({ actor: ctxA, userId: target.id, locationId: w.solCenter.id, roles: ['staff'] })).rejects.toThrow(NotFoundError);
+      }
+      expect(adminB.isActive).toBe(true);
+    });
+
+    it('con membresía en ambos locales se gestiona a los de cualquiera; el dueño y el superadmin, a todos', async () => {
+      await reset.execute({ actor: ctxBoth, userId: staffB.id, newPassword: 'Reinicio99' });
+      await reset.execute({ actor: ctxA, userId: both.id, newPassword: 'Reinicio99' }); // comparten Centro
+      await reset.execute({ actor: ownerCtx, userId: adminB.id, newPassword: 'Reinicio99' });
+      await reset.execute({ actor: { ...rootCtx, actingOrganizationId: w.sol.id }, userId: staffB.id, newPassword: 'Reinicio99' });
+    });
+
+    it('asignar roles exige core.users.manage en ESE local', async () => {
+      await expect(setRoles.execute({ actor: ctxA, userId: staff.id, locationId: terraza.id, roles: ['staff'] })).rejects.toThrow(PermissionDeniedError);
+      await expect(setRoles.execute({ actor: ctxBoth, userId: staff.id, locationId: terraza.id, roles: ['staff'] })).resolves.toBeDefined();
+      await expect(setRoles.execute({ actor: ctxA, userId: staff.id, locationId: w.solCenter.id, roles: ['inventory'] })).resolves.toBeDefined();
+    });
+
+    it('un usuario recién creado (sin membresías) se puede asignar a un local propio, no restablecer', async () => {
+      const fresh = await newUser(ctxA);
+      await expect(reset.execute({ actor: ctxA, userId: fresh.id, newPassword: 'Reinicio99' })).rejects.toThrow(NotFoundError);
+      await expect(setRoles.execute({ actor: ctxA, userId: fresh.id, locationId: w.solCenter.id, roles: ['staff'] })).resolves.toBeDefined();
+      await expect(reset.execute({ actor: ctxA, userId: fresh.id, newPassword: 'Reinicio99' })).resolves.toBeUndefined();
+    });
+
+    it('el listado solo muestra a quienes el admin alcanza', async () => {
+      const list = new ListUsers(w.users, w.memberships);
+      const names = async (actor: ActorContext) => (await list.execute({ actor })).map((u) => u.username);
+      expect(await names(ctxA)).toEqual(['ambos', 'jefe', 'mesero']);
+      expect(await names(ctxB)).toEqual(['ambos', 'jefeb', 'meserob']);
+      expect((await names(ownerCtx)).length).toBe(6);
     });
   });
 
