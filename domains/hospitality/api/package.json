@@ -14,7 +14,10 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "generate": "prisma generate",
+    "postinstall": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@modivara/core-contracts": "workspace:*",

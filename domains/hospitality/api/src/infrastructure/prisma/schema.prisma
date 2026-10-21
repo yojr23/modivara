@@ -1,9 +1,259 @@
-// Esquema "hospitality" (DATA-001 §1). Sin modelos hasta cerrar la revisión de DATA-001 (PLAN-001 P0-01).
+// Esquema "hospitality" (DATA-001 §3 y §6 v1.1). Lo que Prisma no expresa (CHECK, índices por expresión,
+// NULLS NOT DISTINCT) va en SQL explícito al final de la migración 0001.
+// Los predicados con enums se escriben en la forma normalizada de PostgreSQL (`= ANY (ARRAY[…::tipo])`);
+// con `IN (…)` Prisma ve un diff perpetuo.
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum CallStatus {
+  pending
+  in_progress
+  completed
+
+  @@map("call_status")
+}
+
+enum CallType {
+  attention
+
+  @@map("call_type")
+}
+
+enum CallAction {
+  create
+  acknowledge
+  complete
+
+  @@map("call_action")
+}
+
+enum CallVisibility {
+  all
+
+  @@map("call_visibility")
+}
+
+enum Transport {
+  http
+  mqtt
+
+  @@map("transport")
+}
+
+enum DeviceEventResult {
+  call_created
+  repeat_press
+  debounced
+  unknown_device
+  unassigned_device
+  location_inactive
+
+  @@map("device_event_result")
+}
+
+model LocationSettings {
+  locationId     String         @id @map("location_id") @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  callVisibility CallVisibility @default(all) @map("call_visibility")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?        @map("created_by") @db.Uuid
+  updatedBy      String?        @map("updated_by") @db.Uuid
+
+  @@map("location_settings")
+}
+
+model Zone {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  name           String
+  position       Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+
+  tables DiningTable[]
+
+  @@unique([id, locationId], map: "uq_zones_id_location")
+  @@map("zones")
+}
+
+model DiningTable {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  zoneId         String?   @map("zone_id") @db.Uuid
+  label          String
+  position       Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+
+  zone        Zone?              @relation(fields: [zoneId, locationId], references: [id, locationId])
+  assignments DeviceAssignment[]
+  calls       ServiceCall[]
+
+  @@unique([id, locationId], map: "uq_dining_tables_id_location")
+  @@map("dining_tables")
+}
+
+model Gateway {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  name           String
+  keyHash        Bytes     @unique(map: "uq_gateways_key_hash") @map("key_hash")
+  lastSeenAt     DateTime? @map("last_seen_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+
+  events DeviceEvent[]
+
+  @@unique([id, locationId], map: "uq_gateways_id_location")
+  @@map("gateways")
+}
+
+model Device {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  code           String
+  model          String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+
+  assignments DeviceAssignment[]
+
+  @@unique([id, locationId], map: "uq_devices_id_location")
+  @@unique([locationId, code], map: "uq_devices_code", where: raw("deactivated_at IS NULL"))
+  @@map("devices")
+}
+
+model DeviceAssignment {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  deviceId       String    @map("device_id") @db.Uuid
+  tableId        String    @map("table_id") @db.Uuid
+  assignedAt     DateTime  @default(now()) @map("assigned_at") @db.Timestamptz
+  assignedBy     String    @map("assigned_by") @db.Uuid
+  unassignedAt   DateTime? @map("unassigned_at") @db.Timestamptz
+  unassignedBy   String?   @map("unassigned_by") @db.Uuid
+
+  device Device      @relation(fields: [deviceId, locationId], references: [id, locationId])
+  table  DiningTable @relation(fields: [tableId, locationId], references: [id, locationId])
+
+  // Un botón en una sola mesa a la vez; una mesa puede tener varios botones.
+  @@unique([deviceId], map: "uq_device_assignments_active", where: raw("unassigned_at IS NULL"))
+  @@index([tableId], map: "ix_device_assignments_table", where: raw("unassigned_at IS NULL"))
+  @@map("device_assignments")
+}
+
+model ServiceCall {
+  id             String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  locationId     String     @map("location_id") @db.Uuid
+  tableId        String     @map("table_id") @db.Uuid
+  callType       CallType   @default(attention) @map("call_type")
+  status         CallStatus @default(pending)
+  pressCount     Int        @default(1) @map("press_count")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  lastPressAt    DateTime   @default(now()) @map("last_press_at") @db.Timestamptz
+  acknowledgedAt DateTime?  @map("acknowledged_at") @db.Timestamptz
+  acknowledgedBy String?    @map("acknowledged_by") @db.Uuid
+  completedAt    DateTime?  @map("completed_at") @db.Timestamptz
+  completedBy    String?    @map("completed_by") @db.Uuid
+  updatedAt      DateTime   @default(now()) @map("updated_at") @db.Timestamptz
+
+  table       DiningTable             @relation(fields: [tableId, locationId], references: [id, locationId])
+  transitions ServiceCallTransition[]
+  events      DeviceEvent[]
+
+  // ADR-002 D4: una solicitud activa por mesa y por tipo.
+  @@unique([tableId, callType], map: "uq_service_calls_active", where: raw("status = ANY (ARRAY['pending'::call_status, 'in_progress'::call_status])"))
+  @@index([locationId], map: "ix_service_calls_board", where: raw("status = ANY (ARRAY['pending'::call_status, 'in_progress'::call_status])"))
+  @@index([locationId, createdAt(sort: Desc)], map: "ix_service_calls_history")
+  @@map("service_calls")
+}
+
+model ServiceCallTransition {
+  id            String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId    String     @map("location_id") @db.Uuid
+  serviceCallId String     @map("service_call_id") @db.Uuid
+  action        CallAction
+  fromStatus    CallStatus? @map("from_status")
+  toStatus      CallStatus @map("to_status")
+  actorUserId   String?    @map("actor_user_id") @db.Uuid
+  deviceEventId String?    @map("device_event_id") @db.Uuid
+  occurredAt    DateTime   @default(now()) @map("occurred_at") @db.Timestamptz
+
+  serviceCall ServiceCall @relation(fields: [serviceCallId], references: [id])
+
+  @@index([serviceCallId, occurredAt], map: "ix_service_call_transitions_call")
+  @@map("service_call_transitions")
+}
+
+model DeviceEvent {
+  id             String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  locationId     String            @map("location_id") @db.Uuid
+  gatewayId      String            @map("gateway_id") @db.Uuid
+  deviceId       String?           @map("device_id") @db.Uuid
+  deviceCode     String            @map("device_code")
+  buttonKey      String?           @map("button_key")
+  transport      Transport
+  payload        Json
+  sentAt         DateTime?         @map("sent_at") @db.Timestamptz
+  receivedAt     DateTime          @default(now()) @map("received_at") @db.Timestamptz
+  result         DeviceEventResult
+  serviceCallId  String?           @map("service_call_id") @db.Uuid
+  correlationId  String            @map("correlation_id") @db.Uuid
+
+  gateway     Gateway      @relation(fields: [gatewayId, locationId], references: [id, locationId])
+  serviceCall ServiceCall? @relation(fields: [serviceCallId], references: [id])
+
+  @@index([deviceId, receivedAt(sort: Desc)], map: "ix_device_events_device")
+  @@index([locationId, receivedAt(sort: Desc)], map: "ix_device_events_unknown", where: raw("result = 'unknown_device'"))
+  @@map("device_events")
+}
+
+model OutboxEvent {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  eventType      String    @map("event_type")
+  eventVersion   Int       @map("event_version")
+  occurredAt     DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  correlationId  String    @map("correlation_id") @db.Uuid
+  causationId    String?   @map("causation_id") @db.Uuid
+  payload        Json
+  dispatchedAt   DateTime? @map("dispatched_at") @db.Timestamptz
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz
+
+  @@index([nextAttemptAt], map: "ix_outbox_pending", where: raw("dispatched_at IS NULL"))
+  @@map("outbox_events")
 }
