@@ -27,7 +27,8 @@ docker compose up --build
 El contenedor `api` aplica `prisma migrate deploy` de cada dominio al arrancar. Datos de demo de core (idempotente). La contraseña común se pasa solo a ese comando, nunca al entorno permanente del servidor:
 
 ```bash
-docker compose exec -e SEED_PASSWORD='<clave de demo>' api sh -c 'cd /repo/apps/api && node dist/seed-core.js'
+# la imagen corre con NODE_ENV=production y el seed se niega allí: en la demo local se habilita explícitamente
+docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<clave de demo>' api sh -c 'cd /repo/apps/api && node dist/seed-core.js'
 # con una base propia (CORE_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:core
 ```
 
