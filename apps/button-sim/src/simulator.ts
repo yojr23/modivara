@@ -52,3 +52,8 @@ export function parseDevices(spec: string | undefined): SimDevice[] {
     return { code, label: label || code };
   });
 }
+
+/** Señal de vida periódica (TECH-001 §16.5). Un fallo se informa y no detiene el ciclo. */
+export function startHeartbeat(sim: GatewaySimulator, intervalMs: number, onError: (e: Error) => void) {
+  return setInterval(() => sim.heartbeat().catch(onError), intervalMs);
+}

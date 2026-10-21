@@ -4,7 +4,7 @@ import {
   type GatewayHeartbeatMessage,
   type GatewayPressMessage,
 } from '@modivara/hospitality-contracts';
-import { connect, type MqttClient } from 'mqtt';
+import { connect, type IClientOptions, type MqttClient } from 'mqtt';
 
 export const TRANSPORTS = ['http', 'mqtt'] as const;
 export type TransportName = (typeof TRANSPORTS)[number];
@@ -58,10 +58,11 @@ export class MqttTransport implements GatewayTransport {
   readonly #gatewayId: string;
   readonly #client: MqttClient;
 
-  constructor(url: string, gatewayId: string, password: string) {
+  /** `connectImpl` se inyecta en pruebas para no abrir red. */
+  constructor(url: string, gatewayId: string, password: string, connectImpl: (url: string, opts: IClientOptions) => MqttClient = connect) {
     this.#gatewayId = gatewayId;
     // El usuario del broker es el id del gateway (DATA-001 §3).
-    this.#client = connect(url, { username: gatewayId, password, reconnectPeriod: 5_000, connectTimeout: 5_000 });
+    this.#client = connectImpl(url, { username: gatewayId, password, reconnectPeriod: 5_000, connectTimeout: 5_000 });
   }
 
   sendPress(message: GatewayPressMessage) {

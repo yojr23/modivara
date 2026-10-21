@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { GATEWAY_HEARTBEAT_INTERVAL_MS } from '@modivara/hospitality-contracts';
 import { renderPage } from './page.ts';
-import { GatewaySimulator, parseDevices } from './simulator.ts';
+import { GatewaySimulator, parseDevices, startHeartbeat } from './simulator.ts';
 import { HttpTransport, MqttTransport, TRANSPORTS, type GatewayTransport, type TransportName } from './transports.ts';
 
 // Simulador de gateway (TECH-001 §16.6). Proceso aparte: habla con la API solo por HTTP o MQTT, como un gateway real.
@@ -18,7 +18,7 @@ if (env.MQTT_URL && env.SIM_GATEWAY_ID && env.SIM_MQTT_PASSWORD) {
 }
 const sim = new GatewaySimulator(parseDevices(env.SIM_DEVICES), transports, (env.SIM_TRANSPORT as TransportName) ?? 'http');
 
-setInterval(() => sim.heartbeat().catch((e: Error) => console.warn(`Señal de vida fallida (${sim.transport}): ${e.message}`)), GATEWAY_HEARTBEAT_INTERVAL_MS);
+startHeartbeat(sim, GATEWAY_HEARTBEAT_INTERVAL_MS, (e) => console.warn(`Señal de vida fallida (${sim.transport}): ${e.message}`));
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
   let raw = '';
