@@ -74,7 +74,7 @@ export class Login {
     const now = new Date();
     const { token, tokenHash } = this.tokens.generate();
     const session = Session.create({ id: newId(), userId: user.id, tokenHash, now, ip: input.ip, userAgent: input.userAgent });
-    await this.sessions.save(session);
+    await this.sessions.create(session);
 
     return {
       token,

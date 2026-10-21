@@ -131,15 +131,15 @@ describe('login / sesión', () => {
 
     it('escribe como máximo una vez por hora', async () => {
       const { token } = await attempt(TEST_PASSWORD);
-      const base = w.sessions.saves;
+      const base = w.sessions.touches;
       vi.advanceTimersByTime(HOUR - 1);
       await authenticate.execute({ token });
       await authenticate.execute({ token });
-      expect(w.sessions.saves).toBe(base);
+      expect(w.sessions.touches).toBe(base);
       vi.advanceTimersByTime(1);
       await authenticate.execute({ token });
       await authenticate.execute({ token });
-      expect(w.sessions.saves).toBe(base + 1);
+      expect(w.sessions.touches).toBe(base + 1);
     });
 
     it('superadmin: ignora el negocio elegido si fue desactivado', async () => {

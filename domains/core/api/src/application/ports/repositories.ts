@@ -68,7 +68,17 @@ export interface SessionRepository {
   findById(ref: { id: string; userId: string }): Promise<Session | null>;
   /** Excepción: deriva el tenant. Resuelve la sesión del token de la cookie. */
   findByTokenHash(ref: { tokenHash: string }): Promise<Session | null>;
-  save(session: Session): Promise<void>;
+  /**
+   * Operaciones dirigidas, no un `save` completo: un `touch` concurrente (cada petición) no debe deshacer una revocación
+   * ni el negocio elegido leídos antes. Cada una escribe solo sus columnas.
+   */
+  create(session: Session): Promise<void>;
+  /** Renueva `last_seen_at`/`expires_at`; no toca una sesión ya revocada. */
+  touch(session: Session): Promise<void>;
+  /** Escribe `revoked_at` (solo si aún no estaba revocada). */
+  revoke(session: Session): Promise<void>;
+  /** Escribe solo `acting_organization_id`. */
+  setActingOrganization(session: Session): Promise<void>;
   /** Revoca todas las sesiones vigentes del usuario (`revoked_at = now`). */
   revokeAllForUser(ref: { organizationId: string; userId: string }, now: Date): Promise<void>;
 }

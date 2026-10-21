@@ -67,7 +67,7 @@ describe('acceso a locales', () => {
     it('solo el superadmin; persiste en la sesión', async () => {
       const root = await w.addUser(w.platform, 'root');
       const ctx = w.actorOf(root);
-      await w.sessions.save(Session.create({ id: ctx.sessionId, userId: root.id, tokenHash: 'h', now: new Date() }));
+      await w.sessions.create(Session.create({ id: ctx.sessionId, userId: root.id, tokenHash: 'h', now: new Date() }));
       const select = new SelectActingOrganization(w.admin);
 
       const updated = await select.execute({ actor: ctx, organizationId: w.sol.id });

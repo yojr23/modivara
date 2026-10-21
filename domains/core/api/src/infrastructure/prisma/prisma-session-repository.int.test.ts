@@ -18,7 +18,7 @@ async function world() {
   const { token, tokenHash } = tokens.generate();
   const now = new Date();
   const session = Session.create({ id: newId(), userId: user.id, tokenHash, now, ip: '10.0.0.7', userAgent: 'vitest' });
-  await repo.save(session);
+  await repo.create(session);
   return { sol, luna, user, token, tokenHash, now, session };
 }
 
@@ -47,7 +47,7 @@ describe('PrismaSessionRepository', () => {
     expect(s.touch(new Date(now.getTime() + SESSION_TOUCH_INTERVAL_MS - 1))).toBe(false);
     const later = new Date(now.getTime() + SESSION_TOUCH_INTERVAL_MS);
     expect(s.touch(later)).toBe(true);
-    await repo.save(s);
+    await repo.touch(s);
     const r = (await repo.findByTokenHash({ tokenHash }))!;
     expect(r.lastSeenAt.getTime()).toBe(later.getTime());
     expect(r.expiresAt.getTime()).toBe(s.expiresAt.getTime());
@@ -58,12 +58,12 @@ describe('PrismaSessionRepository', () => {
     const { sol, luna, user, session, tokenHash } = await world();
     const other = await seedUser(db, luna, 'beto');
     const otherSession = Session.create({ id: newId(), userId: other.id, tokenHash: tokens.generate().tokenHash, now: new Date() });
-    await repo.save(otherSession);
+    await repo.create(otherSession);
 
     const second = Session.create({ id: newId(), userId: user.id, tokenHash: tokens.generate().tokenHash, now: new Date() });
-    await repo.save(second);
+    await repo.create(second);
     session.revoke(new Date());
-    await repo.save(session);
+    await repo.revoke(session);
     expect((await repo.findByTokenHash({ tokenHash }))?.revokedAt).not.toBeNull();
 
     // El negocio equivocado no revoca nada.
@@ -78,7 +78,27 @@ describe('PrismaSessionRepository', () => {
   it('actingOrganizationId persiste', async () => {
     const { luna, session, user } = await world();
     session.actAs(luna.id, { isPlatform: true });
-    await repo.save(session);
+    await repo.setActingOrganization(session);
     expect((await repo.findById({ id: session.id, userId: user.id }))?.actingOrganizationId).toBe(luna.id);
+  });
+
+  it('un touch con la entidad leída antes no deshace una revocación ni el negocio elegido', async () => {
+    const { luna, user, session, tokenHash } = await world();
+    const stale = (await repo.findByTokenHash({ tokenHash }))!; // leída antes de la revocación
+    session.revoke(new Date());
+    await repo.revoke(session);
+    expect(stale.touch(new Date(Date.now() + SESSION_TOUCH_INTERVAL_MS))).toBe(true);
+    await repo.touch(stale);
+    expect((await repo.findById({ id: session.id, userId: user.id }))?.revokedAt).not.toBeNull();
+
+    // Idem con el negocio elegido: un touch rezagado no lo pisa.
+    const other = Session.create({ id: newId(), userId: user.id, tokenHash: tokens.generate().tokenHash, now: new Date() });
+    await repo.create(other);
+    const stale2 = (await repo.findById({ id: other.id, userId: user.id }))!;
+    other.actAs(luna.id, { isPlatform: true });
+    await repo.setActingOrganization(other);
+    stale2.touch(new Date(Date.now() + SESSION_TOUCH_INTERVAL_MS));
+    await repo.touch(stale2);
+    expect((await repo.findById({ id: other.id, userId: user.id }))?.actingOrganizationId).toBe(luna.id);
   });
 });

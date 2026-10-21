@@ -19,7 +19,7 @@ export class SelectActingOrganization {
       if (!session) throw new NotFoundError('Session');
       const previous = session.actingOrganizationId;
       session.actAs(input.organizationId, actor);
-      await tx.sessions.save(session);
+      await tx.sessions.setActingOrganization(session);
       await tx.audit.record({
         id: newId(),
         // Negocio afectado: el elegido o, al volver a la propia, el que se dejó.

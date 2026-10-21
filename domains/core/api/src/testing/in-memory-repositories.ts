@@ -95,13 +95,18 @@ export class InMemoryMembershipRepository implements MembershipRepository {
 
 export class InMemorySessionRepository implements SessionRepository {
   readonly items = new Map<string, Session>();
-  saves = 0;
+  /** Escrituras de `touch` (para comprobar que se hacen como máximo una vez por hora). */
+  touches = 0;
   async findById({ id, userId }: { id: string; userId: string }) {
     const s = this.items.get(id);
     return s && s.userId === userId ? s : null;
   }
   async findByTokenHash({ tokenHash }: { tokenHash: string }) { return [...this.items.values()].find((s) => s.tokenHash === tokenHash) ?? null; }
-  async save(s: Session) { this.saves++; this.items.set(s.id, s); }
+  async create(s: Session) { this.items.set(s.id, s); }
+  // Como el adaptador real, cada operación solo "escribe" sus campos; el doble comparte la instancia, así que basta registrar la llamada.
+  async touch(s: Session) { if (this.items.has(s.id)) this.touches++; }
+  async revoke(s: Session) { if (!this.items.has(s.id)) this.items.set(s.id, s); }
+  async setActingOrganization(s: Session) { if (!this.items.has(s.id)) this.items.set(s.id, s); }
   async revokeAllForUser({ userId }: { organizationId: string; userId: string }, now: Date) {
     for (const s of this.items.values()) if (s.userId === userId) s.revoke(now);
   }

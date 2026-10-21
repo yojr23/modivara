@@ -23,7 +23,7 @@ export class AuthenticateSession {
     const acting = org.isPlatform ? session.actingOrganizationId : null;
     const actingActive = acting ? (await this.organizations.findById({ id: acting }))?.isActive === true : false;
 
-    if (session.touch(now)) await this.sessions.save(session);
+    if (session.touch(now)) await this.sessions.touch(session);
 
     return {
       actorUserId: user.id,

@@ -26,17 +26,29 @@ export class PrismaSessionRepository implements SessionRepository {
     return r && toDomain(r);
   }
 
-  save(s: Session) {
-    const data = { actingOrganizationId: s.actingOrganizationId, lastSeenAt: s.lastSeenAt, expiresAt: s.expiresAt, revokedAt: s.revokedAt };
+  create(s: Session) {
     return mapConflicts(
       async () =>
-        void (await this.db.session.upsert({
-          where: { id: s.id },
-          create: { id: s.id, userId: s.userId, tokenHash: toBytes(s.tokenHash), createdAt: s.createdAt, ip: s.ip, userAgent: s.userAgent, ...data },
-          update: data,
+        void (await this.db.session.create({
+          data: {
+            id: s.id, userId: s.userId, tokenHash: toBytes(s.tokenHash), createdAt: s.createdAt, ip: s.ip, userAgent: s.userAgent,
+            actingOrganizationId: s.actingOrganizationId, lastSeenAt: s.lastSeenAt, expiresAt: s.expiresAt, revokedAt: s.revokedAt,
+          },
         })),
       'Session',
     );
+  }
+
+  async touch(s: Session) {
+    await this.db.session.updateMany({ where: { id: s.id, revokedAt: null }, data: { lastSeenAt: s.lastSeenAt, expiresAt: s.expiresAt } });
+  }
+
+  async revoke(s: Session) {
+    await this.db.session.updateMany({ where: { id: s.id, revokedAt: null }, data: { revokedAt: s.revokedAt } });
+  }
+
+  async setActingOrganization(s: Session) {
+    await this.db.session.updateMany({ where: { id: s.id, revokedAt: null }, data: { actingOrganizationId: s.actingOrganizationId } });
   }
 
   async revokeAllForUser({ organizationId, userId }: { organizationId: string; userId: string }, now: Date) {
