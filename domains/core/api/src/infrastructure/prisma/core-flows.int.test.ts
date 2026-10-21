@@ -25,7 +25,7 @@ const login = new Login(organizations, users, sessions, hasher, tokens);
 const authenticate = new AuthenticateSession(sessions, users, organizations, tokens);
 const createUser = new CreateUser(admin, hasher);
 const deactivateUser = new DeactivateUser(admin);
-const changePassword = new ChangePassword(users, sessions, hasher);
+const changePassword = new ChangePassword(admin, hasher);
 
 const PASSWORD = 'Secret123';
 const MIN = 60_000;
@@ -85,6 +85,28 @@ describe('casos de uso de core sobre PostgreSQL', () => {
     await expect(authenticate.execute({ token: a.token })).rejects.toBeInstanceOf(SessionInvalidError);
     await expect(attempt(PASSWORD)).rejects.toBeInstanceOf(InvalidCredentialsError);
     await expect(attempt('Another456')).resolves.toBeDefined();
+  });
+
+  it('cambiar contraseña audita user.password_changed', async () => {
+    const a = await attempt(PASSWORD);
+    await changePassword.execute({ actor: a.actor, currentPassword: PASSWORD, newPassword: 'Another456' });
+    const entry = await db.auditLog.findFirstOrThrow({ where: { action: 'user.password_changed' } });
+    expect(entry).toMatchObject({ targetId: a.actor.actorUserId, actorUserId: a.actor.actorUserId, organizationId: owner.organizationId });
+  });
+
+  it('atómico: si falla la revocación de sesiones o la auditoría, la contraseña no cambia', async () => {
+    const a = await attempt(PASSWORD);
+    const revoke = vi.spyOn(PrismaSessionRepository.prototype, 'revokeAllForUser').mockRejectedValueOnce(new Error('boom'));
+    await expect(changePassword.execute({ actor: a.actor, currentPassword: PASSWORD, newPassword: 'Another456' })).rejects.toThrow('boom');
+    revoke.mockRestore();
+    const failingAudit = new ChangePassword(
+      new PrismaAdminTransactions(db, () => ({ record: () => Promise.reject(new Error('audit down')) })),
+      hasher,
+    );
+    await expect(failingAudit.execute({ actor: a.actor, currentPassword: PASSWORD, newPassword: 'Another456' })).rejects.toThrow('audit down');
+    await expect(attempt('Another456')).rejects.toBeInstanceOf(InvalidCredentialsError);
+    await expect(attempt(PASSWORD)).resolves.toBeDefined();
+    expect(await db.auditLog.count({ where: { action: 'user.password_changed' } })).toBe(0);
   });
 
   it('desactivar usuario deja 0 sesiones activas, libera el login y audita', async () => {

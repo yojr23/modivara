@@ -174,7 +174,7 @@ describe('login / sesión', () => {
     it('cambia la contraseña y revoca todas las sesiones', async () => {
       const a = await attempt(TEST_PASSWORD);
       const b = await attempt(TEST_PASSWORD);
-      const change = new ChangePassword(w.users, w.sessions, w.hasher);
+      const change = new ChangePassword(w.admin, w.hasher);
       await change.execute({ actor: a.actor, currentPassword: TEST_PASSWORD, newPassword: 'Nueva1234' });
       await expect(authenticate.execute({ token: a.token })).rejects.toThrow(SessionInvalidError);
       await expect(authenticate.execute({ token: b.token })).rejects.toThrow(SessionInvalidError);
@@ -182,9 +182,16 @@ describe('login / sesión', () => {
       await expect(attempt('Nueva1234')).resolves.toBeDefined();
     });
 
+    it('audita user.password_changed sin secretos', async () => {
+      const { actor } = await attempt(TEST_PASSWORD);
+      await new ChangePassword(w.admin, w.hasher).execute({ actor, currentPassword: TEST_PASSWORD, newPassword: 'Nueva1234' });
+      expect(w.audit.entries.at(-1)).toMatchObject({ action: 'user.password_changed', actorUserId: actor.actorUserId, targetId: actor.actorUserId });
+      expect(JSON.stringify(w.audit.entries)).not.toMatch(/Nueva1234|fake:/);
+    });
+
     it('exige la contraseña actual y la política', async () => {
       const { actor } = await attempt(TEST_PASSWORD);
-      const change = new ChangePassword(w.users, w.sessions, w.hasher);
+      const change = new ChangePassword(w.admin, w.hasher);
       await expect(change.execute({ actor, currentPassword: 'mala', newPassword: 'Nueva1234' })).rejects.toThrow(InvalidCredentialsError);
       await expect(change.execute({ actor, currentPassword: TEST_PASSWORD, newPassword: 'corta1A' })).rejects.toThrow(WeakPasswordError);
       await expect(change.execute({ actor, currentPassword: TEST_PASSWORD, newPassword: 'sinmayuscula1' })).rejects.toThrow(WeakPasswordError);
