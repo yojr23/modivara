@@ -19,16 +19,22 @@ const USERS: Array<[string, string]> = [
 
 // Lo mínimo del cliente Prisma que usa esta prueba (el cliente no es parte de la superficie pública de core-api).
 interface TestDb {
+  $executeRawUnsafe(sql: string): Promise<unknown>;
   organization: { findFirstOrThrow(a: object): Promise<{ id: string }> };
   location: { findFirstOrThrow(a: object): Promise<{ id: string }> };
   appUser: { findMany(a: object): Promise<Array<{ deactivatedAt: Date | null }>> };
   locationMembership: { findFirstOrThrow(a: object): Promise<{ roles: string[] }> };
 }
 
+// La base de pruebas es compartida y esta prueba deja usuarios desactivados: parte siempre de un esquema vacío.
+const reset = (app: { get<T>(token: string): T }) =>
+  app.get<TestDb>('CORE_PRISMA').$executeRawUnsafe('TRUNCATE audit_log, entitlements, sessions, location_memberships, app_users, locations, organizations CASCADE');
+
 describe('seed:core', () => {
   it('es idempotente y los usuarios inician sesión', async () => {
     const app = await NestFactory.createApplicationContext(SeedTestModule, { logger: false });
     try {
+      await reset(app);
       await seedCore(app, PASSWORD);
       await seedCore(app, PASSWORD);
       const login = app.get(Login);
@@ -43,6 +49,7 @@ describe('seed:core', () => {
   it('no recrea usuarios desactivados ni reasigna roles de los existentes', async () => {
     const app = await NestFactory.createApplicationContext(SeedTestModule, { logger: false });
     try {
+      await reset(app);
       await seedCore(app, PASSWORD);
       const db = app.get<TestDb>('CORE_PRISMA'); // token interno de core: la prueba mira la base directamente
       const login = app.get(Login);
