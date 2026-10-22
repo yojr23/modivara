@@ -1,9 +1,12 @@
 import {
+  GATEWAY_KEY_HEADER,
+  mqttTopic,
   gatewayHeartbeatMessageSchema,
   gatewayPressMessageSchema,
   type GatewayHeartbeatMessage,
   type GatewayPressMessage,
 } from '@modivara/hospitality-contracts';
+export { GATEWAY_KEY_HEADER, mqttTopic };
 import { connect, type IClientOptions, type MqttClient } from 'mqtt';
 
 export const TRANSPORTS = ['http', 'mqtt'] as const;
@@ -16,8 +19,6 @@ export interface GatewayTransport {
   sendHeartbeat(message: GatewayHeartbeatMessage): Promise<void>;
 }
 
-// OPEN: nombre del header de la clave del gateway (TECH-001 §7 solo dice "clave del gateway en un header").
-export const GATEWAY_KEY_HEADER = 'x-gateway-key';
 
 export class HttpTransport implements GatewayTransport {
   readonly name = 'http';
@@ -50,8 +51,6 @@ export class HttpTransport implements GatewayTransport {
   }
 }
 
-/** Tópicos por gateway (DATA-001 §3); el broker solo deja publicar en los propios (ACL). */
-export const mqttTopic = (gatewayId: string, kind: 'press' | 'heartbeat') => `modivara/gw/${gatewayId}/${kind}`;
 
 export class MqttTransport implements GatewayTransport {
   readonly name = 'mqtt';

@@ -6,6 +6,7 @@ export * from './errors.js';
 export * from './events.js';
 export * from './identity.js';
 export * from './ids.js';
+export * from './integration.js';
 export * from './location.js';
 export * from './permissions.js';
 export * from './rules.js';
