@@ -279,6 +279,7 @@ export class FakeCoreAccess implements CoreAccessPort {
   private readonly grants = new Map<string, ReadonlySet<Permission>>();
   /** Sesión de prueba: el token autentica a `actor`. */
   addSession(token: string, actor: RequestActor) { this.sessions.set(token, actor); }
+  revokeSession(token: string) { this.sessions.delete(token); }
   /** Permisos del usuario en un local (lo que core resolvería con sus membresías). */
   grant(actorUserId: string, locationId: string, permissions: readonly Permission[]) { this.grants.set(`${actorUserId}/${locationId}`, new Set(permissions)); }
   async authenticateSession(token: string) { return this.sessions.get(token) ?? null; }

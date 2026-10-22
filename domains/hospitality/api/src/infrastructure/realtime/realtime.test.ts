@@ -75,6 +75,19 @@ describe('F3-10 Socket.IO (handshake y suscripción)', () => {
   });
 });
 
+describe('F3-10 sesión revocada', () => {
+  it('location.subscribe revalida la sesión: revocada tras el handshake -> ok:false, desconexión y sin unirse a la sala', async () => {
+    mk(orgA, locA, 'staff', 'staff-revocada');
+    const s = connect({ token: 'staff-revocada' });
+    await connected(s);
+    const closed = new Promise<void>((res) => s.on('disconnect', () => res()));
+    t.core.revokeSession('staff-revocada');
+    expect(await subscribe(s, locA)).toEqual({ ok: false, code: 'session_invalid' });
+    await closed;
+    expect(s.connected).toBe(false);
+  });
+});
+
 describe('F3-10 emisión', () => {
   const seed = async (organizationId: string, locationId: string, label: string) => {
     const table = DiningTable.create({ organizationId, locationId, label, createdBy: newId(), now: new Date() });

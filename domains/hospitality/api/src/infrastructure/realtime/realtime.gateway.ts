@@ -62,7 +62,11 @@ export class RealtimeGateway implements OnGatewayInit {
    */
   private onConnection(socket: Socket): void {
     socket.on(REALTIME_EVENTS.subscribe, (body: unknown, ack?: unknown) => {
-      void this.subscribe(socket, body).then((result) => typeof ack === 'function' && ack(result));
+      void this.subscribe(socket, body).then((result) => {
+        if (typeof ack === 'function') ack(result);
+        // Tras el ack (si no, el cliente nunca lo recibe): una sesión revocada no conserva el socket.
+        if (!result.ok && result.code === 'session_invalid') socket.disconnect(true);
+      });
     });
   }
 
@@ -71,7 +75,10 @@ export class RealtimeGateway implements OnGatewayInit {
     if (!parsed.success) return { ok: false, code: 'validation' };
     const { location_id: locationId } = parsed.data;
     try {
-      const permissions = await this.core.permissionsAt((socket.data as SocketData).actor, locationId, 'hospitality');
+      // La sesión puede haberse revocado (logout, desactivación) desde el handshake: se revalida antes de unir a la sala.
+      const actor = await this.core.authenticateSession((socket.data as SocketData).token);
+      if (!actor) return { ok: false, code: 'session_invalid' };
+      const permissions = await this.core.permissionsAt(actor, locationId, 'hospitality');
       // Local ajeno, inexistente o sin el módulo: indistinguibles (igual que HTTP, que responde 404/403 sin revelar).
       if (!permissions) return { ok: false, code: 'not_found' };
       if (!permissions.has('hospitality.calls.read')) return { ok: false, code: 'permission_denied' };
