@@ -1,10 +1,10 @@
 import 'reflect-metadata';
-import { createRequire } from 'node:module';
 import { Module, type INestApplication } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { Test } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
+import { io, type Socket as ClientSocket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CoreModule, coreGlobalProviders } from '@modivara/core-api';
 import { GATEWAY_HEALTH_NOTIFIER, HospitalityModule } from '@modivara/hospitality-api';
@@ -16,16 +16,6 @@ import { seedCore } from '../seed/core.js';
 import { resetBoth } from '../seed/testing.js';
 
 // F3-10 (backend): Socket.IO contra PostgreSQL con CoreModule y los guards reales de core.
-// socket.io-client es dependencia de desarrollo de hospitality-api (no de este host): se resuelve desde allí.
-interface ClientSocket {
-  on(event: string, fn: (...args: any[]) => void): unknown; // eslint-disable-line @typescript-eslint/no-explicit-any
-  once(event: string, fn: (...args: any[]) => void): unknown; // eslint-disable-line @typescript-eslint/no-explicit-any
-  emit(event: string, ...args: unknown[]): unknown;
-  disconnect(): unknown;
-}
-const { io } = createRequire(import.meta.resolve('@modivara/hospitality-api'))('socket.io-client') as {
-  io(url: string, opts: object): ClientSocket;
-};
 
 const CORE_URL = 'postgresql://core_app:test@127.0.0.1:55432/modivara_test?schema=core';
 const HOSPITALITY_URL = 'postgresql://hospitality_app:test@127.0.0.1:55432/modivara_test?schema=hospitality';
