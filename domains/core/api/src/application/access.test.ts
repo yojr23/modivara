@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { NotFoundError } from '@modivara/core-contracts';
 import { PermissionDeniedError } from '../domain/index.js';
-import { World } from '../testing/index.js';
+import { TEST_PASSWORD, World } from '../testing/index.js';
+import { AuthenticateSession } from './authenticate-session.js';
 import { CoreAccessService } from './core-access.service.js';
 import { ResolveLocationAccess } from './resolve-location-access.js';
 import { SelectActingOrganization } from './select-acting-organization.js';
 import { Session } from '../domain/index.js';
+import { Login } from './login.js';
 
 describe('acceso a locales', () => {
   let w: World;
@@ -87,8 +89,11 @@ describe('acceso a locales', () => {
   });
 
   describe('CoreAccessService (CoreAccessPort)', () => {
+    const makePort = () =>
+      new CoreAccessService(w.locations, w.entitlements, new AuthenticateSession(w.sessions, w.users, w.organizations, w.tokens), resolve);
+
     it('devuelve LocationRef o null', async () => {
-      const port = new CoreAccessService(w.locations, w.entitlements);
+      const port = makePort();
       expect(await port.getLocation(w.solCenter.id)).toEqual({ id: w.solCenter.id, organizationId: w.sol.id, timezone: 'America/Bogota', active: true });
       w.solCenter.deactivate(new Date());
       expect((await port.getLocation(w.solCenter.id))?.active).toBe(false);
@@ -96,14 +101,33 @@ describe('acceso a locales', () => {
     });
 
     it('isModuleEnabled: habilitado, deshabilitado o sin fila', async () => {
-      const port = new CoreAccessService(w.locations, w.entitlements);
+      const port = makePort();
       expect(await port.isModuleEnabled(w.sol.id, 'hospitality')).toBe(true);
       expect(await port.isModuleEnabled(w.sol.id, 'commerce')).toBe(false);
       expect(await port.isModuleEnabled(w.sol.id, 'analytics')).toBe(false);
     });
 
+    it('authenticateSession: actor del token válido, null si es desconocido', async () => {
+      await w.addUser(w.sol, 'ana');
+      const { token, actor } = await new Login(w.organizations, w.users, w.sessions, w.hasher, w.tokens).execute({ slug: 'bar-sol', username: 'ana', password: TEST_PASSWORD });
+      const port = makePort();
+      expect(await port.authenticateSession(token)).toEqual(actor);
+      expect(await port.authenticateSession('otro')).toBeNull();
+    });
+
+    it('permissionsAt: permisos del rol en el local; null en local ajeno o con módulo deshabilitado', async () => {
+      const staff = await w.addUser(w.sol, 'mesero', { roles: ['staff'], location: w.solCenter });
+      const port = makePort();
+      const actor = w.actorOf(staff);
+      expect((await port.permissionsAt(actor, w.solCenter.id, 'hospitality'))?.has('hospitality.calls.read')).toBe(true);
+      expect(await port.permissionsAt(actor, w.lunaCenter.id)).toBeNull();
+      expect(await port.permissionsAt(actor, w.solCenter.id, 'commerce')).toBeNull();
+      const root = { ...w.actorOf(await w.addUser(w.platform, 'root')), actingOrganizationId: w.sol.id };
+      expect((await port.permissionsAt(root, w.solCenter.id, 'commerce'))?.has('hospitality.calls.read')).toBe(true);
+    });
+
     it('local activo de un negocio desactivado: active false', async () => {
-      const port = new CoreAccessService(w.locations, w.entitlements);
+      const port = makePort();
       w.sol.deactivate(new Date());
       expect((await port.getLocation(w.solCenter.id))?.active).toBe(false);
     });

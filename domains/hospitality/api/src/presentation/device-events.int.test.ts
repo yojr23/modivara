@@ -16,6 +16,8 @@ const actorUserId = newId();
 let moduleEnabled = true;
 const core: CoreAccessPort = {
   isModuleEnabled: async () => moduleEnabled,
+  authenticateSession: async () => null,
+  permissionsAt: async () => null,
   getLocation: async (id) => [mine, other].map((x) => ({ id: x.locationId, organizationId: x.organizationId, timezone: 'America/Bogota', active: true })).find((l) => l.id === id) ?? null,
 };
 

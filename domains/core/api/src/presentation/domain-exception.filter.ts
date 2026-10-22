@@ -33,6 +33,13 @@ const GENERIC_CODES = new Set(['invalid_credentials', 'session_invalid']);
 const isZodError = (e: unknown): e is { issues: Array<{ path: PropertyKey[]; message: string }> } =>
   e instanceof Error && e.name === 'ZodError' && Array.isArray((e as { issues?: unknown }).issues);
 
+const clientErrorStatus = (e: unknown): number | null => {
+  if (typeof e !== 'object' || e === null) return null;
+  const { status, statusCode } = e as { status?: unknown; statusCode?: unknown };
+  const value = [status, statusCode].find((v) => typeof v === 'number' && Number.isInteger(v) && v >= 400 && v < 500);
+  return (value as number | undefined) ?? null;
+};
+
 /** Traduce `DomainError.code` (y errores de validación) a HTTP con el cuerpo `apiErrorSchema`. Registrar globalmente en el host. */
 @Catch()
 export class DomainExceptionFilter implements ExceptionFilter {
@@ -52,6 +59,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
     if (e instanceof HttpException) {
       return { status: e.getStatus(), body: { code: `http_${e.getStatus()}`, message: e.message } };
     }
+    // Errores de librerías HTTP (p. ej. 413 `payload too large` de body-parser) llevan `status`/`statusCode` 4xx.
+    const httpStatus = clientErrorStatus(e);
+    if (httpStatus) return { status: httpStatus, body: { code: `http_${httpStatus}`, ...(e instanceof Error && { message: e.message }) } };
     const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined;
     if (e instanceof Error && typeof code === 'string' && code in STATUS_BY_CODE) {
       return { status: STATUS_BY_CODE[code]!, body: { code, message: GENERIC_CODES.has(code) ? GENERIC_AUTH_MESSAGE : e.message } };

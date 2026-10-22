@@ -41,6 +41,15 @@ describe('DomainExceptionFilter', () => {
     expect(run(new Error('secreto de base de datos'))).toMatchObject({ status: 500, body: { code: 'internal' } });
   });
 
+  it('errores de librería con status 4xx (413 de body-parser) conservan su estado con cuerpo apiErrorSchema', () => {
+    const tooLarge = Object.assign(new Error('request entity too large'), { status: 413, statusCode: 413 });
+    const out = run(tooLarge);
+    expect(out.status).toBe(413);
+    expect(apiErrorSchema.parse(out.body).code).toBe('http_413');
+    expect(run(Object.assign(new Error('x'), { statusCode: 400 })).status).toBe(400);
+    expect(run(Object.assign(new Error('x'), { status: 502 })).status).toBe(500); // 5xx de librerías no se filtra
+  });
+
   it('429 incluye Retry-After', () => {
     expect(run(new TooManyRequestsError(7)).res.setHeader).toHaveBeenCalledWith('Retry-After', 7);
   });

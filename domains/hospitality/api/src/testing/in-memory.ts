@@ -1,4 +1,4 @@
-import type { CoreAccessPort, DomainEvent, LocationRef } from '@modivara/core-contracts';
+import { effectiveOrganizationId, permissionsFor, type CoreAccessPort, type DomainEvent, type LocationRef, type Permission, type RequestActor } from '@modivara/core-contracts';
 import type { CallType } from '@modivara/hospitality-contracts';
 import type {
   ButtonPressStore,
@@ -259,4 +259,17 @@ export class FakeCoreAccess implements CoreAccessPort {
   disableModule(organizationId: string) { this.disabled.add(organizationId); }
   async isModuleEnabled(organizationId: string) { return !this.disabled.has(organizationId); }
   async getLocation(id: string) { return this.locations.get(id) ?? null; }
+
+  private readonly sessions = new Map<string, RequestActor>();
+  private readonly grants = new Map<string, ReadonlySet<Permission>>();
+  /** Sesión de prueba: el token autentica a `actor`. */
+  addSession(token: string, actor: RequestActor) { this.sessions.set(token, actor); }
+  /** Permisos del usuario en un local (lo que core resolvería con sus membresías). */
+  grant(actorUserId: string, locationId: string, permissions: readonly Permission[]) { this.grants.set(`${actorUserId}/${locationId}`, new Set(permissions)); }
+  async authenticateSession(token: string) { return this.sessions.get(token) ?? null; }
+  async permissionsAt(actor: RequestActor, locationId: string) {
+    const loc = this.locations.get(locationId);
+    if (!loc || !loc.active || loc.organizationId !== effectiveOrganizationId(actor)) return null;
+    return actor.isPlatform ? permissionsFor([], actor) : (this.grants.get(`${actor.actorUserId}/${locationId}`) ?? new Set<Permission>());
+  }
 }

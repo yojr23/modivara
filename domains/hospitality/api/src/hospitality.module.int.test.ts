@@ -10,6 +10,8 @@ const t = tenant();
 const actorUserId = newId();
 const core: CoreAccessPort = {
   isModuleEnabled: async () => true,
+  authenticateSession: async () => null,
+  permissionsAt: async () => null,
   getLocation: async (id) => (id === t.locationId ? { id, organizationId: t.organizationId, timezone: 'America/Bogota', active: true } : null),
 };
 
