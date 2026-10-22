@@ -32,6 +32,7 @@ scripts/mqtt-user.sh gw-01   # un usuario por gateway; el usuario es el id del g
 ```
 
 La API se suscribe a `modivara/gw/+/press` y `…/heartbeat` con `MQTT_URL`, `MQTT_USERNAME` (`api`) y `MQTT_PASSWORD`; si falta alguna, no arranca el adaptador MQTT y lo registra una vez (HTTP sigue funcionando). Reconecta sola si el broker cae.
+Límites de ingesta (HTTP y MQTT): mensajes de hasta 4 KB (el broker lo impone en `mosquitto.conf`; la API vuelve a descartar lo mayor), un limitador por gateway compartido por ambos canales (HTTP responde 429; MQTT descarta y lo registra una vez por minuto), tope de mensajes MQTT en vuelo por gateway y global, y descarte de mensajes retenidos. Los valores son provisionales (`// OPEN:` en `gateway-rate-limiter.ts` y `mqtt.adapter.ts`).
 
 Para el simulador por MQTT: `SIM_GATEWAY_ID=gw-01` y `SIM_MQTT_PASSWORD=<la impresa>` en `.env`, `SIM_TRANSPORT=mqtt`.
 `scripts/mqtt-acl-check.sh` verifica la ACL con un broker desechable (A publica en lo suyo y no en B; `api` lee ambos; clave errónea y anónimo rechazados).
@@ -53,7 +54,7 @@ docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<la misma clave de
 # con una base propia (CORE_DATABASE_URL y HOSPITALITY_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:hospitality
 ```
 
-Tiempo real y outbox de hospitality: Socket.IO en `/api/v1/realtime` (misma cookie de sesión; rechaza sin sesión y con `Origin` distinto del host) emite `service_call.changed` y `gateways.status` a la sala del local tras suscribirse con `location.subscribe`. El poller del outbox corre en el mismo proceso de la API cada `OUTBOX_POLL_INTERVAL_MS` (por defecto 1000) y entrega a los suscriptores registrados bajo `INTEGRATION_EVENT_SUBSCRIBERS`.
+Tiempo real y outbox de hospitality: Socket.IO en `/api/v1/realtime` (misma cookie de sesión; rechaza sin sesión y con `Origin` distinto del host) emite `service_call.changed` y `gateways.status` a la sala del local tras suscribirse con `location.subscribe`. El poller del outbox corre en el mismo proceso de la API cada `OUTBOX_POLL_INTERVAL_MS` (por defecto 1000) y entrega a los suscriptores registrados bajo `INTEGRATION_EVENT_SUBSCRIBERS` (una transacción por evento; 5 s máximo por entrega, vencido cuenta como fallo con espera creciente).
 
 Portal en `http://localhost`, API en `http://localhost/api/v1/health`, simulador en `http://<ip-del-pc>/sim` desde el celular (misma Wi‑Fi).
 
