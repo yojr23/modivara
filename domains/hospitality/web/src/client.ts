@@ -13,7 +13,7 @@ export type ErrorState = 'forbidden' | 'conflict' | 'not_found' | 'validation' |
 
 /** Error de la API: se decide por `code`/`state`, nunca por el texto. */
 export class ApiRequestError extends Error {
-  constructor(readonly status: number, readonly code: string, message?: string) {
+  constructor(readonly status: number, readonly code: string, message?: string, readonly body?: unknown) {
     super(message ?? code);
     this.name = 'ApiRequestError';
   }
@@ -68,7 +68,7 @@ export async function request<T>(path: string, schema: Parser<T> | null, init: R
   const body: unknown = await res.json().catch(() => undefined);
   if (!res.ok) {
     const err = apiErrorSchema.safeParse(body);
-    throw err.success ? new ApiRequestError(res.status, err.data.code, err.data.message) : new ApiRequestError(res.status, 'unknown_error');
+    throw err.success ? new ApiRequestError(res.status, err.data.code, err.data.message, body) : new ApiRequestError(res.status, 'unknown_error', undefined, body);
   }
   if (!schema) return undefined as T;
   const parsed = schema.safeParse(body);
