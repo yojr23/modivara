@@ -9,8 +9,9 @@ import mqtt, { type MqttClient } from 'mqtt';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CORE_ACCESS_PORT, newId, type CoreAccessPort } from '@modivara/core-contracts';
-import { GATEWAY_API_PATHS, GATEWAY_KEY_HEADER, mqttTopic } from '@modivara/hospitality-contracts';
+import { GATEWAY_API_PATHS, GATEWAY_KEY_HEADER, MQTT_SUBSCRIPTIONS, mqttTopic } from '@modivara/hospitality-contracts';
 import { AssignDevice, CreateGateway, CreateTable, HospitalityModule, RegisterDevice } from '../../index.js';
+import { MqttAdapter } from './mqtt.adapter.js';
 import { TestErrorFilter } from '../../testing/http.js';
 import { hospitalityPrismaForTests, resetHospitality, TEST_HOSPITALITY_DATABASE_URL, tenant } from '../../testing/integration.js';
 
@@ -145,6 +146,27 @@ describe('adaptador MQTT con broker real', () => {
     expect(await db.deviceEvent.count()).toBe(1);
     expect(await db.serviceCall.count()).toBe(1);
     expect((await db.gateway.findUniqueOrThrow({ where: { id: inactive.gateway.id } })).lastSeenAt).toBeNull();
+  });
+
+  it('mensajes retenidos (pulsación y heartbeat): se descartan al reentregarse tras reiniciar la suscripción', async () => {
+    // Se accede al cliente del adaptador solo para repetir su suscripción, que es cuando el broker entrega lo retenido.
+    const client = moduleRef.get(MqttAdapter, { strict: false })['client'] as MqttClient;
+    const topics = [MQTT_SUBSCRIPTIONS.press, MQTT_SUBSCRIPTIONS.heartbeat];
+    await client.unsubscribeAsync(topics);
+    const press = mqttTopic(gatewayId, 'press');
+    const beat = mqttTopic(gatewayId, 'heartbeat');
+    await publisher.publishAsync(press, JSON.stringify({ device_code: 'mqtt-1' }), { qos: 1, retain: true });
+    await publisher.publishAsync(beat, '{}', { qos: 1, retain: true });
+    await client.subscribeAsync(topics, { qos: 1 });
+    await sleep(500);
+    expect(await db.deviceEvent.count()).toBe(0);
+    expect(await db.serviceCall.count()).toBe(0);
+    expect((await db.gateway.findUniqueOrThrow({ where: { id: gatewayId } })).lastSeenAt).toBeNull();
+    // Limpia lo retenido y comprueba que lo no retenido sigue funcionando.
+    await publisher.publishAsync(press, '', { qos: 1, retain: true });
+    await publisher.publishAsync(beat, '', { qos: 1, retain: true });
+    await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1' });
+    await eventually(async () => (await db.deviceEvent.count()) === 1);
   });
 
   it('mensaje gigante: se descarta sin efectos y el siguiente válido se procesa', async () => {

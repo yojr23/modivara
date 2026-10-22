@@ -58,7 +58,7 @@ export class MqttAdapter implements OnModuleInit, OnModuleDestroy {
     });
     client.on('close', () => this.logger.warn('Conexión MQTT cerrada; se reintenta automáticamente'));
     client.on('error', (err) => this.logger.error(`Error MQTT: ${err.message}`));
-    client.on('message', (topic, payload) => void this.handle(topic, payload));
+    client.on('message', (topic, payload, packet) => void this.handle(topic, payload, packet.retain));
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -67,7 +67,12 @@ export class MqttAdapter implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Público para pruebas sin broker. */
-  async handle(topic: string, payload: Buffer): Promise<void> {
+  async handle(topic: string, payload: Buffer, retained = false): Promise<void> {
+    // Un mensaje retenido es una pulsación o señal VIEJA que el broker reentrega a cada suscripción nueva: se ignora.
+    if (retained) {
+      this.logger.warn(`Mensaje MQTT retenido (${topic}): descartado`);
+      return;
+    }
     if (payload.length > MQTT_MAX_PAYLOAD_BYTES) {
       this.logger.warn(`Mensaje MQTT de ${payload.length} bytes (${topic}): descartado por tamaño`);
       return;
