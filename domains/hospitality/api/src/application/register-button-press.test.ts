@@ -25,6 +25,17 @@ describe('RegisterButtonPress', () => {
     expect(w.notifications.sent).toHaveLength(0);
   });
 
+  it('negocio sin el módulo hospitality: se registra location_inactive, sin llamado ni aviso; el heartbeat no marca conectado', async () => {
+    await seedTableWithButton(w);
+    const { gateway } = await w.createGateway.execute({ ...w.ctx, name: 'GW' });
+    w.core.disableModule(w.ctx.organizationId);
+    expect(await w.registerPress.registerPress(w.press())).toMatchObject({ result: 'location_inactive', serviceCallId: null });
+    expect(w.calls.all()).toHaveLength(0);
+    expect(w.notifications.sent).toHaveLength(0);
+    await w.heartbeat.execute({ ...w.ctx, gatewayId: gateway.id });
+    expect((await w.gateways.findById({ ...w.ctx, id: gateway.id }))!.lastSeenAt).toBeNull();
+  });
+
   it('unknown_device: se registra sin más efectos', async () => {
     const out = await w.registerPress.registerPress(w.press({ deviceCode: 'NOPE' }));
     expect(out).toMatchObject({ result: 'unknown_device', serviceCallId: null });

@@ -13,7 +13,9 @@ import { TestErrorFilter } from '../testing/http.js';
 const mine = tenant();
 const other = tenant();
 const actorUserId = newId();
+let moduleEnabled = true;
 const core: CoreAccessPort = {
+  isModuleEnabled: async () => moduleEnabled,
   getLocation: async (id) => [mine, other].map((x) => ({ id: x.locationId, organizationId: x.organizationId, timezone: 'America/Bogota', active: true })).find((l) => l.id === id) ?? null,
 };
 
@@ -41,6 +43,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 beforeEach(async () => {
+  moduleEnabled = true;
   await resetHospitality(db);
   const { gateway, plainKey } = await moduleRef.get(CreateGateway).execute({ ...mine, actorUserId, name: 'Barra' });
   key = plainKey;
@@ -108,6 +111,17 @@ describe('POST /device-events', () => {
 
   it('cuerpo desmesurado: 413', async () => {
     expect((await post(PRESS, { device_code: 'x'.repeat(200_000) })).status).toBe(413);
+  });
+});
+
+describe('negocio sin el módulo hospitality', () => {
+  it('la pulsación se registra como location_inactive sin crear llamado y el heartbeat no marca conectado', async () => {
+    moduleEnabled = false;
+    expect((await post(PRESS, { device_code: 'btn-01' })).body.result).toBe('location_inactive');
+    expect(await db.serviceCall.count()).toBe(0);
+    expect(await db.deviceEvent.count()).toBe(1);
+    expect((await post(BEAT, {})).status).toBe(204);
+    expect((await db.gateway.findUniqueOrThrow({ where: { id: gatewayId } })).lastSeenAt).toBeNull();
   });
 });
 

@@ -21,11 +21,14 @@ export class CreateGateway {
 
 export class RecordHeartbeat {
   constructor(
+    private readonly core: CoreAccessPort,
     private readonly gateways: GatewayRepository,
   ) {}
 
   /** El adaptador ya autenticó al gateway; `gatewayId` y `locationId` vienen de esa autenticación. */
   async execute(input: TenantContext & { gatewayId: string }): Promise<void> {
+    // OPEN: sin el módulo hospitality el heartbeat se ignora sin error (no marca conectado); ¿debe responder distinto?
+    if (!(await this.core.isModuleEnabled(input.organizationId, 'hospitality'))) return;
     const gateway = owned(await this.gateways.findById({ ...scopeOf(input), id: input.gatewayId }), input, 'gateway');
     if (!gateway.isActive) throw new NotFoundError('gateway');
     gateway.recordHeartbeat(new Date());

@@ -9,6 +9,7 @@ import { hospitalityPrismaForTests, resetHospitality, TEST_HOSPITALITY_DATABASE_
 const t = tenant();
 const actorUserId = newId();
 const core: CoreAccessPort = {
+  isModuleEnabled: async () => true,
   getLocation: async (id) => (id === t.locationId ? { id, organizationId: t.organizationId, timezone: 'America/Bogota', active: true } : null),
 };
 

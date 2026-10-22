@@ -17,7 +17,9 @@ import { hospitalityPrismaForTests, resetHospitality, TEST_HOSPITALITY_DATABASE_
 // Broker Mosquitto real y desechable (la imagen sale del compose). Sin ACL: la ACL se verifica con scripts/mqtt-acl-check.sh.
 const t = tenant();
 const actorUserId = newId();
-const core: CoreAccessPort = { getLocation: async (id) => (id === t.locationId ? { id, organizationId: t.organizationId, timezone: 'America/Bogota', active: true } : null) };
+let moduleEnabled = true;
+const core: CoreAccessPort = { isModuleEnabled: async () => moduleEnabled,
+  getLocation: async (id) => (id === t.locationId ? { id, organizationId: t.organizationId, timezone: 'America/Bogota', active: true } : null) };
 
 @Global()
 @Module({ providers: [{ provide: CORE_ACCESS_PORT, useValue: core }], exports: [CORE_ACCESS_PORT] })
@@ -86,6 +88,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  moduleEnabled = true;
   await resetHospitality(db);
   const created = await moduleRef.get(CreateGateway).execute({ ...t, actorUserId, name: 'Barra' });
   key = created.plainKey;
@@ -142,6 +145,16 @@ describe('adaptador MQTT con broker real', () => {
     expect(await db.deviceEvent.count()).toBe(1);
     expect(await db.serviceCall.count()).toBe(1);
     expect((await db.gateway.findUniqueOrThrow({ where: { id: inactive.gateway.id } })).lastSeenAt).toBeNull();
+  });
+
+  it('negocio sin el módulo hospitality: el evento se registra y no hay llamado ni heartbeat', async () => {
+    moduleEnabled = false;
+    await viaMqtt(gatewayId, 'heartbeat', {});
+    await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1' });
+    await eventually(async () => (await db.deviceEvent.count()) === 1);
+    expect(await resultsOf('mqtt-1')).toEqual(['location_inactive']);
+    expect(await db.serviceCall.count()).toBe(0);
+    expect((await db.gateway.findUniqueOrThrow({ where: { id: gatewayId } })).lastSeenAt).toBeNull();
   });
 
   it('tras reiniciar el broker vuelve a recibir', async () => {

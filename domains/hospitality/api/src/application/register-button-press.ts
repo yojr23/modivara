@@ -61,7 +61,14 @@ export class RegisterButtonPress implements IoTInputPort {
     if (!device) return recordOnly('unknown_device', null);
 
     // DATA-001 §1: el local debe existir, estar activo y ser del negocio del gateway antes de crear o reutilizar llamados.
-    if (!(await findActiveLocation(this.core, press.organizationId, press.locationId))) return recordOnly('location_inactive', device.id);
+    // Los gateways entran sin sesión (no pasan por el guard de módulos): el módulo hospitality del negocio se verifica aquí, para HTTP y MQTT.
+    // OPEN: DATA-001 §3 no tiene un resultado para «módulo deshabilitado»; se usa `location_inactive` (el más conservador). Proponer `module_disabled`.
+    if (
+      !(await findActiveLocation(this.core, press.organizationId, press.locationId)) ||
+      !(await this.core.isModuleEnabled(press.organizationId, 'hospitality'))
+    ) {
+      return recordOnly('location_inactive', device.id);
+    }
 
     const assignment = await this.assignments.findActiveByDevice({ ...scopeOf(press), deviceId: device.id });
     const table = assignment ? await this.tables.findById({ ...scopeOf(press), id: assignment.tableId }) : null;

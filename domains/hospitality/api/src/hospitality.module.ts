@@ -56,7 +56,7 @@ const useCases = [
   [UnassignDevice, [ASSIGNMENTS]],
   [ListUnknownDevices, [DEVICE_EVENTS, CORE]],
   [CreateGateway, [CORE, GATEWAYS]],
-  [RecordHeartbeat, [GATEWAYS]],
+  [RecordHeartbeat, [CORE, GATEWAYS]],
   [GetConnectivity, [CORE, GATEWAYS]],
   [GetDeviceStatus, [CORE, TABLES, ASSIGNMENTS, GetConnectivity]],
   [ListActiveCalls, [CORE, CALLS, TABLES, ZONES, SETTINGS]],

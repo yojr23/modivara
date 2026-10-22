@@ -252,6 +252,10 @@ export class RecordingNotifications implements NotificationPort {
 
 export class FakeCoreAccess implements CoreAccessPort {
   private readonly locations = new Map<string, LocationRef>();
+  private readonly disabled = new Set<string>();
   add(location: LocationRef) { this.locations.set(location.id, location); }
+  /** Quita el módulo hospitality al negocio. */
+  disableModule(organizationId: string) { this.disabled.add(organizationId); }
+  async isModuleEnabled(organizationId: string) { return !this.disabled.has(organizationId); }
   async getLocation(id: string) { return this.locations.get(id) ?? null; }
 }
