@@ -1,4 +1,4 @@
-import { type CoreAccessPort, ValidationError } from '@modivara/core-contracts';
+import { type CoreAccessPort, idParamSchema, ValidationError } from '@modivara/core-contracts';
 import type { ServiceCallDto } from '@modivara/hospitality-contracts';
 import { canSeeCall } from '../domain/service-calls/visibility.js';
 import { type CallViews } from './call-view.js';
@@ -25,7 +25,9 @@ export function decodeCursor(raw: string): { createdAt: Date; id: string } {
   try {
     const [iso, id] = JSON.parse(Buffer.from(raw, 'base64url').toString()) as [unknown, unknown];
     const createdAt = new Date(String(iso));
-    if (typeof iso === 'string' && typeof id === 'string' && !Number.isNaN(createdAt.getTime())) return { createdAt, id };
+    // Un cursor nunca apunta antes de 2000 ni al futuro: fuera de rango, la base respondería 500 (fecha inválida) en vez de 400.
+    const inRange = createdAt.getTime() >= Date.UTC(2000, 0, 1) && createdAt.getTime() <= Date.now() + 86_400_000;
+    if (typeof iso === 'string' && inRange && idParamSchema.safeParse(id).success) return { createdAt, id: id as string };
   } catch {
     // cae al error de validación
   }

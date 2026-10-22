@@ -79,6 +79,12 @@ describe('F3-08 GET service-calls', () => {
     expect(seen).toEqual([...ids].reverse());
     expect((await t.as(staff).get(`${base}/service-calls?status=all&table_id=${newId()}`)).body.items).toEqual([]);
     expect((await t.as(staff).get(`${base}/service-calls?cursor=basura`)).status).toBe(400);
+    const cur = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64url');
+    for (const bad of [[new Date().toISOString(), 'no-es-uuid'], ['+275760-09-13T00:00:00.000Z', '0197b0a0-0000-7000-8000-000000000001'], ['1900-01-01T00:00:00Z', '0197b0a0-0000-7000-8000-000000000001'], ['ayer', '0197b0a0-0000-7000-8000-000000000001'], [new Date().toISOString(), 5]]) {
+      const res = await t.as(staff).get(`${base}/service-calls?cursor=${cur(bad)}`);
+      expect(res.status, JSON.stringify(bad)).toBe(400);
+      expect(res.body.code).toBe('validation');
+    }
     expect((await t.as(staff).get(`${base}/service-calls?status=nope`)).status).toBe(400);
   });
 });
