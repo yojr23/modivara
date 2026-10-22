@@ -171,6 +171,7 @@ export class InMemoryGatewayRepository implements GatewayRepository {
   async findByIdAnyTenant(id: string) { return this.store.get(id) ?? null; }
   async listByLocation(scope: Scope) { return this.store.all().filter((g) => inScope(g, scope)); }
   async save(gateway: Gateway) { this.store.put(gateway); }
+  async touchLastSeen({ id, ...scope }: ById, at: Date) { const g = this.store.get(id); if (g && inScope(g, scope) && g.isActive) { g.recordHeartbeat(at); this.store.put(g); } }
 }
 
 export class InMemoryDeviceEventRepository implements DeviceEventRepository {

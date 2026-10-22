@@ -92,6 +92,11 @@ export interface GatewayRepository {
   /** Todos los gateways activos de todos los locales: solo para la tarea periódica de salud (sin tenant, como `findByKeyHash`). */
   listActive(): Promise<Gateway[]>;
   save(gateway: Gateway): Promise<void>;
+  /**
+   * Heartbeat: actualiza SOLO `last_seen_at`, y solo si el gateway sigue activo (operación dirigida, sin reescribir el agregado).
+   * Así un heartbeat con una entidad leída antes de desactivarlo no lo reactiva ni pisa otros cambios.
+   */
+  touchLastSeen(key: ById, at: Date): Promise<void>;
 }
 
 /** Código no registrado, agregado sobre sus señales `unknown_device`. */

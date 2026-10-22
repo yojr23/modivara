@@ -53,6 +53,23 @@ describe('PrismaGatewayRepository', () => {
     expect(await repo.listByLocation(t)).toHaveLength(1);
   });
 
+  it('touchLastSeen no reactiva ni pisa a un gateway desactivado tras leer la entidad', async () => {
+    const { gateway } = await create();
+    const stale = (await repo.findById({ ...t, id: gateway.id }))!; // leída antes de desactivar
+    await db.gateway.update({ where: { id: gateway.id }, data: { deactivatedAt: new Date() } });
+    await repo.touchLastSeen({ ...t, id: stale.id }, new Date());
+    const row = await db.gateway.findUniqueOrThrow({ where: { id: gateway.id } });
+    expect(row.deactivatedAt).not.toBeNull();
+    expect(row.lastSeenAt).toBeNull();
+    // Y a uno activo solo le cambia last_seen_at.
+    const live = await create();
+    const at = new Date('2026-10-20T12:00:00Z');
+    await repo.touchLastSeen({ ...t, id: live.gateway.id }, at);
+    expect((await repo.findById({ ...t, id: live.gateway.id }))?.lastSeenAt).toEqual(at);
+    await repo.touchLastSeen({ ...other, id: live.gateway.id }, new Date());
+    expect((await repo.findById({ ...t, id: live.gateway.id }))?.lastSeenAt).toEqual(at);
+  });
+
   it('findByIdAnyTenant y listActive atraviesan locales, y listActive omite los desactivados', async () => {
     const a = await create();
     const b = await create(other);

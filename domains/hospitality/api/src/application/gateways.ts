@@ -31,8 +31,7 @@ export class RecordHeartbeat {
     if (!(await this.core.isModuleEnabled(input.organizationId, 'hospitality'))) return;
     const gateway = owned(await this.gateways.findById({ ...scopeOf(input), id: input.gatewayId }), input, 'gateway');
     if (!gateway.isActive) throw new NotFoundError('gateway');
-    gateway.recordHeartbeat(new Date());
-    await this.gateways.save(gateway);
+    await this.gateways.touchLastSeen({ ...scopeOf(input), id: gateway.id }, new Date());
   }
 }
 

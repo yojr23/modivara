@@ -40,6 +40,10 @@ export class PrismaGatewayRepository implements GatewayRepository {
     return rows.map(toDomain);
   }
 
+  async touchLastSeen({ id, organizationId, locationId }: ById, at: Date) {
+    await this.db.gateway.updateMany({ where: { id, organizationId, locationId, deactivatedAt: null }, data: { lastSeenAt: at } });
+  }
+
   save(gateway: Gateway) {
     const p = gateway.toProps();
     // La clave nunca cambia: el update no toca key_hash.
