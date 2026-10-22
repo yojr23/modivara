@@ -84,6 +84,7 @@ export class InMemoryProcessedEventStore implements ProcessedEventStore {
 }
 
 export class InMemoryCoreAccess implements CoreAccessPort {
+  async isModuleEnabled() { return true; }
   private readonly locations = new Map<string, LocationRef>();
 
   add(location: LocationRef): this {

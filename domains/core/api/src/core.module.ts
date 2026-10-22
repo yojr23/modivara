@@ -85,7 +85,7 @@ export class CoreModule implements OnModuleDestroy {
           inject: [...deps],
           useFactory: (...args: unknown[]) => new (useCase as new (...a: unknown[]) => unknown)(...args),
         })),
-        { provide: CORE_ACCESS_PORT, inject: [LOCATIONS], useFactory: (l: LocationRepository) => new CoreAccessService(l) },
+        { provide: CORE_ACCESS_PORT, inject: [LOCATIONS, ENTITLEMENTS], useFactory: (l: LocationRepository, e: EntitlementRepository) => new CoreAccessService(l, e) },
       ],
       exports: [CORE_ACCESS_PORT, ...useCases.map(([useCase]) => useCase)],
     };

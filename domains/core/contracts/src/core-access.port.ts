@@ -1,3 +1,5 @@
+import type { ModuleName } from './identity.js';
+
 /** Datos de un local que otros dominios necesitan de Core. */
 export interface LocationRef {
   id: string;
@@ -12,6 +14,8 @@ export interface LocationRef {
  */
 export interface CoreAccessPort {
   getLocation(locationId: string): Promise<LocationRef | null>;
+  /** ¿El negocio tiene habilitado el módulo? Lo exigen los adaptadores sin sesión (gateway) que no pasan por el guard de módulos. */
+  isModuleEnabled(organizationId: string, module: ModuleName): Promise<boolean>;
 }
 
 /** Token de inyección bajo el que `CoreModule` exporta el `CoreAccessPort`; otros dominios lo inyectan sin importar internos de core. */

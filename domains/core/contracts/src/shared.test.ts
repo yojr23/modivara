@@ -19,7 +19,7 @@ describe('newId', () => {
 
 describe('findActiveLocation', () => {
   const ref: LocationRef = { id: 'l1', organizationId: 'o1', timezone: 'America/Bogota', active: true };
-  const core = (r: LocationRef | null) => ({ getLocation: async () => r });
+  const core = (r: LocationRef | null) => ({ getLocation: async () => r, isModuleEnabled: async () => true });
 
   it('acepta solo un local activo del mismo negocio', async () => {
     expect(await findActiveLocation(core(ref), 'o1', 'l1')).toBe(ref);
