@@ -1,5 +1,5 @@
 import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestjs/common';
-import { CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, type IntegrationEventSubscriber } from '@modivara/core-contracts';
+import { CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, type CoreAccessPort, type IntegrationEventSubscriber } from '@modivara/core-contracts';
 import {
   AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
   GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
@@ -13,7 +13,7 @@ import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
 import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
 import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
 import { GatewayHealthMonitor } from './infrastructure/realtime/gateway-health.js';
-import { GatewayPressAdapter, NoopGatewayHealthNotifier, NoopNotificationPort, OutboxPoller, outboxOptionsFromEnv, type OutboxPollerOptions } from './infrastructure/index.js';
+import { GatewayPressAdapter, OutboxPoller, RealtimeBroadcaster, RealtimeGateway, outboxOptionsFromEnv, type OutboxPollerOptions } from './infrastructure/index.js';
 import {
   createHospitalityPrisma, PrismaButtonPressStore, PrismaDeviceAssignmentRepository, PrismaDeviceEventRepository, PrismaDeviceRepository,
   PrismaDiningTableRepository, PrismaGatewayRepository, PrismaLocationSettingsRepository, PrismaServiceCallRepository, PrismaZoneRepository, type HospitalityPrisma,
@@ -104,7 +104,13 @@ export class HospitalityModule implements OnModuleDestroy {
         repo(DEVICE_EVENTS, (p): DeviceEventRepository => new PrismaDeviceEventRepository(p)),
         repo(PRESS_STORE, (p): ButtonPressStore => new PrismaButtonPressStore(p)),
         GatewayKeyGuard,
-        { provide: GATEWAY_HEALTH_NOTIFIER, useFactory: (): GatewayHealthNotifier => new NoopGatewayHealthNotifier() },
+        RealtimeGateway,
+        {
+          provide: RealtimeBroadcaster,
+          inject: [RealtimeGateway, CORE, CallViews, SETTINGS],
+          useFactory: (g: RealtimeGateway, core: CoreAccessPort, v: CallViews, s: LocationSettingsRepository) => new RealtimeBroadcaster(g, core, v, s),
+        },
+        { provide: GATEWAY_HEALTH_NOTIFIER, useExisting: RealtimeBroadcaster },
         { provide: GatewayHealthMonitor, inject: [DetectGatewayHealthChanges], useFactory: (d: DetectGatewayHealthChanges) => new GatewayHealthMonitor(d) },
         {
           provide: MqttAdapter,
@@ -121,7 +127,7 @@ export class HospitalityModule implements OnModuleDestroy {
               useFactory: (p: HospitalityPrisma, subscribers?: IntegrationEventSubscriber[]) =>
                 new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }),
             }]),
-        { provide: NOTIFICATIONS, useFactory: (): NotificationPort => new NoopNotificationPort() },
+        { provide: NOTIFICATIONS, useExisting: RealtimeBroadcaster },
         ...useCases.map(([useCase, deps]) => ({
           provide: useCase,
           inject: [...deps],

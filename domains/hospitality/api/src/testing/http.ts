@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Catch, Global, HttpException, Injectable, Module, type ArgumentsHost, type CanActivate, type ExceptionFilter, type ExecutionContext, type INestApplication } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import {
@@ -101,7 +102,7 @@ export async function createHospitalityTestApp() {
   class FakeCoreModule {}
 
   @Module({
-    imports: [FakeCoreModule, HospitalityModule.forRoot({ databaseUrl: 'postgresql://unused' })],
+    imports: [FakeCoreModule, HospitalityModule.forRoot({ databaseUrl: 'postgresql://unused', outbox: false })],
     providers: [{ provide: APP_GUARD, useClass: TestAuthGuard }, { provide: APP_FILTER, useClass: TestErrorFilter }],
   })
   class TestHostModule {}
@@ -120,6 +121,7 @@ export async function createHospitalityTestApp() {
       .compile()
   ).createNestApplication();
   app.setGlobalPrefix('api/v1');
+  app.useWebSocketAdapter(new IoAdapter(app)); // el host real lo hace en main.ts
   await app.init();
 
   const http = request(app.getHttpServer());

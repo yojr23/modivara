@@ -53,6 +53,8 @@ docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<la misma clave de
 # con una base propia (CORE_DATABASE_URL y HOSPITALITY_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:hospitality
 ```
 
+Tiempo real y outbox de hospitality: Socket.IO en `/api/v1/realtime` (misma cookie de sesión; rechaza sin sesión y con `Origin` distinto del host) emite `service_call.changed` y `gateways.status` a la sala del local tras suscribirse con `location.subscribe`. El poller del outbox corre en el mismo proceso de la API cada `OUTBOX_POLL_INTERVAL_MS` (por defecto 1000) y entrega a los suscriptores registrados bajo `INTEGRATION_EVENT_SUBSCRIBERS`.
+
 Portal en `http://localhost`, API en `http://localhost/api/v1/health`, simulador en `http://<ip-del-pc>/sim` desde el celular (misma Wi‑Fi).
 
 ## Estructura
