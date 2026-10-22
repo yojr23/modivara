@@ -31,6 +31,8 @@ scripts/mqtt-user.sh api     # la API: lee modivara/gw/# → ponerla en MQTT_PAS
 scripts/mqtt-user.sh gw-01   # un usuario por gateway; el usuario es el id del gateway y solo publica en modivara/gw/gw-01/#
 ```
 
+La API se suscribe a `modivara/gw/+/press` y `…/heartbeat` con `MQTT_URL`, `MQTT_USERNAME` (`api`) y `MQTT_PASSWORD`; si falta alguna, no arranca el adaptador MQTT y lo registra una vez (HTTP sigue funcionando). Reconecta sola si el broker cae.
+
 Para el simulador por MQTT: `SIM_GATEWAY_ID=gw-01` y `SIM_MQTT_PASSWORD=<la impresa>` en `.env`, `SIM_TRANSPORT=mqtt`.
 `scripts/mqtt-acl-check.sh` verifica la ACL con un broker desechable (A publica en lo suyo y no en B; `api` lee ambos; clave errónea y anónimo rechazados).
 

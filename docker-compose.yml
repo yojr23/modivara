@@ -55,6 +55,8 @@ services:
     environment:
       API_PORT: 3000
       MQTT_URL: mqtt://mqtt:1883
+      MQTT_USERNAME: api
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
       CORE_DATABASE_URL: postgresql://core_app:${CORE_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=core
       HOSPITALITY_DATABASE_URL: postgresql://hospitality_app:${HOSPITALITY_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=hospitality
       COMMERCE_DATABASE_URL: postgresql://commerce_app:${COMMERCE_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=commerce

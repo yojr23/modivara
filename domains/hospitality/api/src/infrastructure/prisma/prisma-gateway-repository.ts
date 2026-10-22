@@ -26,6 +26,11 @@ export class PrismaGatewayRepository implements GatewayRepository {
     return r && toDomain(r);
   }
 
+  async findByIdAnyTenant(id: string) {
+    const r = await this.db.gateway.findUnique({ where: { id } });
+    return r && toDomain(r);
+  }
+
   async listByLocation({ organizationId, locationId }: Scope) {
     const rows = await this.db.gateway.findMany({ where: { organizationId, locationId }, orderBy: { id: 'asc' } });
     return rows.map(toDomain);

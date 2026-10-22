@@ -10,6 +10,7 @@ import type {
 } from './application/ports/index.js';
 import { DeviceEventsController, DeviceStatusController, PlatformController, TablesController, ZonesController } from './presentation/index.js';
 import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
+import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
 import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
 import { GatewayPressAdapter, NoopNotificationPort } from './infrastructure/index.js';
 import {
@@ -33,6 +34,8 @@ export const NOTIFICATIONS = 'HOSPITALITY_NOTIFICATIONS';
 export interface HospitalityModuleOptions {
   /** Por defecto, `HOSPITALITY_DATABASE_URL` del entorno. */
   databaseUrl?: string;
+  /** Broker MQTT. Por defecto `MQTT_URL`/`MQTT_USERNAME`/`MQTT_PASSWORD`; `null` (o faltantes) = el adaptador MQTT no arranca. */
+  mqtt?: MqttOptions | null;
 }
 
 const CORE = CORE_ACCESS_PORT;
@@ -94,6 +97,12 @@ export class HospitalityModule implements OnModuleDestroy {
         repo(DEVICE_EVENTS, (p): DeviceEventRepository => new PrismaDeviceEventRepository(p)),
         repo(PRESS_STORE, (p): ButtonPressStore => new PrismaButtonPressStore(p)),
         GatewayKeyGuard,
+        {
+          provide: MqttAdapter,
+          inject: [GatewayPressAdapter, GatewayIngest],
+          useFactory: (gateways: GatewayPressAdapter, ingest: GatewayIngest) =>
+            new MqttAdapter(options.mqtt === undefined ? mqttOptionsFromEnv() : options.mqtt, gateways, ingest),
+        },
         { provide: NOTIFICATIONS, useFactory: (): NotificationPort => new NoopNotificationPort() },
         ...useCases.map(([useCase, deps]) => ({
           provide: useCase,

@@ -41,6 +41,12 @@ export class GatewayPressAdapter {
     return gateway;
   }
 
+  /** Gateway activo por el id del tópico MQTT; null si no existe o está desactivado (el mensaje se descarta). */
+  async findActive(gatewayId: string): Promise<Gateway | null> {
+    const gateway = await this.gateways.findByIdAnyTenant(gatewayId);
+    return gateway?.isActive ? gateway : null;
+  }
+
   async toPress(gateway: Gateway, rawMessage: unknown, transport: Transport): Promise<NormalizedPress> {
     const parsed = gatewayPressMessageSchema.safeParse(rawMessage);
     if (!parsed.success) throw new ValidationError(`Invalid press message: ${parsed.error.message}`);

@@ -71,6 +71,8 @@ export interface GatewayRepository {
   findById(key: ById): Promise<Gateway | null>;
   /** Única consulta sin tenant: así se deriva el tenant de una pulsación (la clave identifica al gateway). */
   findByKeyHash(keyHash: string): Promise<Gateway | null>;
+  /** Sin tenant, como `findByKeyHash`: el id del tópico MQTT identifica al gateway y de él sale el tenant. */
+  findByIdAnyTenant(id: string): Promise<Gateway | null>;
   listByLocation(scope: Scope): Promise<Gateway[]>;
   save(gateway: Gateway): Promise<void>;
 }
