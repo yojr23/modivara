@@ -27,7 +27,6 @@ export class ButtonSignalTranslator {
 /**
  * Adaptador de entrada del gateway (HTTP o MQTT): autentica, valida el mensaje y produce la pulsación normalizada.
  * El tenant sale del gateway autenticado, nunca del mensaje (DATA-001 §3).
- * Pendiente: el controlador HTTP y el cliente MQTT reales que lo invocan.
  */
 export class GatewayPressAdapter {
   constructor(
@@ -42,7 +41,7 @@ export class GatewayPressAdapter {
     return gateway;
   }
 
-  toPress(gateway: Gateway, rawMessage: unknown, transport: Transport): NormalizedPress {
+  async toPress(gateway: Gateway, rawMessage: unknown, transport: Transport): Promise<NormalizedPress> {
     const parsed = gatewayPressMessageSchema.safeParse(rawMessage);
     if (!parsed.success) throw new ValidationError(`Invalid press message: ${parsed.error.message}`);
     const { device_code, button_key, sent_at } = parsed.data;

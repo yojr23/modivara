@@ -19,7 +19,7 @@ describe('GatewayPressAdapter', () => {
 
   it('el tenant sale del gateway, no del mensaje', async () => {
     const { adapter, gateway } = await setup();
-    const press = adapter.toPress(gateway, { device_code: 'B1', button_key: 'A', sent_at: '2026-10-19T10:00:00Z', location_id: 'evil' }, 'mqtt');
+    const press = await adapter.toPress(gateway, { device_code: 'B1', button_key: 'A', sent_at: '2026-10-19T10:00:00Z', location_id: 'evil' }, 'mqtt');
     expect(press).toMatchObject({ gatewayId: gateway.id, organizationId: gateway.organizationId, locationId: gateway.locationId, deviceCode: 'B1', buttonKey: 'A', callType: 'attention', transport: 'mqtt' });
     expect(press.sentAt).toEqual(new Date('2026-10-19T10:00:00Z'));
     expect(press.payload).not.toHaveProperty('location_id');
@@ -27,7 +27,7 @@ describe('GatewayPressAdapter', () => {
 
   it('mensaje inválido -> ValidationError', async () => {
     const { adapter, gateway } = await setup();
-    expect(() => adapter.toPress(gateway, { device_code: '' }, 'http')).toThrow(/Invalid press message/);
+    await expect(adapter.toPress(gateway, { device_code: '' }, 'http')).rejects.toThrow(/Invalid press message/);
   });
 });
 

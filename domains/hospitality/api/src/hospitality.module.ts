@@ -8,7 +8,9 @@ import type {
   ButtonPressStore, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, GatewayRepository,
   LocationSettingsRepository, NotificationPort, ServiceCallRepository, ZoneRepository,
 } from './application/ports/index.js';
-import { DeviceStatusController, PlatformController, TablesController, ZonesController } from './presentation/index.js';
+import { DeviceEventsController, DeviceStatusController, PlatformController, TablesController, ZonesController } from './presentation/index.js';
+import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
+import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
 import { GatewayPressAdapter, NoopNotificationPort } from './infrastructure/index.js';
 import {
   createHospitalityPrisma, PrismaButtonPressStore, PrismaDeviceAssignmentRepository, PrismaDeviceEventRepository, PrismaDeviceRepository,
@@ -59,6 +61,7 @@ const useCases = [
   [CompleteCall, [CALLS, NOTIFICATIONS]],
   [RegisterButtonPress, [CORE, DEVICES, ASSIGNMENTS, TABLES, ZONES, PRESS_STORE, NOTIFICATIONS]],
   [GatewayPressAdapter, [GATEWAYS]],
+  [GatewayIngest, [GatewayPressAdapter, RegisterButtonPress, RecordHeartbeat]],
 ] as const;
 
 const repo = <T>(provide: string, make: (p: HospitalityPrisma) => T) => ({ provide, inject: [HOSPITALITY_PRISMA], useFactory: make });
@@ -72,7 +75,7 @@ export class HospitalityModule implements OnModuleDestroy {
     const databaseUrl = options.databaseUrl ?? process.env.HOSPITALITY_DATABASE_URL;
     return {
       module: HospitalityModule,
-      controllers: [ZonesController, TablesController, DeviceStatusController, PlatformController],
+      controllers: [ZonesController, TablesController, DeviceStatusController, PlatformController, DeviceEventsController],
       providers: [
         {
           provide: HOSPITALITY_PRISMA,
@@ -90,6 +93,7 @@ export class HospitalityModule implements OnModuleDestroy {
         repo(CALLS, (p): ServiceCallRepository => new PrismaServiceCallRepository(p)),
         repo(DEVICE_EVENTS, (p): DeviceEventRepository => new PrismaDeviceEventRepository(p)),
         repo(PRESS_STORE, (p): ButtonPressStore => new PrismaButtonPressStore(p)),
+        GatewayKeyGuard,
         { provide: NOTIFICATIONS, useFactory: (): NotificationPort => new NoopNotificationPort() },
         ...useCases.map(([useCase, deps]) => ({
           provide: useCase,

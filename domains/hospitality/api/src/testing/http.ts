@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { Catch, Global, Injectable, Module, type ArgumentsHost, type CanActivate, type ExceptionFilter, type ExecutionContext, type INestApplication } from '@nestjs/common';
+import { Catch, Global, HttpException, Injectable, Module, type ArgumentsHost, type CanActivate, type ExceptionFilter, type ExecutionContext, type INestApplication } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -72,7 +72,10 @@ export class TestErrorFilter implements ExceptionFilter {
   catch(e: unknown, host: ArgumentsHost): void {
     const res = host.switchToHttp().getResponse<{ status(c: number): { json(b: unknown): void } }>();
     const code = (e as { code?: unknown } | null)?.code;
-    if (e instanceof Error && e.name === 'ZodError') res.status(400).json({ code: 'validation' });
+    if (e instanceof HttpException) res.status(e.getStatus()).json({ code: `http_${e.getStatus()}`, message: e.message });
+    // Errores de body-parser (http-errors), p. ej. 413: llevan `status`. OPEN para core: su filtro global los responde 500.
+    else if (typeof (e as { status?: unknown } | null)?.status === 'number' && (e as { status: number }).status < 500) res.status((e as { status: number }).status).json({ code: 'http_error' });
+    else if (e instanceof Error && e.name === 'ZodError') res.status(400).json({ code: 'validation' });
     else if (e instanceof Error && typeof code === 'string' && code in STATUS) res.status(STATUS[code]!).json({ code, message: e.message });
     else res.status(500).json({ code: 'internal' });
   }
