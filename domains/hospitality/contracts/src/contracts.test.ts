@@ -54,6 +54,9 @@ describe('mensajes del gateway', () => {
   });
   it('rechaza código vacío o fecha inválida', () => {
     expect(gatewayPressMessageSchema.safeParse({ device_code: '' }).success).toBe(false);
+    expect(gatewayPressMessageSchema.safeParse({ device_code: 'a'.repeat(65) }).success).toBe(false);
+    expect(gatewayPressMessageSchema.safeParse({ device_code: 'a'.repeat(64), button_key: 'k'.repeat(65) }).success).toBe(false);
+    expect(gatewayPressMessageSchema.safeParse({ device_code: 'a'.repeat(64), button_key: 'k'.repeat(64) }).success).toBe(true);
     expect(gatewayPressMessageSchema.safeParse({ device_code: 'a', sent_at: 'ayer' }).success).toBe(false);
   });
   it('la señal de vida acepta vacío', () => {

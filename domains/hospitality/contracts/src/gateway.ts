@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 /** Pulsación que envía el gateway por HTTP o MQTT. El tenant nunca viaja en el mensaje (DATA-001 §3). */
 export const gatewayPressMessageSchema = z.object({
-  device_code: z.string().min(1),
-  button_key: z.string().min(1).optional(),
+  device_code: z.string().min(1).max(64),
+  button_key: z.string().min(1).max(64).optional(),
   /** Reloj del gateway: no confiable, solo informativo. */
   sent_at: z.iso.datetime({ offset: true }).optional(),
 });
