@@ -1,7 +1,8 @@
-import { type CanActivate, type ExecutionContext, Inject, Injectable, UnauthorizedException, createParamDecorator } from '@nestjs/common';
+import { type CanActivate, type ExecutionContext, HttpException, HttpStatus, Inject, Injectable, Logger, UnauthorizedException, createParamDecorator } from '@nestjs/common';
 import { GATEWAY_KEY_HEADER } from '@modivara/hospitality-contracts';
 import type { Gateway } from '../domain/devices/gateway.js';
 import { GatewayPressAdapter, InvalidGatewayKeyError } from '../infrastructure/gateway-press.adapter.js';
+import { GatewayRateLimiter } from '../infrastructure/iot/gateway-rate-limiter.js';
 
 const GATEWAY_KEY = 'hospitalityGateway';
 
@@ -11,18 +12,31 @@ const GATEWAY_KEY = 'hospitalityGateway';
  */
 @Injectable()
 export class GatewayKeyGuard implements CanActivate {
-  constructor(@Inject(GatewayPressAdapter) private readonly adapter: GatewayPressAdapter) {}
+  private readonly logger = new Logger('GatewayKeyGuard');
+
+  constructor(
+    @Inject(GatewayPressAdapter) private readonly adapter: GatewayPressAdapter,
+    @Inject(GatewayRateLimiter) private readonly limiter: GatewayRateLimiter,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<{ headers: Record<string, string | string[] | undefined> } & Record<string, unknown>>();
     const key = req.headers[GATEWAY_KEY_HEADER];
     if (typeof key !== 'string' || !key) throw new UnauthorizedException('Invalid gateway key');
+    let gateway: Gateway;
     try {
-      req[GATEWAY_KEY] = await this.adapter.authenticate(key);
+      gateway = await this.adapter.authenticate(key);
     } catch (e) {
       if (e instanceof InvalidGatewayKeyError) throw new UnauthorizedException('Invalid gateway key');
       throw e;
     }
+    // Límite compartido con MQTT, antes de validar el cuerpo y de tocar la base con el mensaje.
+    const decision = this.limiter.tryAcquire(gateway.id);
+    if (decision !== 'allow') {
+      if (decision === 'deny_first') this.logger.warn(`Gateway ${gateway.id} supera el límite de mensajes: se responde 429`);
+      throw new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    req[GATEWAY_KEY] = gateway;
     return true;
   }
 }

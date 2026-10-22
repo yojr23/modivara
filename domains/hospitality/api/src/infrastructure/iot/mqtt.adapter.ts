@@ -4,6 +4,12 @@ import { idParamSchema } from '@modivara/core-contracts';
 import { gatewayIdFromTopic, MQTT_SUBSCRIPTIONS } from '@modivara/hospitality-contracts';
 import type { GatewayPressAdapter } from '../gateway-press.adapter.js';
 import type { GatewayIngest } from './gateway-ingest.js';
+import type { GatewayRateLimiter } from './gateway-rate-limiter.js';
+
+/** Los mensajes reales pesan decenas de bytes; más de esto se descarta sin parsear ni tocar la base. Mosquitto lo corta antes (mosquitto.conf). */
+export const MQTT_MAX_PAYLOAD_BYTES = 4096;
+// OPEN: tope de manejadores en vivo; ni TECH-001 ni DATA-001 lo fijan. Amplio para un bar, acota la presión sobre la base.
+export const MQTT_MAX_IN_FLIGHT = 50;
 
 export interface MqttOptions {
   url: string;
@@ -30,7 +36,10 @@ export class MqttAdapter implements OnModuleInit, OnModuleDestroy {
     private readonly options: MqttOptions | null,
     private readonly gateways: GatewayPressAdapter,
     private readonly ingest: GatewayIngest,
+    private readonly limiter: GatewayRateLimiter,
   ) {}
+  private inFlight = 0;
+  private lastOverloadLog = 0;
 
   onModuleInit(): void {
     if (!this.options) {
@@ -59,9 +68,26 @@ export class MqttAdapter implements OnModuleInit, OnModuleDestroy {
 
   /** Público para pruebas sin broker. */
   async handle(topic: string, payload: Buffer): Promise<void> {
+    if (payload.length > MQTT_MAX_PAYLOAD_BYTES) {
+      this.logger.warn(`Mensaje MQTT de ${payload.length} bytes (${topic}): descartado por tamaño`);
+      return;
+    }
+    if (this.inFlight >= MQTT_MAX_IN_FLIGHT) {
+      if (Date.now() - this.lastOverloadLog > 60_000) {
+        this.lastOverloadLog = Date.now();
+        this.logger.warn(`Más de ${MQTT_MAX_IN_FLIGHT} mensajes MQTT en proceso: se descartan los que sobran`);
+      }
+      return;
+    }
+    this.inFlight++;
     try {
       const parsed = gatewayIdFromTopic(topic);
       if (!parsed || !idParamSchema.safeParse(parsed.gatewayId).success) return;
+      const decision = this.limiter.tryAcquire(parsed.gatewayId);
+      if (decision !== 'allow') {
+        if (decision === 'deny_first') this.logger.warn(`Gateway ${parsed.gatewayId} supera el límite de mensajes: se descartan`);
+        return;
+      }
       const gateway = await this.gateways.findActive(parsed.gatewayId);
       if (!gateway) {
         this.logger.warn(`Mensaje de un gateway inexistente o inactivo (${parsed.gatewayId}): descartado`);
@@ -72,6 +98,8 @@ export class MqttAdapter implements OnModuleInit, OnModuleDestroy {
       else await this.ingest.heartbeat(gateway, body);
     } catch (e) {
       this.logger.warn(`Mensaje MQTT descartado (${topic}): ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      this.inFlight--;
     }
   }
 }

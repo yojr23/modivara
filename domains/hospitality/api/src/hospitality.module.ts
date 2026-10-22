@@ -10,6 +10,7 @@ import type {
 } from './application/ports/index.js';
 import { DeviceEventsController, DeviceStatusController, PlatformController, ServiceCallsController, TablesController, ZonesController } from './presentation/index.js';
 import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
+import { GatewayRateLimiter, type GatewayRateLimitOptions } from './infrastructure/iot/gateway-rate-limiter.js';
 import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
 import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
 import { GatewayHealthMonitor } from './infrastructure/realtime/gateway-health.js';
@@ -40,6 +41,8 @@ export interface HospitalityModuleOptions {
   mqtt?: MqttOptions | null;
   /** Poller del outbox. Por defecto `OUTBOX_POLL_INTERVAL_MS` y valores del poller; `false` = no arranca. */
   outbox?: Partial<OutboxPollerOptions> | false;
+  /** Límite de mensajes por gateway (compartido por HTTP y MQTT). Por defecto `DEFAULT_GATEWAY_RATE_LIMIT`. */
+  rateLimit?: Partial<GatewayRateLimitOptions>;
 }
 
 const CORE = CORE_ACCESS_PORT;
@@ -103,6 +106,7 @@ export class HospitalityModule implements OnModuleDestroy {
         repo(CALLS, (p): ServiceCallRepository => new PrismaServiceCallRepository(p)),
         repo(DEVICE_EVENTS, (p): DeviceEventRepository => new PrismaDeviceEventRepository(p)),
         repo(PRESS_STORE, (p): ButtonPressStore => new PrismaButtonPressStore(p)),
+        { provide: GatewayRateLimiter, useFactory: () => new GatewayRateLimiter(options.rateLimit) },
         GatewayKeyGuard,
         RealtimeGateway,
         {
@@ -114,9 +118,9 @@ export class HospitalityModule implements OnModuleDestroy {
         { provide: GatewayHealthMonitor, inject: [DetectGatewayHealthChanges], useFactory: (d: DetectGatewayHealthChanges) => new GatewayHealthMonitor(d) },
         {
           provide: MqttAdapter,
-          inject: [GatewayPressAdapter, GatewayIngest],
-          useFactory: (gateways: GatewayPressAdapter, ingest: GatewayIngest) =>
-            new MqttAdapter(options.mqtt === undefined ? mqttOptionsFromEnv() : options.mqtt, gateways, ingest),
+          inject: [GatewayPressAdapter, GatewayIngest, GatewayRateLimiter],
+          useFactory: (gateways: GatewayPressAdapter, ingest: GatewayIngest, limiter: GatewayRateLimiter) =>
+            new MqttAdapter(options.mqtt === undefined ? mqttOptionsFromEnv() : options.mqtt, gateways, ingest, limiter),
         },
         // Los suscriptores los registra el host bajo INTEGRATION_EVENT_SUBSCRIBERS (multi-proveedor); sin ninguno, igual se marca despachado.
         ...(options.outbox === false

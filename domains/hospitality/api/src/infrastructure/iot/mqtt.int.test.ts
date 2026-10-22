@@ -64,7 +64,7 @@ beforeAll(async () => {
   await eventually(async () => publisher.connected);
 
   @Module({
-    imports: [FakeCoreModule, HospitalityModule.forRoot({ databaseUrl: TEST_HOSPITALITY_DATABASE_URL, mqtt: { url, username: 'api', password: 'x' } })],
+    imports: [FakeCoreModule, HospitalityModule.forRoot({ databaseUrl: TEST_HOSPITALITY_DATABASE_URL, mqtt: { url, username: 'api', password: 'x' }, rateLimit: { burst: 10, perSecond: 0.001 } })],
     providers: [{ provide: APP_FILTER, useClass: TestErrorFilter }],
   })
   class Host {}
@@ -145,6 +145,22 @@ describe('adaptador MQTT con broker real', () => {
     expect(await db.deviceEvent.count()).toBe(1);
     expect(await db.serviceCall.count()).toBe(1);
     expect((await db.gateway.findUniqueOrThrow({ where: { id: inactive.gateway.id } })).lastSeenAt).toBeNull();
+  });
+
+  it('mensaje gigante: se descarta sin efectos y el siguiente válido se procesa', async () => {
+    await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1', relleno: 'x'.repeat(5000) });
+    await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1' });
+    await eventually(async () => (await db.deviceEvent.count()) >= 1);
+    await sleep(300);
+    expect(await db.deviceEvent.count()).toBe(1);
+    expect(await db.serviceCall.count()).toBe(1);
+  });
+
+  it('un gateway que excede su ráfaga: lo que sobra se descarta; otro gateway sigue funcionando', async () => {
+    for (let i = 0; i < 15; i++) await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1' });
+    await eventually(async () => (await db.deviceEvent.count()) >= 10);
+    await sleep(500);
+    expect(await db.deviceEvent.count()).toBe(10);
   });
 
   it('negocio sin el módulo hospitality: el evento se registra y no hay llamado ni heartbeat', async () => {

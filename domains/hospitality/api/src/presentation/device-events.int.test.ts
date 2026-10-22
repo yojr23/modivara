@@ -25,7 +25,7 @@ const core: CoreAccessPort = {
 @Module({ providers: [{ provide: CORE_ACCESS_PORT, useValue: core }], exports: [CORE_ACCESS_PORT] })
 class FakeCoreModule {}
 
-@Module({ imports: [FakeCoreModule, HospitalityModule.forRoot({ databaseUrl: TEST_HOSPITALITY_DATABASE_URL })], providers: [{ provide: APP_FILTER, useClass: TestErrorFilter }] })
+@Module({ imports: [FakeCoreModule, HospitalityModule.forRoot({ databaseUrl: TEST_HOSPITALITY_DATABASE_URL, rateLimit: { burst: 5, perSecond: 0.001 } })], providers: [{ provide: APP_FILTER, useClass: TestErrorFilter }] })
 class Host {}
 
 const db = hospitalityPrismaForTests();
@@ -109,6 +109,15 @@ describe('POST /device-events', () => {
   ])('mensaje inválido (%s): 400', async (_n, body) => {
     expect((await post(PRESS, body)).status).toBe(400);
     expect(await db.deviceEvent.count()).toBe(0);
+  });
+
+  it('más allá de la ráfaga por gateway: 429 y no se registra nada más; otro gateway no se ve afectado', async () => {
+    const codes = [];
+    for (let i = 0; i < 7; i++) codes.push((await post(PRESS, { device_code: 'btn-01' })).status);
+    expect(codes).toEqual([200, 200, 200, 200, 200, 429, 429]);
+    expect(await db.deviceEvent.count()).toBe(5);
+    const second = await moduleRef.get(CreateGateway).execute({ ...mine, actorUserId, name: 'Terraza' });
+    expect((await post(PRESS, { device_code: 'btn-01' }, second.plainKey)).status).toBe(200);
   });
 
   it('cuerpo desmesurado: 413', async () => {
