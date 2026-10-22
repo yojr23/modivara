@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { Gateway } from '../domain/devices/gateway.js';
-import { InMemoryGatewayRepository } from '../testing/in-memory.js';
-import { ButtonSignalTranslator, GatewayPressAdapter, InvalidGatewayKeyError } from './gateway-press.adapter.js';
+import { InMemoryDeviceRepository, InMemoryGatewayRepository } from '../testing/in-memory.js';
+import { Device } from '../domain/devices/device.js';
+import { ButtonSignalTranslator } from './iot/key-map.js';
+import { GatewayPressAdapter, InvalidGatewayKeyError } from './gateway-press.adapter.js';
 
 const setup = async () => {
   const repo = new InMemoryGatewayRepository();
   const { gateway, plainKey } = Gateway.create({ organizationId: crypto.randomUUID(), locationId: crypto.randomUUID(), name: 'GW', createdBy: 'u', now: new Date() });
   await repo.save(gateway);
-  return { gateway, plainKey, adapter: new GatewayPressAdapter(repo) };
+  const devices = new InMemoryDeviceRepository();
+  return { gateway, plainKey, devices, adapter: new GatewayPressAdapter(repo, devices) };
 };
 
 describe('GatewayPressAdapter', () => {
@@ -29,13 +32,18 @@ describe('GatewayPressAdapter', () => {
     const { adapter, gateway } = await setup();
     await expect(adapter.toPress(gateway, { device_code: '' }, 'http')).rejects.toThrow(/Invalid press message/);
   });
-});
 
-describe('ButtonSignalTranslator', () => {
-  it('usa el mapa del modelo y cae en attention por defecto', () => {
-    const t = new ButtonSignalTranslator({ 'MODEL-X': { A: 'attention' } });
-    expect(t.translate('MODEL-X', 'A')).toBe('attention');
-    expect(t.translate('MODEL-X', 'Z')).toBe('attention');
-    expect(t.translate(null, null)).toBe('attention');
+  it('la tecla se traduce según el modelo del dispositivo registrado', async () => {
+    const { gateway, devices } = await setup();
+    await devices.save(Device.create({ organizationId: gateway.organizationId, locationId: gateway.locationId, code: 'B1', model: 'MODEL-X', createdBy: 'u', now: new Date() }));
+    const seen: Array<string | null> = [];
+    const spy = new ButtonSignalTranslator({ 'MODEL-X': { A: 'attention' } });
+    const original = spy.translate.bind(spy);
+    spy.translate = (model, key) => (seen.push(model), original(model, key));
+    const repo = new InMemoryGatewayRepository();
+    const adapter = new GatewayPressAdapter(repo, devices, spy);
+    expect((await adapter.toPress(gateway, { device_code: 'B1', button_key: 'A' }, 'http')).callType).toBe('attention');
+    await adapter.toPress(gateway, { device_code: 'B1' }, 'http');
+    expect(seen).toEqual(['MODEL-X', null]);
   });
 });

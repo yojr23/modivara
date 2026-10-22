@@ -34,4 +34,5 @@ export type {
   ZoneRepository,
 } from './application/ports/index.js';
 
-export { ButtonSignalTranslator, GatewayPressAdapter, InvalidGatewayKeyError, type KeyMap } from './infrastructure/gateway-press.adapter.js';
+export { GatewayPressAdapter, InvalidGatewayKeyError } from './infrastructure/gateway-press.adapter.js';
+export { ButtonSignalTranslator, type KeyMap } from './infrastructure/iot/key-map.js';

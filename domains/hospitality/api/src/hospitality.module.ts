@@ -63,7 +63,7 @@ const useCases = [
   [AcknowledgeCall, [CALLS, NOTIFICATIONS]],
   [CompleteCall, [CALLS, NOTIFICATIONS]],
   [RegisterButtonPress, [CORE, DEVICES, ASSIGNMENTS, TABLES, ZONES, PRESS_STORE, NOTIFICATIONS]],
-  [GatewayPressAdapter, [GATEWAYS]],
+  [GatewayPressAdapter, [GATEWAYS, DEVICES]],
   [GatewayIngest, [GatewayPressAdapter, RegisterButtonPress, RecordHeartbeat]],
 ] as const;
 
