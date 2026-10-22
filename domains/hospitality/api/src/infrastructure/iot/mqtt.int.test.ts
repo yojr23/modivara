@@ -179,7 +179,8 @@ describe('adaptador MQTT con broker real', () => {
   });
 
   it('un gateway que excede su ráfaga: lo que sobra se descarta; otro gateway sigue funcionando', async () => {
-    for (let i = 0; i < 15; i++) await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1' });
+    // Con pausa corta para que el tope de mensajes en vuelo no intervenga: aquí se prueba solo la ráfaga.
+    for (let i = 0; i < 15; i++) { await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1' }); await sleep(60); }
     await eventually(async () => (await db.deviceEvent.count()) >= 10);
     await sleep(500);
     expect(await db.deviceEvent.count()).toBe(10);
