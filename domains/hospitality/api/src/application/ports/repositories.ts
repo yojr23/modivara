@@ -1,3 +1,4 @@
+import type { CallStatus } from '@modivara/hospitality-contracts';
 import type { Device } from '../../domain/devices/device.js';
 import type { DeviceAssignment } from '../../domain/devices/device-assignment.js';
 import type { Gateway } from '../../domain/devices/gateway.js';
@@ -17,9 +18,23 @@ export interface ById extends Scope {
   id: string;
 }
 
+/** Filtro de `ServiceCallRepository.list`. `active` = pendientes y en atención; `all` = sin filtro de estado. */
+export interface CallListQuery {
+  status: 'active' | 'all' | CallStatus;
+  tableId?: string;
+  /** Creados desde (inclusive) hasta (exclusive). */
+  from?: Date;
+  to?: Date;
+  /** Posición del último elemento de la página anterior (keyset por `(created_at, id)`). */
+  after?: { createdAt: Date; id: string };
+  limit: number;
+}
+
 export interface ServiceCallRepository {
   findById(key: ById): Promise<ServiceCall | null>;
   listActive(scope: Scope): Promise<ServiceCall[]>;
+  /** Activos: más antiguos primero (tablero); historial (`all` o un estado): más recientes primero. Orden total por `(created_at, id)`. */
+  list(scope: Scope, query: CallListQuery): Promise<ServiceCall[]>;
   /**
    * Persiste en UNA transacción el agregado, sus transiciones y sus eventos en el outbox, y llama a `call.pullEvents()`/`call.pullTransitions()`.
    * Lanza `ConcurrencyConflictError` (con el estado actual) si el estado cambió desde que se leyó

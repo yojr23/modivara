@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ConcurrencyConflictError, InvalidTransitionError, LocationUnavailableError, NotFoundError } from '../domain/errors.js';
+import { ConcurrencyConflictError, LocationUnavailableError, NotFoundError } from '../domain/errors.js';
 import { canSeeCall } from '../domain/service-calls/visibility.js';
 import { buildWorld, seedTableWithButton, type World } from '../testing/world.js';
 
@@ -30,12 +30,37 @@ describe('AcknowledgeCall / CompleteCall', () => {
     expect(w.notifications.sent.map((n) => n.change)).toEqual(['created', 'acknowledged', 'completed']);
   });
 
-  it('rechaza saltos de estado', async () => {
-    await expect(w.complete.execute({ ...w.ctx, callId })).rejects.toBeInstanceOf(InvalidTransitionError);
+  it('rechaza saltos de estado con el estado vigente (ConcurrencyConflictError)', async () => {
+    const other = { ...w.ctx, actorUserId: crypto.randomUUID() };
+    const conflict = await w.complete.execute({ ...w.ctx, callId }).catch((e: unknown) => e);
+    expect(conflict).toBeInstanceOf(ConcurrencyConflictError);
+    expect((conflict as ConcurrencyConflictError).current?.status).toBe('pending');
     await w.acknowledge.execute({ ...w.ctx, callId });
-    await expect(w.acknowledge.execute({ ...w.ctx, callId })).rejects.toBeInstanceOf(InvalidTransitionError);
+    await expect(w.acknowledge.execute({ ...other, callId })).rejects.toBeInstanceOf(ConcurrencyConflictError);
+    await expect(w.complete.execute({ ...w.ctx, callId: crypto.randomUUID() })).rejects.toBeInstanceOf(NotFoundError);
     await w.complete.execute({ ...w.ctx, callId });
-    await expect(w.complete.execute({ ...w.ctx, callId })).rejects.toBeInstanceOf(InvalidTransitionError);
+    await expect(w.complete.execute({ ...other, callId })).rejects.toBeInstanceOf(ConcurrencyConflictError);
+  });
+
+  it('idempotente: el mismo actor repitiendo la acción recibe el estado vigente sin nueva transición ni aviso', async () => {
+    await w.acknowledge.execute({ ...w.ctx, callId });
+    const again = await w.acknowledge.execute({ ...w.ctx, callId });
+    expect(again.status).toBe('in_progress');
+    await w.complete.execute({ ...w.ctx, callId });
+    expect((await w.complete.execute({ ...w.ctx, callId })).status).toBe('completed');
+    expect(w.calls.transitions.map((t) => t.action)).toEqual(['create', 'acknowledge', 'complete']);
+    expect(w.notifications.sent.map((n) => n.change)).toEqual(['created', 'acknowledged', 'completed']);
+  });
+
+  it('idempotente también si pierde la carrera contra su propio doble envío', async () => {
+    w.calls.beforeSave = async () => {
+      w.calls.beforeSave = undefined;
+      const mine = (await w.calls.findById({ ...w.ctx, id: callId }))!;
+      mine.acknowledge(w.ctx.actorUserId, new Date());
+      await w.calls.save(mine);
+    };
+    expect((await w.acknowledge.execute({ ...w.ctx, callId })).status).toBe('in_progress');
+    expect(w.calls.transitions.filter((t) => t.action === 'acknowledge')).toHaveLength(1);
   });
 
   it('conflicto concurrente: el segundo en reconocer recibe el estado actual', async () => {

@@ -1,6 +1,7 @@
+import type { Prisma } from './generated/client.js';
 import { ConcurrencyConflictError } from '../../domain/errors.js';
 import type { ServiceCall } from '../../domain/service-calls/service-call.js';
-import type { ById, Scope, ServiceCallRepository } from '../../application/ports/index.js';
+import type { ById, CallListQuery, Scope, ServiceCallRepository } from '../../application/ports/index.js';
 import type { HospitalityPrisma } from './client.js';
 import { isUniqueViolation } from './db.js';
 import { persistTransitionsAndOutbox, toServiceCall } from './service-call-persistence.js';
@@ -21,6 +22,23 @@ export class PrismaServiceCallRepository implements ServiceCallRepository {
       where: { organizationId, locationId, status: { in: [...ACTIVE] } },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
+    return rows.map(toServiceCall);
+  }
+
+  /** `created_at` lo escribe la app con `new Date()` (precisión de ms, igual que el cursor): el keyset no pierde ni repite filas. */
+  async list({ organizationId, locationId }: Scope, q: CallListQuery) {
+    const asc = q.status === 'active';
+    const op = asc ? 'gt' : 'lt';
+    const where: Prisma.ServiceCallWhereInput = {
+      organizationId,
+      locationId,
+      ...(q.status === 'active' ? { status: { in: [...ACTIVE] } } : q.status !== 'all' && { status: q.status }),
+      ...(q.tableId && { tableId: q.tableId }),
+      ...((q.from || q.to) && { createdAt: { ...(q.from && { gte: q.from }), ...(q.to && { lt: q.to }) } }),
+      ...(q.after && { OR: [{ createdAt: { [op]: q.after.createdAt } }, { createdAt: q.after.createdAt, id: { [op]: q.after.id } }] }),
+    };
+    const dir = asc ? 'asc' : 'desc';
+    const rows = await this.db.serviceCall.findMany({ where, orderBy: [{ createdAt: dir }, { id: dir }], take: q.limit });
     return rows.map(toServiceCall);
   }
 

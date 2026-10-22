@@ -8,11 +8,11 @@ import {
   type ModuleName, type Permission, type RequestActor,
 } from '@modivara/core-contracts';
 import {
-  ASSIGNMENTS, DEVICE_EVENTS, DEVICES, GATEWAYS, HOSPITALITY_PRISMA, HospitalityModule, SETTINGS, TABLES, ZONES,
+  ASSIGNMENTS, CALLS, DEVICE_EVENTS, DEVICES, GATEWAYS, HOSPITALITY_PRISMA, HospitalityModule, SETTINGS, TABLES, ZONES,
 } from '../hospitality.module.js';
 import {
   FakeCoreAccess, InMemoryDeviceAssignmentRepository, InMemoryDeviceEventRepository, InMemoryDeviceRepository, InMemoryDiningTableRepository,
-  InMemoryGatewayRepository, InMemoryLocationSettingsRepository, InMemoryZoneRepository,
+  InMemoryGatewayRepository, InMemoryLocationSettingsRepository, InMemoryServiceCallRepository, InMemoryZoneRepository,
 } from './in-memory.js';
 
 /** Quién hace la petición de prueba, en la cabecera `x-test-actor` (JSON). Sustituye a sesiones y membresías reales de core. */
@@ -93,6 +93,7 @@ export async function createHospitalityTestApp() {
     gateways: new InMemoryGatewayRepository(),
     events: new InMemoryDeviceEventRepository(devices),
     settings: new InMemoryLocationSettingsRepository(),
+    calls: new InMemoryServiceCallRepository(),
   };
 
   @Global()
@@ -115,16 +116,21 @@ export async function createHospitalityTestApp() {
       .overrideProvider(GATEWAYS).useValue(repos.gateways)
       .overrideProvider(DEVICE_EVENTS).useValue(repos.events)
       .overrideProvider(SETTINGS).useValue(repos.settings)
+      .overrideProvider(CALLS).useValue(repos.calls)
       .compile()
   ).createNestApplication();
   app.setGlobalPrefix('api/v1');
   await app.init();
 
   const http = request(app.getHttpServer());
-  const as = (caller: TestCaller) => ({
+  const as = (caller: TestCaller) => (grantPermissions(caller), {
     get: (path: string) => http.get(`/api/v1${path}`).set(TEST_ACTOR_HEADER, JSON.stringify(caller)),
-    post: (path: string, body?: object) => http.post(`/api/v1${path}`).set(TEST_ACTOR_HEADER, JSON.stringify(caller)).send(body),
+    post: (path: string, body?: object, headers: Record<string, string> = {}) => http.post(`/api/v1${path}`).set(TEST_ACTOR_HEADER, JSON.stringify(caller)).set(headers).send(body),
     patch: (path: string, body: object) => http.patch(`/api/v1${path}`).set(TEST_ACTOR_HEADER, JSON.stringify(caller)).send(body),
   });
+  // Lo que core resolvería con las membresías: el controlador de llamados pide los permisos por local a `CoreAccessPort.permissionsAt`.
+  const grantPermissions = (caller: TestCaller) => {
+    for (const [locationId, perms] of Object.entries(caller.permissions)) core.grant(caller.actor.actorUserId, locationId, perms);
+  };
   return { app, core, repos, as };
 }

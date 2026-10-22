@@ -4,6 +4,7 @@ import type {
   ButtonPressStore,
   ButtonPressTx,
   CallChange,
+  CallListQuery,
   DeviceAssignmentRepository,
   DeviceEventRepository,
   DeviceRepository,
@@ -56,6 +57,19 @@ export class InMemoryServiceCallRepository implements ServiceCallRepository {
   }
   async listActive(scope: Scope) {
     return this.store.all().filter((c) => inScope(c, scope) && c.isActive);
+  }
+  async list(scope: Scope, q: CallListQuery) {
+    const asc = q.status === 'active';
+    const key = (c: ServiceCall) => [c.createdAt.getTime(), c.id] as const;
+    const cmp = ([t1, i1]: readonly [number, string], [t2, i2]: readonly [number, string]) => (t1 - t2 || (i1 < i2 ? -1 : i1 > i2 ? 1 : 0)) * (asc ? 1 : -1);
+    return this.store
+      .all()
+      .filter((c) => inScope(c, scope))
+      .filter((c) => (q.status === 'active' ? c.isActive : q.status === 'all' || c.status === q.status))
+      .filter((c) => (!q.tableId || c.tableId === q.tableId) && (!q.from || c.createdAt >= q.from) && (!q.to || c.createdAt < q.to))
+      .sort((a, b) => cmp(key(a), key(b)))
+      .filter((c) => !q.after || cmp(key(c), [q.after.createdAt.getTime(), q.after.id]) > 0)
+      .slice(0, q.limit);
   }
   /** `INSERT … ON CONFLICT … press_count + 1` síncrono (sin awaits): atómico en memoria. `undo` revierte para simular el rollback. */
   upsertActive(candidate: ServiceCall, now: Date) {

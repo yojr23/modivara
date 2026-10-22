@@ -199,3 +199,53 @@ describe('PrismaServiceCallRepository', () => {
     expect(await counts()).toMatchObject({ calls: 1, transitions: 1, outbox: 1 });
   });
 });
+
+describe('list (cursor estable por (created_at, id))', () => {
+  /** Un llamado por mesa (solo hay un tipo): `n` mesas con el mismo `created_at` para forzar el desempate por id. */
+  async function seed(n: number, at: (i: number) => Date) {
+    const ids: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const table = DiningTable.create({ ...t, label: `m${i}`, createdBy: waiter, now: new Date() });
+      await new PrismaDiningTableRepository(db).save(table);
+      const call = ServiceCall.create({
+        ...t, table: { id: table.id, label: table.label, zoneId: null, zoneName: null }, callType: 'attention', deviceEventId: newId(), correlationId: newId(), now: at(i),
+      });
+      await calls.save(call);
+      ids.push(call.id);
+    }
+    return ids;
+  }
+
+  it('recorre todo sin repetir ni saltar, con empates de created_at; activos ascendente, historial descendente', async () => {
+    const same = new Date('2026-10-19T10:00:00.000Z');
+    const ids = await seed(5, (i) => (i < 3 ? same : new Date(same.getTime() + i)));
+    for (const [status, expected] of [['active', 'asc'], ['all', 'desc']] as const) {
+      const seen: string[] = [];
+      let after: { createdAt: Date; id: string } | undefined;
+      for (;;) {
+        const page = await calls.list(t, { status, limit: 2, ...(after && { after }) });
+        seen.push(...page.map((c) => c.id));
+        if (page.length < 2) break;
+        after = { createdAt: page.at(-1)!.createdAt, id: page.at(-1)!.id };
+      }
+      expect(new Set(seen).size).toBe(5);
+      const rows = await db.serviceCall.findMany({ orderBy: [{ createdAt: expected }, { id: expected }] });
+      expect(seen).toEqual(rows.map((r) => r.id));
+    }
+    expect(ids).toHaveLength(5);
+  });
+
+  it('filtra por estado, mesa, rango y local', async () => {
+    const [a, b] = await seed(2, (i) => new Date(Date.UTC(2026, 9, 19, 10, i)));
+    const call = (await calls.findById({ ...t, id: a! }))!;
+    call.acknowledge(waiter, new Date());
+    await calls.save(call);
+    expect((await calls.list(t, { status: 'in_progress', limit: 10 })).map((c) => c.id)).toEqual([a]);
+    expect((await calls.list(t, { status: 'pending', limit: 10 })).map((c) => c.id)).toEqual([b]);
+    expect(await calls.list(t, { status: 'completed', limit: 10 })).toEqual([]);
+    expect((await calls.list(t, { status: 'all', from: new Date(Date.UTC(2026, 9, 19, 10, 1)), limit: 10 })).map((c) => c.id)).toEqual([b]);
+    expect((await calls.list(t, { status: 'all', to: new Date(Date.UTC(2026, 9, 19, 10, 1)), limit: 10 })).map((c) => c.id)).toEqual([a]);
+    expect((await calls.list(t, { status: 'all', tableId: call.tableId, limit: 10 })).map((c) => c.id)).toEqual([a]);
+    expect(await calls.list({ organizationId: t.organizationId, locationId: newId() }, { status: 'all', limit: 10 })).toEqual([]);
+  });
+});

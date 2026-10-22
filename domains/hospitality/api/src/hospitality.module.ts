@@ -2,13 +2,13 @@ import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestj
 import { CORE_ACCESS_PORT } from '@modivara/core-contracts';
 import {
   AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
-  GetDeviceStatus, ListActiveCalls, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
+  GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
 } from './application/index.js';
 import type {
   ButtonPressStore, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, GatewayRepository,
   GatewayHealthNotifier, LocationSettingsRepository, NotificationPort, ServiceCallRepository, ZoneRepository,
 } from './application/ports/index.js';
-import { DeviceEventsController, DeviceStatusController, PlatformController, TablesController, ZonesController } from './presentation/index.js';
+import { DeviceEventsController, DeviceStatusController, PlatformController, ServiceCallsController, TablesController, ZonesController } from './presentation/index.js';
 import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
 import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
 import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
@@ -62,6 +62,8 @@ const useCases = [
   [GetConnectivity, [CORE, GATEWAYS]],
   [GetDeviceStatus, [CORE, TABLES, ASSIGNMENTS, GetConnectivity]],
   [ListActiveCalls, [CORE, CALLS, TABLES, ZONES, SETTINGS]],
+  [CallViews, [TABLES, ZONES]],
+  [ListServiceCalls, [CORE, CALLS, CallViews, SETTINGS]],
   [AcknowledgeCall, [CALLS, NOTIFICATIONS]],
   [CompleteCall, [CALLS, NOTIFICATIONS]],
   [RegisterButtonPress, [CORE, DEVICES, ASSIGNMENTS, TABLES, ZONES, PRESS_STORE, NOTIFICATIONS]],
@@ -81,7 +83,7 @@ export class HospitalityModule implements OnModuleDestroy {
     const databaseUrl = options.databaseUrl ?? process.env.HOSPITALITY_DATABASE_URL;
     return {
       module: HospitalityModule,
-      controllers: [ZonesController, TablesController, DeviceStatusController, PlatformController, DeviceEventsController],
+      controllers: [ZonesController, TablesController, DeviceStatusController, PlatformController, DeviceEventsController, ServiceCallsController],
       providers: [
         {
           provide: HOSPITALITY_PRISMA,
