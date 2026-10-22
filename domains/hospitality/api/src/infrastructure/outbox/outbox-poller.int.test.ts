@@ -91,6 +91,24 @@ describe('OutboxPoller', () => {
     expect((await row()).dispatchedAt).not.toBeNull();
   });
 
+  it('suscriptor que no responde: vence el tiempo, cuenta como fallo con espera y lo ya entregado no se revierte', async () => {
+    const first = await publishCall();
+    const second = await publishCall();
+    const hang: IntegrationEventSubscriber = {
+      name: 'colgado', handles: () => true,
+      handle: (e) => (e.aggregate_id === second.id ? new Promise<void>(() => undefined) : Promise.resolve()),
+    };
+    const t0 = Date.now();
+    expect(await new OutboxPoller(db, [hang], { ...FAST, deliveryTimeoutMs: 150 }).tick()).toBe(2);
+    expect(Date.now() - t0).toBeLessThan(5000);
+    const rows = await db.outboxEvent.findMany({ orderBy: { occurredAt: 'asc' } });
+    const [ok, failed] = [rows.find((r) => r.aggregateId === first.id)!, rows.find((r) => r.aggregateId === second.id)!];
+    expect(ok.dispatchedAt).not.toBeNull();
+    expect(failed).toMatchObject({ dispatchedAt: null, attempts: 1 });
+    expect(failed.lastError).toMatch(/colgado.*no respondió/);
+    expect(failed.nextAttemptAt.getTime()).toBeGreaterThan(t0 + 190);
+  });
+
   it('dos pollers en paralelo no duplican la entrega (SKIP LOCKED)', async () => {
     for (let i = 0; i < 12; i++) await publishCall();
     const deliveries = new Map<string, number>();
@@ -98,8 +116,7 @@ describe('OutboxPoller', () => {
       name: 'slow', handles: () => true,
       handle: async (e) => { await new Promise((r) => setTimeout(r, 15)); deliveries.set(e.event_id, (deliveries.get(e.event_id) ?? 0) + 1); },
     };
-    const batch = { ...FAST, batchSize: 3 };
-    const [a, b] = await Promise.all([new OutboxPoller(db, [slow], batch).tick(), new OutboxPoller(db, [slow], batch).tick()]);
+    const [a, b] = await Promise.all([new OutboxPoller(db, [slow], FAST).tick(), new OutboxPoller(db, [slow], FAST).tick()]);
     expect(a + b).toBe(12);
     expect(deliveries.size).toBe(12);
     expect([...deliveries.values()].every((n) => n === 1)).toBe(true);
