@@ -1,4 +1,4 @@
-import { CALLS_API_PATHS as P, serviceCallPageSchema, serviceCallSchema, type ServiceCallDto, type ServiceCallPage } from '@modivara/hospitality-contracts';
+import { CALLS_API_PATHS as P, callConflictSchema, serviceCallPageSchema, serviceCallSchema, type ServiceCallDto, type ServiceCallPage } from '@modivara/hospitality-contracts';
 import { ApiRequestError, buildPath, request } from './client.js';
 
 export type CallHistoryQuery = {
@@ -16,12 +16,10 @@ const MAX_ACTIVE_PAGES = 20; // ponytail: los activos son pocos; tope defensivo 
 
 /** 409 al reconocer/finalizar: estado tipado + el llamado vigente si el servidor lo envía. */
 export type CallConflict = { state: 'conflict'; current?: ServiceCallDto };
-// OPEN: forma del cuerpo 409 no está en el contrato; se acepta `{ current: ServiceCallDto }` (o el DTO directo).
 export function toCallConflict(e: unknown): CallConflict | undefined {
   if (!(e instanceof ApiRequestError) || e.status !== 409) return undefined;
-  const b = e.body as { current?: unknown } | undefined;
-  const c = serviceCallSchema.safeParse(b?.current ?? b);
-  return c.success ? { state: 'conflict', current: c.data } : { state: 'conflict' };
+  const c = callConflictSchema.safeParse(e.body);
+  return c.success ? { state: 'conflict', current: c.data.current } : { state: 'conflict' };
 }
 
 export const callsApi = {

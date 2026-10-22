@@ -12,7 +12,7 @@ const OTHER = '99999999-9999-4999-8999-999999999999';
 const T = '33333333-3333-4333-8333-333333333333';
 const id = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
 const call = (n: number, over: Record<string, unknown> = {}) => ({
-  id: id(n), table_id: T, table_display_name: 'Mesa 3', call_type: 'attention', status: 'pending', press_count: 1,
+  id: id(n), location_id: L, table_id: T, table_display_name: 'Mesa 3', call_type: 'attention', status: 'pending', press_count: 1,
   created_at: '2026-01-01T10:00:00Z', last_press_at: '2026-01-01T10:00:00Z',
   acknowledged_at: null, acknowledged_by: null, completed_at: null, completed_by: null, ...over,
 });
@@ -82,6 +82,7 @@ it('service_call.changed agrega, actualiza y quita completados; inválidos se ig
   await waitFor(() => expect(result.current.data?.find((c) => c.id === id(1))?.press_count).toBe(3));
   sock.fire('service_call.changed', { ...call(3), status: 'bogus' });
   sock.fire('service_call.changed', 'basura');
+  sock.fire('service_call.changed', call(4, { location_id: OTHER })); // otro local: se descarta
   await waitFor(() => expect(result.current.data).toHaveLength(2));
   sock.fire('service_call.changed', call(1, { status: 'completed' }));
   await waitFor(() => expect(result.current.data?.map((c) => c.id)).toEqual([id(2)]));

@@ -61,11 +61,11 @@ export class RealtimeClient {
     });
   }
 
-  // OPEN: `ServiceCallDto` no trae location_id; se confía en que el servidor solo emite a la sala suscrita (un cliente por local).
+  /** El servidor solo emite a la sala del local; además se descarta cualquier evento de otro local (defensa en profundidad). */
   private onCall(raw: unknown) {
     if (this.closed) return;
     const p = serviceCallSchema.safeParse(raw);
-    if (p.success) this.apply(p.data);
+    if (p.success && p.data.location_id === this.locationId) this.apply(p.data);
   }
   private apply(call: ServiceCallDto) { applyCallChange(this.qc, this.locationId, call); }
 

@@ -11,6 +11,8 @@ export const CALLS_API_PATHS = {
 
 export const serviceCallSchema = z.object({
   id: z.uuid(),
+  /** Permite al cliente descartar eventos de otro local además del filtrado por sala del servidor. */
+  location_id: z.uuid(),
   table_id: z.uuid(),
   /** "Terraza · Mesa 3" o la etiqueta sola. */
   table_display_name: z.string(),
@@ -25,6 +27,11 @@ export const serviceCallSchema = z.object({
   completed_by: z.uuid().nullable(),
 });
 export type ServiceCallDto = z.infer<typeof serviceCallSchema>;
+
+/** Reconocer y finalizar responden con el llamado actualizado. */
+export const callActionResponseSchema = serviceCallSchema;
+/** 409 al reconocer/finalizar: otro usuario ya cambió el estado; `current` es el estado vigente (DATA-001 §3). */
+export const callConflictSchema = z.object({ code: z.string(), message: z.string().optional(), current: serviceCallSchema });
 
 /** `GET service-calls`: `status=active` para el tablero; historial con filtros y cursor. */
 export const listServiceCallsQuerySchema = z.object({
