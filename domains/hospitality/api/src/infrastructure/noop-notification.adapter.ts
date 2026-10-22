@@ -1,4 +1,4 @@
-import type { NotificationPort } from '../application/ports/index.js';
+import type { GatewayHealthNotifier, NotificationPort } from '../application/ports/index.js';
 
 /**
  * OPEN: aún no hay adaptador Socket.IO (aviso en tiempo real al tablero). Mientras tanto el puerto se liga a este
@@ -6,4 +6,9 @@ import type { NotificationPort } from '../application/ports/index.js';
  */
 export class NoopNotificationPort implements NotificationPort {
   async callChanged(): Promise<void> {}
+}
+
+/** OPEN: el aviso «Botones desconectados/reconectados» a la sala del local lo liga el adaptador Socket.IO; mientras tanto, no-op. */
+export class NoopGatewayHealthNotifier implements GatewayHealthNotifier {
+  async connectivityChanged(): Promise<void> {}
 }

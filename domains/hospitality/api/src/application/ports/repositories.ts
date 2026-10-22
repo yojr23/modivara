@@ -74,6 +74,8 @@ export interface GatewayRepository {
   /** Sin tenant, como `findByKeyHash`: el id del tópico MQTT identifica al gateway y de él sale el tenant. */
   findByIdAnyTenant(id: string): Promise<Gateway | null>;
   listByLocation(scope: Scope): Promise<Gateway[]>;
+  /** Todos los gateways activos de todos los locales: solo para la tarea periódica de salud (sin tenant, como `findByKeyHash`). */
+  listActive(): Promise<Gateway[]>;
   save(gateway: Gateway): Promise<void>;
 }
 

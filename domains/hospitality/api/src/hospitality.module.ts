@@ -1,18 +1,19 @@
 import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestjs/common';
 import { CORE_ACCESS_PORT } from '@modivara/core-contracts';
 import {
-  AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
+  AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
   GetDeviceStatus, ListActiveCalls, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
 } from './application/index.js';
 import type {
   ButtonPressStore, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, GatewayRepository,
-  LocationSettingsRepository, NotificationPort, ServiceCallRepository, ZoneRepository,
+  GatewayHealthNotifier, LocationSettingsRepository, NotificationPort, ServiceCallRepository, ZoneRepository,
 } from './application/ports/index.js';
 import { DeviceEventsController, DeviceStatusController, PlatformController, TablesController, ZonesController } from './presentation/index.js';
 import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
 import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
 import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
-import { GatewayPressAdapter, NoopNotificationPort } from './infrastructure/index.js';
+import { GatewayHealthMonitor } from './infrastructure/realtime/gateway-health.js';
+import { GatewayPressAdapter, NoopGatewayHealthNotifier, NoopNotificationPort } from './infrastructure/index.js';
 import {
   createHospitalityPrisma, PrismaButtonPressStore, PrismaDeviceAssignmentRepository, PrismaDeviceEventRepository, PrismaDeviceRepository,
   PrismaDiningTableRepository, PrismaGatewayRepository, PrismaLocationSettingsRepository, PrismaServiceCallRepository, PrismaZoneRepository, type HospitalityPrisma,
@@ -30,6 +31,7 @@ export const DEVICE_EVENTS = 'HOSPITALITY_DEVICE_EVENTS';
 export const SETTINGS = 'HOSPITALITY_SETTINGS';
 export const PRESS_STORE = 'HOSPITALITY_PRESS_STORE';
 export const NOTIFICATIONS = 'HOSPITALITY_NOTIFICATIONS';
+export const GATEWAY_HEALTH_NOTIFIER = 'HOSPITALITY_GATEWAY_HEALTH_NOTIFIER';
 
 export interface HospitalityModuleOptions {
   /** Por defecto, `HOSPITALITY_DATABASE_URL` del entorno. */
@@ -63,6 +65,7 @@ const useCases = [
   [AcknowledgeCall, [CALLS, NOTIFICATIONS]],
   [CompleteCall, [CALLS, NOTIFICATIONS]],
   [RegisterButtonPress, [CORE, DEVICES, ASSIGNMENTS, TABLES, ZONES, PRESS_STORE, NOTIFICATIONS]],
+  [DetectGatewayHealthChanges, [GATEWAYS, GATEWAY_HEALTH_NOTIFIER]],
   [GatewayPressAdapter, [GATEWAYS, DEVICES]],
   [GatewayIngest, [GatewayPressAdapter, RegisterButtonPress, RecordHeartbeat]],
 ] as const;
@@ -97,6 +100,8 @@ export class HospitalityModule implements OnModuleDestroy {
         repo(DEVICE_EVENTS, (p): DeviceEventRepository => new PrismaDeviceEventRepository(p)),
         repo(PRESS_STORE, (p): ButtonPressStore => new PrismaButtonPressStore(p)),
         GatewayKeyGuard,
+        { provide: GATEWAY_HEALTH_NOTIFIER, useFactory: (): GatewayHealthNotifier => new NoopGatewayHealthNotifier() },
+        { provide: GatewayHealthMonitor, inject: [DetectGatewayHealthChanges], useFactory: (d: DetectGatewayHealthChanges) => new GatewayHealthMonitor(d) },
         {
           provide: MqttAdapter,
           inject: [GatewayPressAdapter, GatewayIngest],

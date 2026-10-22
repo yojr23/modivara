@@ -31,6 +31,10 @@ export class PrismaGatewayRepository implements GatewayRepository {
     return r && toDomain(r);
   }
 
+  async listActive() {
+    return (await this.db.gateway.findMany({ where: { deactivatedAt: null }, orderBy: { id: 'asc' } })).map(toDomain);
+  }
+
   async listByLocation({ organizationId, locationId }: Scope) {
     const rows = await this.db.gateway.findMany({ where: { organizationId, locationId }, orderBy: { id: 'asc' } });
     return rows.map(toDomain);

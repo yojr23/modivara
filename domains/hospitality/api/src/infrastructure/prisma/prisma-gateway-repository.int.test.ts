@@ -52,4 +52,14 @@ describe('PrismaGatewayRepository', () => {
     expect(await repo.findById({ ...other, id: gateway.id })).toBeNull();
     expect(await repo.listByLocation(t)).toHaveLength(1);
   });
+
+  it('findByIdAnyTenant y listActive atraviesan locales, y listActive omite los desactivados', async () => {
+    const a = await create();
+    const b = await create(other);
+    const off = await create();
+    await db.gateway.update({ where: { id: off.gateway.id }, data: { deactivatedAt: new Date() } });
+    expect((await repo.findByIdAnyTenant(b.gateway.id))?.locationId).toBe(other.locationId);
+    expect(await repo.findByIdAnyTenant(crypto.randomUUID())).toBeNull();
+    expect((await repo.listActive()).map((g) => g.id).sort()).toEqual([a.gateway.id, b.gateway.id].sort());
+  });
 });

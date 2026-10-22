@@ -153,6 +153,7 @@ export class InMemoryGatewayRepository implements GatewayRepository {
   private readonly store = new Store(Gateway.restore);
   async findById({ id, ...scope }: ById) { const g = this.store.get(id); return g && inScope(g, scope) ? g : null; }
   async findByKeyHash(keyHash: string) { return this.store.all().find((g) => g.keyHash === keyHash) ?? null; }
+  async listActive() { return this.store.all().filter((g) => g.isActive); }
   async findByIdAnyTenant(id: string) { return this.store.get(id) ?? null; }
   async listByLocation(scope: Scope) { return this.store.all().filter((g) => inScope(g, scope)); }
   async save(gateway: Gateway) { this.store.put(gateway); }
