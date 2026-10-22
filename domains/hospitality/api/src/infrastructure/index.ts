@@ -4,3 +4,4 @@ export * from './iot/gateway-ingest.js';
 export * from './iot/key-map.js';
 export * from './iot/mqtt.adapter.js';
 export * from './realtime/gateway-health.js';
+export * from './outbox/outbox-poller.js';

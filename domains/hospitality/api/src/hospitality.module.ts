@@ -1,5 +1,5 @@
 import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestjs/common';
-import { CORE_ACCESS_PORT } from '@modivara/core-contracts';
+import { CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, type IntegrationEventSubscriber } from '@modivara/core-contracts';
 import {
   AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
   GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
@@ -13,7 +13,7 @@ import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
 import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
 import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
 import { GatewayHealthMonitor } from './infrastructure/realtime/gateway-health.js';
-import { GatewayPressAdapter, NoopGatewayHealthNotifier, NoopNotificationPort } from './infrastructure/index.js';
+import { GatewayPressAdapter, NoopGatewayHealthNotifier, NoopNotificationPort, OutboxPoller, outboxOptionsFromEnv, type OutboxPollerOptions } from './infrastructure/index.js';
 import {
   createHospitalityPrisma, PrismaButtonPressStore, PrismaDeviceAssignmentRepository, PrismaDeviceEventRepository, PrismaDeviceRepository,
   PrismaDiningTableRepository, PrismaGatewayRepository, PrismaLocationSettingsRepository, PrismaServiceCallRepository, PrismaZoneRepository, type HospitalityPrisma,
@@ -38,6 +38,8 @@ export interface HospitalityModuleOptions {
   databaseUrl?: string;
   /** Broker MQTT. Por defecto `MQTT_URL`/`MQTT_USERNAME`/`MQTT_PASSWORD`; `null` (o faltantes) = el adaptador MQTT no arranca. */
   mqtt?: MqttOptions | null;
+  /** Poller del outbox. Por defecto `OUTBOX_POLL_INTERVAL_MS` y valores del poller; `false` = no arranca. */
+  outbox?: Partial<OutboxPollerOptions> | false;
 }
 
 const CORE = CORE_ACCESS_PORT;
@@ -110,6 +112,15 @@ export class HospitalityModule implements OnModuleDestroy {
           useFactory: (gateways: GatewayPressAdapter, ingest: GatewayIngest) =>
             new MqttAdapter(options.mqtt === undefined ? mqttOptionsFromEnv() : options.mqtt, gateways, ingest),
         },
+        // Los suscriptores los registra el host bajo INTEGRATION_EVENT_SUBSCRIBERS (multi-proveedor); sin ninguno, igual se marca despachado.
+        ...(options.outbox === false
+          ? []
+          : [{
+              provide: OutboxPoller,
+              inject: [HOSPITALITY_PRISMA, { token: INTEGRATION_EVENT_SUBSCRIBERS, optional: true }],
+              useFactory: (p: HospitalityPrisma, subscribers?: IntegrationEventSubscriber[]) =>
+                new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }),
+            }]),
         { provide: NOTIFICATIONS, useFactory: (): NotificationPort => new NoopNotificationPort() },
         ...useCases.map(([useCase, deps]) => ({
           provide: useCase,
