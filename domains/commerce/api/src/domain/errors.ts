@@ -27,3 +27,8 @@ export class ReasonDirectionMismatchError extends DomainError {
 export class InsufficientStockError extends DomainError {
   readonly code = 'insufficient_stock';
 }
+/** La clave de idempotencia ya la usó un movimiento de otro local, lugar o producto: nunca se devuelve ese movimiento. */
+// OPEN: nombre del code (`idempotency_key_reused`) y HTTP 409 provisionales.
+export class IdempotencyKeyReusedError extends DomainError {
+  readonly code = 'idempotency_key_reused';
+}

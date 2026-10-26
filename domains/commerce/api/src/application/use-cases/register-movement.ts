@@ -2,7 +2,7 @@ import { type CoreAccessPort, newId } from '@modivara/core-contracts';
 import type { MovementDirection } from '@modivara/commerce-contracts';
 import { type MovementChange, StockMovement } from '../../domain/stock-movement.js';
 import { Quantity } from '../../domain/quantity.js';
-import { NotFoundError } from '../../domain/errors.js';
+import { IdempotencyKeyReusedError, NotFoundError } from '../../domain/errors.js';
 import type { MovementReasonRepository } from '../ports/movement-reason.repository.js';
 import type { ProductRepository } from '../ports/product.repository.js';
 import type { StockLedger } from '../ports/stock-ledger.port.js';
@@ -51,7 +51,13 @@ export class MovementRecorder {
       { stockLocationId: stockLocation.id, productId: product.id, organizationId, locationId },
       async (tx) => {
         const existing = await tx.findByIdempotencyKey({ organizationId, idempotencyKey: target.idempotencyKey });
-        if (existing) return { movement: existing, replayed: true };
+        if (existing) {
+          // La clave es única por negocio, no por local: un movimiento de otro destino es ajeno y no se revela.
+          if (existing.locationId !== locationId || existing.stockLocationId !== stockLocation.id || existing.productId !== product.id) {
+            throw new IdempotencyKeyReusedError('Idempotency key already used by another movement');
+          }
+          return { movement: existing, replayed: true };
+        }
         // Con el saldo ya bloqueado: así occurred_at crece con el orden real de los saldos (el último balance_after por fecha es el saldo actual).
         const occurredAt = new Date();
         const movement = StockMovement.register(tx.balance, {

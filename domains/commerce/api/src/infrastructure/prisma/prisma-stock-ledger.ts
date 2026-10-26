@@ -3,7 +3,7 @@ import type { DomainEvent } from '@modivara/core-contracts';
 import type {
   BalanceKey, BalanceQuery, LedgerTransaction, MovementQuery, StockLedger, StockQueries,
 } from '../../application/ports/stock-ledger.port.js';
-import { ConflictError } from '../../domain/errors.js';
+import { IdempotencyKeyReusedError } from '../../domain/errors.js';
 import { Quantity } from '../../domain/quantity.js';
 import { StockBalance } from '../../domain/stock-balance.js';
 import { StockMovement } from '../../domain/stock-movement.js';
@@ -83,7 +83,7 @@ export class PrismaStockLedger implements StockLedger, StockQueries {
               });
             } catch (e) {
               // Misma clave sobre otro saldo en paralelo: el primero ganó, este se rechaza (no se aplica dos veces).
-              if (isUniqueViolation(e)) throw new ConflictError('Idempotency key already used by another movement');
+              if (isUniqueViolation(e)) throw new IdempotencyKeyReusedError('Idempotency key already used by another movement');
               throw e;
             }
             const events = movement.pullEvents();

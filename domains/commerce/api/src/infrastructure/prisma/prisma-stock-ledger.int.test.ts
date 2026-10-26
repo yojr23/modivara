@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { newId, toEventEnvelope } from '@modivara/core-contracts';
 import { stockAdjustedV1, stockIssuedV1, stockReceivedV1 } from '@modivara/commerce-contracts';
-import { InsufficientStockError, InvalidMovementError, NotFoundError, ReasonDirectionMismatchError } from '../../domain/errors.js';
+import { IdempotencyKeyReusedError, InsufficientStockError, InvalidMovementError, NotFoundError, ReasonDirectionMismatchError } from '../../domain/errors.js';
 import { commercePrismaForTests, integrationWorld, resetCommerce } from '../../testing/integration.js';
 
 const db = commercePrismaForTests();
@@ -80,6 +80,21 @@ describe('F4-03 libro de stock sobre PostgreSQL', () => {
         ...w2.actor, stockLocationId: b2.stockLocation.id, productId: b2.product.id, direction: 'in', quantity: '1', reasonId: await b2.reason('Compra'), idempotencyKey: key,
       }),
     ).resolves.toMatchObject({ replayed: false });
+  });
+
+  it('la clave usada en otro local del mismo negocio se rechaza sin revelar ese movimiento', async () => {
+    const { move, balance } = await setup();
+    const otherLoc = { organizationId: w.t.organizationId, locationId: newId() };
+    const w2 = integrationWorld(db, otherLoc);
+    const b2 = await w2.seedBasics();
+    const key = newId();
+    const other = await w2.registerMovement.execute({
+      ...w2.actor, stockLocationId: b2.stockLocation.id, productId: b2.product.id, direction: 'in', quantity: '9', reasonId: await b2.reason('Compra'), idempotencyKey: key,
+    });
+    expect(other.replayed).toBe(false);
+    await expect(move('in', '1', 'Compra', key)).rejects.toThrow(IdempotencyKeyReusedError);
+    expect(await balance()).toBeUndefined();
+    expect(await db.stockMovement.count()).toBe(1);
   });
 
   it('validaciones del dominio sin dejar rastro: motivo de otra dirección, referencias de otro local', async () => {
