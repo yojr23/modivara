@@ -8,3 +8,8 @@ export async function resetBoth(app: { get<T>(token: string): T }) {
   );
 }
 
+
+/** Deja vacía la base de commerce (db-test es compartida). */
+export async function resetCommerceDb(app: { get<T>(token: string): T }) {
+  await app.get<Raw>('COMMERCE_PRISMA').$executeRawUnsafe('TRUNCATE outbox_events, stock_movements, stock_balances, movement_reasons, stock_locations, products CASCADE');
+}

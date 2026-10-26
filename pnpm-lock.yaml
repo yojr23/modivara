@@ -60,6 +60,9 @@ importers:
         specifier: 7.8.2
         version: 7.8.2
     devDependencies:
+      '@modivara/commerce-contracts':
+        specifier: workspace:*
+        version: link:../../domains/commerce/contracts
       '@modivara/core-contracts':
         specifier: workspace:*
         version: link:../../domains/core/contracts

@@ -15,6 +15,7 @@
     "test:integration": "docker compose --profile test up -d --wait db-test && vitest run --config vitest.integration.config.ts",
     "seed:core": "pnpm --filter @modivara/api... build && node --env-file-if-exists=.env apps/api/dist/seed-core.js",
     "seed:hospitality": "pnpm --filter @modivara/api... build && node --env-file-if-exists=.env apps/api/dist/seed-hospitality.js",
+    "seed:commerce": "pnpm --filter @modivara/api... build && node --env-file-if-exists=.env apps/api/dist/seed-commerce.js",
     "generate": "pnpm -r --if-present generate"
   },
   "devDependencies": {
