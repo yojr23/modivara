@@ -32,6 +32,9 @@ export class InMemoryProductRepository extends Store<Product> implements Product
   async findActiveBySku({ organizationId, locationId, sku }: { organizationId: string; locationId: string; sku: string }) {
     return this.all(organizationId).find((p) => p.isActive && p.locationId === locationId && p.sku === sku) ?? null;
   }
+  async list({ organizationId, locationId }: { organizationId: string; locationId: string }) {
+    return this.all(organizationId).filter((p) => p.locationId === locationId).sort((a, b) => a.name.localeCompare(b.name));
+  }
 }
 
 export class InMemoryStockLocationRepository extends Store<StockLocation> implements StockLocationRepository {
@@ -45,6 +48,11 @@ export class InMemoryStockLocationRepository extends Store<StockLocation> implem
   async findActiveByName({ organizationId, locationId, name }: { organizationId: string; locationId: string; name: string }) {
     return this.all(organizationId).find((s) => s.isActive && s.locationId === locationId && same(s.name, name)) ?? null;
   }
+  async list({ organizationId, locationId }: { organizationId: string; locationId: string }) {
+    return this.all(organizationId)
+      .filter((s) => s.locationId === locationId)
+      .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name));
+  }
 }
 
 export class InMemoryMovementReasonRepository extends Store<MovementReason> implements MovementReasonRepository {
@@ -53,5 +61,8 @@ export class InMemoryMovementReasonRepository extends Store<MovementReason> impl
   }
   async findActiveByName({ organizationId, name }: { organizationId: string; name: string }) {
     return this.all(organizationId).find((r) => r.isActive && same(r.name, name)) ?? null;
+  }
+  async list({ organizationId }: { organizationId: string }) {
+    return this.all(organizationId).sort((a, b) => a.direction.localeCompare(b.direction) || a.name.localeCompare(b.name));
   }
 }

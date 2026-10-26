@@ -7,7 +7,10 @@ import {
   DeactivateProduct,
   EnsureDefaultStockLocation,
   GetBalances,
+  ListMovementReasons,
   ListMovements,
+  ListProducts,
+  ListStockLocations,
   MovementRecorder,
   RegisterMovement,
   SeedMovementReasons,
@@ -24,13 +27,14 @@ export function createHarness() {
   const reasons = new InMemoryMovementReasonRepository();
   const ledger = new InMemoryStockLedger();
   const core = new FakeCoreAccess();
+  const ensureDefault = new EnsureDefaultStockLocation(stockLocations, core);
   const recorder = new MovementRecorder(products, stockLocations, reasons, ledger, core);
   return {
     products, stockLocations, reasons, ledger, core,
     createProduct: new CreateProduct(products, core),
     updateProduct: new UpdateProduct(products, core),
     deactivateProduct: new DeactivateProduct(products, core),
-    ensureDefaultStockLocation: new EnsureDefaultStockLocation(stockLocations, core),
+    ensureDefaultStockLocation: ensureDefault,
     createStockLocation: new CreateStockLocation(stockLocations, core),
     seedMovementReasons: new SeedMovementReasons(reasons),
     createMovementReason: new CreateMovementReason(reasons),
@@ -39,5 +43,8 @@ export function createHarness() {
     adjustToCount: new AdjustToCount(recorder),
     getBalances: new GetBalances(ledger, core),
     listMovements: new ListMovements(ledger, core),
+    listProducts: new ListProducts(products, core),
+    listStockLocations: new ListStockLocations(stockLocations, core, ensureDefault),
+    listMovementReasons: new ListMovementReasons(reasons),
   };
 }

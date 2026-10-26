@@ -5,4 +5,6 @@ export interface StockLocationRepository {
   findById(query: { id: string; organizationId: string; locationId: string }): Promise<StockLocation | null>;
   findActiveDefault(query: { organizationId: string; locationId: string }): Promise<StockLocation | null>;
   findActiveByName(query: { organizationId: string; locationId: string; name: string }): Promise<StockLocation | null>;
+  /** Activos e inactivos; el predeterminado primero, luego por nombre. */
+  list(query: { organizationId: string; locationId: string }): Promise<StockLocation[]>;
 }

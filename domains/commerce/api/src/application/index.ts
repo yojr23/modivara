@@ -7,6 +7,7 @@ export * from './use-cases/deactivate-movement-reason.js';
 export * from './use-cases/deactivate-product.js';
 export * from './use-cases/ensure-default-stock-location.js';
 export * from './use-cases/get-balances.js';
+export * from './use-cases/list-catalog.js';
 export * from './use-cases/list-movements.js';
 export * from './use-cases/register-movement.js';
 export * from './use-cases/seed-movement-reasons.js';

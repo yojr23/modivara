@@ -5,4 +5,6 @@ export interface MovementReasonRepository {
   save(reason: MovementReason): Promise<void>;
   findById(query: { id: string; organizationId: string }): Promise<MovementReason | null>;
   findActiveByName(query: { organizationId: string; name: string }): Promise<MovementReason | null>;
+  /** Activos e inactivos, por dirección y nombre. */
+  list(query: { organizationId: string }): Promise<MovementReason[]>;
 }

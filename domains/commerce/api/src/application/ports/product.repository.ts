@@ -7,4 +7,6 @@ export interface ProductRepository {
   /** Case-insensitive, active rows only (uq_products_name). */
   findActiveByName(query: { organizationId: string; locationId: string; name: string }): Promise<Product | null>;
   findActiveBySku(query: { organizationId: string; locationId: string; sku: string }): Promise<Product | null>;
+  /** Activos e inactivos (el historial de movimientos sigue apuntando a los desactivados); por nombre. */
+  list(query: { organizationId: string; locationId: string }): Promise<Product[]>;
 }
