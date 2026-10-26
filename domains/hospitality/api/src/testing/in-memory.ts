@@ -114,6 +114,8 @@ export class InMemoryLocationSettingsRepository implements LocationSettingsRepos
   private readonly rows = new Map<string, LocationSettings>();
   set(locationId: string, settings: LocationSettings) { this.rows.set(locationId, settings); }
   async get({ locationId }: Scope) { return this.rows.get(locationId) ?? DEFAULT_LOCATION_SETTINGS; }
+  async ensureDefault({ locationId }: Scope) { if (!this.rows.has(locationId)) this.rows.set(locationId, DEFAULT_LOCATION_SETTINGS); }
+  has(locationId: string) { return this.rows.has(locationId); }
 }
 
 export class InMemoryZoneRepository implements ZoneRepository {

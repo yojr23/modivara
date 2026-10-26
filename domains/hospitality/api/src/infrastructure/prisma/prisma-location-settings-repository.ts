@@ -9,4 +9,8 @@ export class PrismaLocationSettingsRepository implements LocationSettingsReposit
     const r = await this.db.locationSettings.findFirst({ where: { organizationId, locationId } });
     return r ? { callVisibility: r.callVisibility } : DEFAULT_LOCATION_SETTINGS;
   }
+
+  async ensureDefault({ organizationId, locationId }: Scope, createdBy: string) {
+    await this.db.locationSettings.createMany({ data: [{ organizationId, locationId, createdBy }], skipDuplicates: true });
+  }
 }

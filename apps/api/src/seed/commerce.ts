@@ -29,7 +29,8 @@ const seedKey = (locationId: string, productName: string): string => {
 
 /**
  * Solo casos de uso públicos de core y commerce; idempotente (lo que ya existe no se toca ni se duplica).
- * Hace lo que el disparador de PLAN-001 Q-05 haría al crear un local (OPEN: Q-05 sin decidir): motivos del negocio y «Principal».
+ * Llama a los mismos casos de uso que el suscriptor de `core.location.created` (motivos del negocio y «Principal») para locales
+ * anteriores al evento o cuyo evento aún no se entregó: el proceso de seed no corre pollers (`outbox: false`).
  * Requiere haber corrido `seed:core`.
  */
 export async function seedCommerce(app: INestApplicationContext, password: string): Promise<void> {

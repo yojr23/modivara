@@ -46,6 +46,8 @@ export interface ServiceCallRepository {
 /** Ajustes del local (DATA-001 §3). Sin fila valen los valores por defecto: nunca devuelve `null`. */
 export interface LocationSettingsRepository {
   get(scope: Scope): Promise<LocationSettings>;
+  /** Crea la fila con los valores por defecto si no existe (idempotente, sin pisar ediciones). */
+  ensureDefault(scope: Scope, createdBy: string): Promise<void>;
 }
 
 export interface ZoneRepository {

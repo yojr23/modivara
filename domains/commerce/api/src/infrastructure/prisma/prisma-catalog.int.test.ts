@@ -94,12 +94,13 @@ describe('lugares de stock', () => {
     for (const r of racing) if (r.status === 'rejected') expect(r.reason).toBeInstanceOf(ConflictError);
   });
 
-  it('el listado pone «Principal» primero y crea el predeterminado de forma perezosa sin duplicarlo en paralelo', async () => {
-    const list = new ListStockLocations(places, core, ensure);
+  it('el listado pone «Principal» primero y no escribe nada', async () => {
+    const list = new ListStockLocations(places, core);
     await create.execute({ ...other, actorUserId: newId(), name: 'Barra' });
-    const results = await Promise.all([1, 2, 3].map(() => list.execute({ ...other, actorUserId: newId() })));
-    expect(results[0]!.map((s) => s.name)).toEqual(['Principal', 'Barra']);
-    expect(await db.stockLocation.count({ where: { ...other, isDefault: true } })).toBe(1);
+    expect((await list.execute({ ...other, actorUserId: newId() })).map((s) => s.name)).toEqual(['Barra']);
+    await ensure.execute({ ...other, actorUserId: newId() });
+    expect((await list.execute({ ...other, actorUserId: newId() })).map((s) => s.name)).toEqual(['Principal', 'Barra']);
+    expect(await db.stockLocation.count({ where: other })).toBe(2);
   });
 });
 

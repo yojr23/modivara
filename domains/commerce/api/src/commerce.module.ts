@@ -11,10 +11,12 @@ import type { MovementReasonRepository, ProductRepository, StockLedger, StockLoc
 import {
   createCommercePrisma, PrismaMovementReasonRepository, PrismaProductRepository, PrismaStockLedger, PrismaStockLocationRepository, type CommercePrisma,
 } from './infrastructure/prisma/index.js';
-import { CatalogController, ReasonsController, StockController } from './presentation/index.js';
+import { CatalogController, LocationCreatedSubscriber, ReasonsController, StockController } from './presentation/index.js';
 
 // Tokens de inyección de los puertos (strings: no dependen de identidad de clase ni de módulos duplicados).
 export const COMMERCE_PRISMA = 'COMMERCE_PRISMA';
+/** Suscriptor a `core.location.created`; el host lo registra bajo INTEGRATION_EVENT_SUBSCRIBERS. */
+export const COMMERCE_EVENT_SUBSCRIBER = 'COMMERCE_EVENT_SUBSCRIBER';
 /** Poller del outbox propio (para `tick()` en pruebas y el comando de reintento). */
 export const COMMERCE_OUTBOX = 'COMMERCE_OUTBOX';
 export const PRODUCTS = 'COMMERCE_PRODUCTS';
@@ -39,7 +41,7 @@ const useCases = [
   [UpdateProduct, [PRODUCTS, CORE]],
   [DeactivateProduct, [PRODUCTS, CORE]],
   [EnsureDefaultStockLocation, [STOCK_LOCATIONS, CORE]],
-  [ListStockLocations, [STOCK_LOCATIONS, CORE, EnsureDefaultStockLocation]],
+  [ListStockLocations, [STOCK_LOCATIONS, CORE]],
   [CreateStockLocation, [STOCK_LOCATIONS, CORE]],
   [ListMovementReasons, [REASONS]],
   [SeedMovementReasons, [REASONS]],
@@ -92,13 +94,18 @@ export class CommerceModule implements OnModuleInit, OnModuleDestroy {
               useFactory: (p: CommercePrisma, subscribers?: IntegrationEventSubscriber[]) =>
                 new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }, new Logger('commerce-outbox')),
             }]),
+        {
+          provide: COMMERCE_EVENT_SUBSCRIBER,
+          inject: [SeedMovementReasons, EnsureDefaultStockLocation],
+          useFactory: (s: SeedMovementReasons, e: EnsureDefaultStockLocation) => new LocationCreatedSubscriber(s, e),
+        },
         ...useCases.map(([useCase, deps]) => ({
           provide: useCase,
           inject: [...deps],
           useFactory: (...args: unknown[]) => new (useCase as new (...a: unknown[]) => unknown)(...args),
         })),
       ],
-      exports: useCases.map(([useCase]) => useCase),
+      exports: [COMMERCE_EVENT_SUBSCRIBER, ...useCases.map(([useCase]) => useCase)],
     };
   }
 

@@ -3,14 +3,14 @@ import {
   CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, type CoreAccessPort, type IntegrationEventSubscriber, type OutboxPollerOptions,
 } from '@modivara/core-contracts';
 import {
-  AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
+  AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, EnsureLocationSettings, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
   GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
 } from './application/index.js';
 import type {
   ButtonPressStore, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, GatewayRepository,
   GatewayHealthNotifier, LocationSettingsRepository, NotificationPort, ServiceCallRepository, ZoneRepository,
 } from './application/ports/index.js';
-import { DeviceEventsController, DeviceStatusController, PlatformController, ServiceCallsController, TablesController, ZonesController } from './presentation/index.js';
+import { LocationCreatedSubscriber, DeviceEventsController, DeviceStatusController, PlatformController, ServiceCallsController, TablesController, ZonesController } from './presentation/index.js';
 import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
 import { GatewayRateLimiter, type GatewayRateLimitOptions } from './infrastructure/iot/gateway-rate-limiter.js';
 import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
@@ -26,6 +26,8 @@ import {
 export const HOSPITALITY_PRISMA = 'HOSPITALITY_PRISMA';
 /** Poller del outbox propio (para `tick()` en pruebas y el comando de reintento). */
 export const HOSPITALITY_OUTBOX = 'HOSPITALITY_OUTBOX';
+/** Suscriptor a `core.location.created`; el host lo registra bajo INTEGRATION_EVENT_SUBSCRIBERS. */
+export const HOSPITALITY_EVENT_SUBSCRIBER = 'HOSPITALITY_EVENT_SUBSCRIBER';
 export const ZONES = 'HOSPITALITY_ZONES';
 export const TABLES = 'HOSPITALITY_TABLES';
 export const DEVICES = 'HOSPITALITY_DEVICES';
@@ -53,6 +55,7 @@ const CORE = CORE_ACCESS_PORT;
 
 /** Casos de uso: token = la clase, deps = tokens de puertos en el orden de su constructor. */
 const useCases = [
+  [EnsureLocationSettings, [CORE, SETTINGS]],
   [CreateZone, [CORE, ZONES]],
   [CreateTable, [CORE, ZONES, TABLES]],
   [UpdateTable, [CORE, ZONES, TABLES]],
@@ -143,13 +146,14 @@ export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
                 new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }, new Logger('hospitality-outbox')),
             }]),
         { provide: NOTIFICATIONS, useExisting: RealtimeBroadcaster },
+        { provide: HOSPITALITY_EVENT_SUBSCRIBER, inject: [EnsureLocationSettings], useFactory: (e: EnsureLocationSettings) => new LocationCreatedSubscriber(e) },
         ...useCases.map(([useCase, deps]) => ({
           provide: useCase,
           inject: [...deps],
           useFactory: (...args: unknown[]) => new (useCase as new (...a: unknown[]) => unknown)(...args),
         })),
       ],
-      exports: useCases.map(([useCase]) => useCase),
+      exports: [HOSPITALITY_EVENT_SUBSCRIBER, ...useCases.map(([useCase]) => useCase)],
     };
   }
 

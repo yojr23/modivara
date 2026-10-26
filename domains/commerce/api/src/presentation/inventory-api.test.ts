@@ -3,6 +3,7 @@ import { newId, permissionsFor, type RequestActor } from '@modivara/core-contrac
 import {
   balanceSchema, movementReasonSchema, movementSchema, productSchema, recordedMovementSchema, stockLocationSchema,
 } from '@modivara/commerce-contracts';
+import { EnsureDefaultStockLocation } from '../application/index.js';
 import { createCommerceTestApp, type TestCaller } from '../testing/http.js';
 
 let t: Awaited<ReturnType<typeof createCommerceTestApp>>;
@@ -25,6 +26,9 @@ const adminB = caller('admin', [locB], orgB);
 beforeAll(async () => {
   t = await createCommerceTestApp();
   for (const [id, organizationId] of [[locA1, orgA], [locA2, orgA], [locB, orgB]] as const) t.core.add({ id, organizationId });
+  // «Principal» lo crea el suscriptor de core.location.created; aquí se simula con el mismo caso de uso.
+  const ensure = new EnsureDefaultStockLocation(t.repos.stockLocations, t.core);
+  for (const [locationId, organizationId] of [[locA1, orgA], [locA2, orgA]] as const) await ensure.execute({ organizationId, locationId, actorUserId: newId() });
 });
 afterAll(() => t.app.close());
 

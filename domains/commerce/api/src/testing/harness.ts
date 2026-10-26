@@ -44,7 +44,7 @@ export function createHarness() {
     getBalances: new GetBalances(ledger, core),
     listMovements: new ListMovements(ledger, core),
     listProducts: new ListProducts(products, core),
-    listStockLocations: new ListStockLocations(stockLocations, core, ensureDefault),
+    listStockLocations: new ListStockLocations(stockLocations, core),
     listMovementReasons: new ListMovementReasons(reasons),
   };
 }

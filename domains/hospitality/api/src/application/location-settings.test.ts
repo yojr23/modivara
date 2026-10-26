@@ -15,7 +15,7 @@ describe('F2-08 location_settings', () => {
     await seedTableWithButton(w);
     await w.registerPress.registerPress(w.press());
     const get = vi.fn(async () => ({ callVisibility: 'all' as const }));
-    const list = new ListActiveCalls(w.core, w.calls, w.tables, w.zones, { get });
+    const list = new ListActiveCalls(w.core, w.calls, w.tables, w.zones, { get, ensureDefault: async () => undefined });
     const calls = await list.execute({ ...w.ctx, permissions: new Set(['hospitality.calls.read']) });
     expect(calls).toHaveLength(1);
     expect(get).toHaveBeenCalledWith({ organizationId: w.ctx.organizationId, locationId: w.ctx.locationId });

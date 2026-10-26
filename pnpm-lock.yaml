@@ -32,6 +32,9 @@ importers:
       '@modivara/core-api':
         specifier: workspace:*
         version: link:../../domains/core/api
+      '@modivara/core-contracts':
+        specifier: workspace:*
+        version: link:../../domains/core/contracts
       '@modivara/hospitality-api':
         specifier: workspace:*
         version: link:../../domains/hospitality/api
@@ -63,9 +66,6 @@ importers:
       '@modivara/commerce-contracts':
         specifier: workspace:*
         version: link:../../domains/commerce/contracts
-      '@modivara/core-contracts':
-        specifier: workspace:*
-        version: link:../../domains/core/contracts
       '@modivara/hospitality-contracts':
         specifier: workspace:*
         version: link:../../domains/hospitality/contracts

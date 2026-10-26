@@ -1,3 +1,4 @@
+export { LocationCreatedSubscriber } from './location-created.subscriber.js';
 export { DeviceStatusController } from './device-status.controller.js';
 export { PlatformController } from './platform.controller.js';
 export { TablesController } from './tables.controller.js';

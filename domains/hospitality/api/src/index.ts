@@ -1,6 +1,6 @@
 // Superficie pública: módulo, casos de uso, tipos de puertos y el adaptador de pulsación.
 // Las entidades y demás internos de domain/ e infrastructure/ no se exportan.
-export { GATEWAY_HEALTH_NOTIFIER, HospitalityModule } from './hospitality.module.js';
+export { GATEWAY_HEALTH_NOTIFIER, HOSPITALITY_EVENT_SUBSCRIBER, HOSPITALITY_OUTBOX, HospitalityModule } from './hospitality.module.js';
 
 export { AcknowledgeCall, type CallActionInput } from './application/acknowledge-call.js';
 export { CompleteCall } from './application/complete-call.js';

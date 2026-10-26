@@ -2,6 +2,7 @@ export * from './acknowledge-call.js';
 export * from './call-view.js';
 export * from './complete-call.js';
 export * from './devices.js';
+export * from './ensure-location-settings.js';
 export * from './gateway-health.js';
 export * from './gateways.js';
 export * from './list-active-calls.js';

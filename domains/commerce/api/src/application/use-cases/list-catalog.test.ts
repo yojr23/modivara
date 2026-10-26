@@ -13,12 +13,13 @@ describe('listados', () => {
     await expect(h.listProducts.execute({ ...actor, locationId: OTHER_LOC })).rejects.toThrow(LocationUnavailableError);
   });
 
-  it('lugares de stock: asegura «Principal» de forma perezosa y sin duplicarlo', async () => {
+  it('lugares de stock: listar no escribe (sin «Principal» perezoso)', async () => {
     const { h } = await setup();
     const other = { organizationId: OTHER_ORG, locationId: OTHER_LOC, actorUserId: USER };
-    expect((await h.listStockLocations.execute(other)).map((s) => [s.name, s.isDefault])).toEqual([['Principal', true]]);
+    expect(await h.listStockLocations.execute(other)).toEqual([]);
+    expect(await h.listStockLocations.execute(other)).toEqual([]);
     await h.createStockLocation.execute({ ...other, name: 'Barra' });
-    expect((await h.listStockLocations.execute(other)).map((s) => s.name)).toEqual(['Principal', 'Barra']);
+    expect((await h.listStockLocations.execute(other)).map((s) => s.name)).toEqual(['Barra']);
   });
 
   it('motivos: los del negocio, por dirección', async () => {
