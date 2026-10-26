@@ -1,8 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stockAdjustedV1, stockIssuedV1, stockReceivedV1 } from '@modivara/commerce-contracts';
-import { type IntegrationEvent, type IntegrationEventSubscriber, newId } from '@modivara/core-contracts';
+import {
+  backoffMs, OutboxPoller, retryFailed, newId, type IntegrationEvent, type IntegrationEventSubscriber, type OutboxPollerOptions,
+} from '@modivara/core-contracts';
 import { commercePrismaForTests, integrationWorld, resetCommerce } from '../../testing/integration.js';
-import { backoffMs, OutboxPoller, type OutboxPollerOptions } from './outbox-poller.js';
 
 const db = commercePrismaForTests();
 const w = integrationWorld(db);

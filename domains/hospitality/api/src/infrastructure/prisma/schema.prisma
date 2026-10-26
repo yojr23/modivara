@@ -253,7 +253,8 @@ model OutboxEvent {
   attempts       Int       @default(0)
   lastError      String?   @map("last_error")
   nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz
+  failedAt       DateTime? @map("failed_at") @db.Timestamptz
 
-  @@index([nextAttemptAt], map: "ix_outbox_pending", where: raw("dispatched_at IS NULL"))
+  @@index([nextAttemptAt], map: "ix_outbox_pending", where: raw("dispatched_at IS NULL AND failed_at IS NULL"))
   @@map("outbox_events")
 }

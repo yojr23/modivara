@@ -1,8 +1,19 @@
-import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { type IntegrationEvent, type IntegrationEventSubscriber, toEventEnvelope } from '@modivara/core-contracts';
-import type { CommercePrisma } from '../prisma/client.js';
+import { toEventEnvelope } from './domain-event.js';
+import type { IntegrationEvent, IntegrationEventSubscriber } from './integration.js';
 
-// ponytail: copia del poller de hospitality; extraer cuando haya un tercer emisor
+/** Lo mínimo que el poller usa del cliente Prisma (estructural: core-contracts no depende de Prisma ni de Nest). */
+export interface OutboxSql {
+  $queryRaw<T = unknown>(query: TemplateStringsArray, ...values: unknown[]): Promise<T>;
+  $executeRaw(query: TemplateStringsArray, ...values: unknown[]): Promise<number>;
+}
+export interface OutboxDb extends OutboxSql {
+  $transaction<T>(fn: (tx: OutboxSql) => Promise<T>, options?: { timeout?: number; maxWait?: number }): Promise<T>;
+}
+export interface OutboxLogger {
+  warn(message: string): void;
+  error(message: string): void;
+}
+
 export interface OutboxPollerOptions {
   /** Pausa entre ciclos. */
   intervalMs: number;
@@ -11,9 +22,13 @@ export interface OutboxPollerOptions {
   /** Espera tras el primer fallo; se duplica en cada intento hasta `maxBackoffMs`. */
   baseBackoffMs: number;
   maxBackoffMs: number;
+  /** Tras tantos intentos fallidos el evento queda con `failed_at` y el poller deja de tomarlo (`retryFailed` lo libera). */
+  maxAttempts: number;
 }
 
-export const DEFAULT_OUTBOX_OPTIONS: OutboxPollerOptions = { intervalMs: 1000, deliveryTimeoutMs: 5000, baseBackoffMs: 1000, maxBackoffMs: 5 * 60_000 };
+export const DEFAULT_OUTBOX_OPTIONS: OutboxPollerOptions = {
+  intervalMs: 1000, deliveryTimeoutMs: 5000, baseBackoffMs: 1000, maxBackoffMs: 5 * 60_000, maxAttempts: 10,
+};
 
 /** `OUTBOX_POLL_INTERVAL_MS` configura el intervalo; el resto son valores del poller. */
 export function outboxOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): OutboxPollerOptions {
@@ -40,32 +55,44 @@ export const backoffMs = (attempts: number, o: Pick<OutboxPollerOptions, 'baseBa
   Math.min(o.baseBackoffMs * 2 ** Math.max(0, attempts - 1), o.maxBackoffMs);
 
 /**
+ * Libera eventos detenidos por el tope de intentos (todos, o solo `eventId`): `failed_at = NULL, attempts = 0` y vence ya.
+ * Conserva `last_error` hasta la próxima entrega exitosa. Devuelve cuántos liberó.
+ */
+export function retryFailed(db: OutboxSql, eventId?: string): Promise<number> {
+  return db.$executeRaw`
+    UPDATE outbox_events SET failed_at = NULL, attempts = 0, next_attempt_at = now()
+    WHERE failed_at IS NOT NULL AND (${eventId ?? null}::uuid IS NULL OR id = ${eventId ?? null}::uuid)`;
+}
+
+/**
  * Transactional Outbox (DATA-001 §6, TECH-001 §9): entrega at-least-once, en el mismo proceso, a los suscriptores de integración.
  * Cada evento se toma con `FOR UPDATE SKIP LOCKED` y se entrega en su PROPIA transacción: los locks de fila hacen que dos pollers
  * (procesos o instancias) nunca entreguen el mismo evento a la vez, y lo ya entregado no se revierte por lo que falle después. Si el proceso
- * cae a mitad de una entrega, la transacción se revierte y el evento se vuelve a entregar al reiniciar, por eso los suscriptores deduplican por `event_id`. Nunca borra filas.
- * Con cero suscriptores marca igual `dispatched_at`.
+ * cae a mitad de una entrega, la transacción se revierte y el evento se vuelve a entregar al reiniciar, por eso los suscriptores deduplican por `event_id`.
+ * Tras `maxAttempts` fallos marca `failed_at` y no lo vuelve a tomar. Nunca borra filas. Con cero suscriptores marca igual `dispatched_at`.
  */
-export class OutboxPoller implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger('OutboxPoller');
+export class OutboxPoller {
   private readonly options: OutboxPollerOptions;
   private timer: NodeJS.Timeout | null = null;
   private running: Promise<number> | null = null;
+  private readonly db: OutboxDb;
+  private readonly subscribers: readonly IntegrationEventSubscriber[];
+  private readonly logger: OutboxLogger;
 
-  constructor(
-    private readonly db: CommercePrisma,
-    private readonly subscribers: readonly IntegrationEventSubscriber[] = [],
-    options: Partial<OutboxPollerOptions> = {},
-  ) {
+  constructor(db: OutboxDb, subscribers: readonly IntegrationEventSubscriber[] = [], options: Partial<OutboxPollerOptions> = {}, logger: OutboxLogger = console) {
+    this.db = db;
+    this.subscribers = subscribers;
+    this.logger = logger;
     this.options = { ...DEFAULT_OUTBOX_OPTIONS, ...options };
   }
 
-  onModuleInit(): void {
+  start(): void {
+    if (this.timer) return;
     this.timer = setInterval(() => void this.tick(), this.options.intervalMs);
     this.timer.unref();
   }
 
-  async onModuleDestroy(): Promise<void> {
+  async stop(): Promise<void> {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     await this.running?.catch(() => undefined); // deja terminar el lote en curso antes de que se cierre el cliente
@@ -97,7 +124,7 @@ export class OutboxPoller implements OnModuleInit, OnModuleDestroy {
         const [row] = await tx.$queryRaw<OutboxRow[]>`
           SELECT id, event_type, event_version, occurred_at, organization_id, location_id, aggregate_id, correlation_id, causation_id, payload, attempts
           FROM outbox_events
-          WHERE dispatched_at IS NULL AND next_attempt_at <= now()
+          WHERE dispatched_at IS NULL AND failed_at IS NULL AND next_attempt_at <= now()
           ORDER BY next_attempt_at, id
           LIMIT 1
           FOR UPDATE SKIP LOCKED`;
@@ -107,11 +134,14 @@ export class OutboxPoller implements OnModuleInit, OnModuleDestroy {
           await tx.$executeRaw`UPDATE outbox_events SET dispatched_at = now(), attempts = attempts + 1, last_error = NULL WHERE id = ${row.id}::uuid`;
         } catch (e) {
           const message = (e instanceof Error ? e.message : String(e)).slice(0, 1000);
-          const seconds = backoffMs(row.attempts + 1, this.options) / 1000;
-          this.logger.warn(`Evento ${row.id} (${row.event_type}) falló (intento ${row.attempts + 1}): ${message}`);
+          const attempt = row.attempts + 1;
+          const seconds = backoffMs(attempt, this.options) / 1000;
+          const giveUp = attempt >= this.options.maxAttempts;
+          this.logger.warn(`Evento ${row.id} (${row.event_type}) falló (intento ${attempt}${giveUp ? ', se detiene' : ''}): ${message}`);
           await tx.$executeRaw`
             UPDATE outbox_events
-            SET attempts = attempts + 1, last_error = ${message}, next_attempt_at = now() + make_interval(secs => ${seconds}::double precision)
+            SET attempts = ${attempt}::int, last_error = ${message}, next_attempt_at = now() + make_interval(secs => ${seconds}::double precision),
+                failed_at = CASE WHEN ${giveUp}::boolean THEN now() END
             WHERE id = ${row.id}::uuid`;
         }
         return true;

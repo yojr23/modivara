@@ -1,12 +1,13 @@
-import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestjs/common';
-import { CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, type IntegrationEventSubscriber } from '@modivara/core-contracts';
+import { Inject, Logger, Module, Optional, type DynamicModule, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import {
+  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, type IntegrationEventSubscriber, type OutboxPollerOptions,
+} from '@modivara/core-contracts';
 import {
   AdjustToCount, CreateMovementReason, CreateProduct, CreateStockLocation, DeactivateMovementReason, DeactivateProduct, EnsureDefaultStockLocation,
   GetBalances, ListMovementReasons, ListMovements, ListProducts, ListStockLocations, MovementRecorder, RegisterMovement, SeedMovementReasons,
   UpdateProduct,
 } from './application/index.js';
 import type { MovementReasonRepository, ProductRepository, StockLedger, StockLocationRepository, StockQueries } from './application/ports/index.js';
-import { OutboxPoller, outboxOptionsFromEnv, type OutboxPollerOptions } from './infrastructure/index.js';
 import {
   createCommercePrisma, PrismaMovementReasonRepository, PrismaProductRepository, PrismaStockLedger, PrismaStockLocationRepository, type CommercePrisma,
 } from './infrastructure/prisma/index.js';
@@ -14,6 +15,8 @@ import { CatalogController, ReasonsController, StockController } from './present
 
 // Tokens de inyección de los puertos (strings: no dependen de identidad de clase ni de módulos duplicados).
 export const COMMERCE_PRISMA = 'COMMERCE_PRISMA';
+/** Poller del outbox propio (para `tick()` en pruebas y el comando de reintento). */
+export const COMMERCE_OUTBOX = 'COMMERCE_OUTBOX';
 export const PRODUCTS = 'COMMERCE_PRODUCTS';
 export const STOCK_LOCATIONS = 'COMMERCE_STOCK_LOCATIONS';
 export const REASONS = 'COMMERCE_REASONS';
@@ -52,8 +55,15 @@ const useCases = [
 const repo = <T>(provide: string, make: (p: CommercePrisma) => T) => ({ provide, inject: [COMMERCE_PRISMA], useFactory: make });
 
 @Module({})
-export class CommerceModule implements OnModuleDestroy {
-  constructor(@Inject(COMMERCE_PRISMA) private readonly prisma: CommercePrisma) {}
+export class CommerceModule implements OnModuleInit, OnModuleDestroy {
+  constructor(
+    @Inject(COMMERCE_PRISMA) private readonly prisma: CommercePrisma,
+    @Optional() @Inject(COMMERCE_OUTBOX) private readonly outbox?: OutboxPoller,
+  ) {}
+
+  onModuleInit() {
+    this.outbox?.start();
+  }
 
   /** `CORE_ACCESS_PORT` lo exporta CoreModule (global): este módulo no importa core-api (ADR-002 D1). Los guards globales de core protegen los controladores. */
   static forRoot(options: CommerceModuleOptions = {}): DynamicModule {
@@ -77,10 +87,10 @@ export class CommerceModule implements OnModuleDestroy {
         ...(options.outbox === false
           ? []
           : [{
-              provide: OutboxPoller,
+              provide: COMMERCE_OUTBOX,
               inject: [COMMERCE_PRISMA, { token: INTEGRATION_EVENT_SUBSCRIBERS, optional: true }],
               useFactory: (p: CommercePrisma, subscribers?: IntegrationEventSubscriber[]) =>
-                new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }),
+                new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }, new Logger('commerce-outbox')),
             }]),
         ...useCases.map(([useCase, deps]) => ({
           provide: useCase,
@@ -93,6 +103,7 @@ export class CommerceModule implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    await this.outbox?.stop();
     await this.prisma.$disconnect();
   }
 }

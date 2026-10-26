@@ -1,5 +1,7 @@
-import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestjs/common';
-import { CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, type CoreAccessPort, type IntegrationEventSubscriber } from '@modivara/core-contracts';
+import { Inject, Logger, Module, Optional, type DynamicModule, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import {
+  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, type CoreAccessPort, type IntegrationEventSubscriber, type OutboxPollerOptions,
+} from '@modivara/core-contracts';
 import {
   AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
   GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
@@ -14,7 +16,7 @@ import { GatewayRateLimiter, type GatewayRateLimitOptions } from './infrastructu
 import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
 import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
 import { GatewayHealthMonitor } from './infrastructure/realtime/gateway-health.js';
-import { GatewayPressAdapter, OutboxPoller, RealtimeBroadcaster, RealtimeGateway, outboxOptionsFromEnv, type OutboxPollerOptions } from './infrastructure/index.js';
+import { GatewayPressAdapter, RealtimeBroadcaster, RealtimeGateway } from './infrastructure/index.js';
 import {
   createHospitalityPrisma, PrismaButtonPressStore, PrismaDeviceAssignmentRepository, PrismaDeviceEventRepository, PrismaDeviceRepository,
   PrismaDiningTableRepository, PrismaGatewayRepository, PrismaLocationSettingsRepository, PrismaServiceCallRepository, PrismaZoneRepository, type HospitalityPrisma,
@@ -22,6 +24,8 @@ import {
 
 // Tokens de inyección de los puertos (strings: no dependen de identidad de clase ni de módulos duplicados).
 export const HOSPITALITY_PRISMA = 'HOSPITALITY_PRISMA';
+/** Poller del outbox propio (para `tick()` en pruebas y el comando de reintento). */
+export const HOSPITALITY_OUTBOX = 'HOSPITALITY_OUTBOX';
 export const ZONES = 'HOSPITALITY_ZONES';
 export const TABLES = 'HOSPITALITY_TABLES';
 export const DEVICES = 'HOSPITALITY_DEVICES';
@@ -80,8 +84,15 @@ const useCases = [
 const repo = <T>(provide: string, make: (p: HospitalityPrisma) => T) => ({ provide, inject: [HOSPITALITY_PRISMA], useFactory: make });
 
 @Module({})
-export class HospitalityModule implements OnModuleDestroy {
-  constructor(@Inject(HOSPITALITY_PRISMA) private readonly prisma: HospitalityPrisma) {}
+export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
+  constructor(
+    @Inject(HOSPITALITY_PRISMA) private readonly prisma: HospitalityPrisma,
+    @Optional() @Inject(HOSPITALITY_OUTBOX) private readonly outbox?: OutboxPoller,
+  ) {}
+
+  onModuleInit() {
+    this.outbox?.start();
+  }
 
   /** `CORE_ACCESS_PORT` lo exporta CoreModule (global): este módulo no importa core-api (ADR-002 D1). Los guards globales de core protegen los controladores. */
   static forRoot(options: HospitalityModuleOptions = {}): DynamicModule {
@@ -126,10 +137,10 @@ export class HospitalityModule implements OnModuleDestroy {
         ...(options.outbox === false
           ? []
           : [{
-              provide: OutboxPoller,
+              provide: HOSPITALITY_OUTBOX,
               inject: [HOSPITALITY_PRISMA, { token: INTEGRATION_EVENT_SUBSCRIBERS, optional: true }],
               useFactory: (p: HospitalityPrisma, subscribers?: IntegrationEventSubscriber[]) =>
-                new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }),
+                new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }, new Logger('hospitality-outbox')),
             }]),
         { provide: NOTIFICATIONS, useExisting: RealtimeBroadcaster },
         ...useCases.map(([useCase, deps]) => ({
@@ -143,6 +154,7 @@ export class HospitalityModule implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    await this.outbox?.stop();
     await this.prisma.$disconnect();
   }
 }

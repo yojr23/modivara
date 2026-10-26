@@ -1,5 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type IntegrationEvent, type IntegrationEventSubscriber, newId } from '@modivara/core-contracts';
+import {
+  backoffMs, OutboxPoller, retryFailed, newId, type IntegrationEvent, type IntegrationEventSubscriber, type OutboxPollerOptions,
+} from '@modivara/core-contracts';
 import { hospitalityPrismaForTests, resetHospitality, tenant } from '../../testing/integration.js';
 import { Device } from '../../domain/devices/device.js';
 import { ServiceCall } from '../../domain/service-calls/service-call.js';
@@ -7,7 +9,6 @@ import { DiningTable } from '../../domain/tables/dining-table.js';
 import { PrismaDeviceRepository } from '../prisma/prisma-device-repository.js';
 import { PrismaDiningTableRepository } from '../prisma/prisma-dining-table-repository.js';
 import { PrismaServiceCallRepository } from '../prisma/prisma-service-call-repository.js';
-import { backoffMs, OutboxPoller, type OutboxPollerOptions } from './outbox-poller.js';
 
 const db = hospitalityPrismaForTests();
 const t = tenant();
@@ -140,15 +141,41 @@ describe('OutboxPoller', () => {
     await publishCall();
     const { seen, subscriber } = recorder({ handle: async (e) => { await new Promise((r) => setTimeout(r, 120)); seen.push(e); } });
     const poller = new OutboxPoller(db, [subscriber], FAST);
-    poller.onModuleInit();
+    poller.start();
     const first = poller.tick();
     expect(poller.tick()).toBe(first); // mismo ciclo: no hay solape
     await first;
-    await poller.onModuleDestroy();
+    await poller.stop();
     expect(seen).toHaveLength(1);
     await publishCall();
     await new Promise((r) => setTimeout(r, 100));
     expect(await db.outboxEvent.count({ where: { dispatchedAt: null } })).toBe(1); // detenido
+  });
+
+  it('tras maxAttempts fallos queda con failed_at y el poller ya no lo toma; retryFailed lo libera y se entrega', async () => {
+    await publishCall();
+    const handle = vi.fn<(e: IntegrationEvent) => Promise<void>>().mockRejectedValue(new Error('siempre falla'));
+    const poller = new OutboxPoller(db, [{ name: 'roto', handles: () => true, handle }], { ...FAST, baseBackoffMs: 1, maxBackoffMs: 1 });
+    for (let i = 0; i < 10; i++) {
+      await poller.tick();
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    expect(handle).toHaveBeenCalledTimes(10);
+    expect(await row()).toMatchObject({ attempts: 10, lastError: 'siempre falla', dispatchedAt: null });
+    expect((await row()).failedAt).toBeInstanceOf(Date);
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(await poller.tick()).toBe(0);
+    expect(handle).toHaveBeenCalledTimes(10); // detenido
+
+    expect(await retryFailed(db, newId())).toBe(0); // otro id: no toca nada
+    expect(await retryFailed(db, (await row()).id)).toBe(1);
+    expect(await row()).toMatchObject({ failedAt: null, attempts: 0, lastError: 'siempre falla' }); // conserva el último error
+    handle.mockResolvedValue(undefined);
+    expect(await poller.tick()).toBe(1);
+    expect((await row()).dispatchedAt).not.toBeNull();
+    expect(await row()).toMatchObject({ lastError: null, failedAt: null });
+    expect(await retryFailed(db)).toBe(0);
   });
 
   it('espera creciente con tope', () => {
