@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  idempotencyKeySchema,
   adjustToCountSchema,
   createProductSchema,
   registerMovementSchema,
@@ -68,7 +69,6 @@ describe('DTOs', () => {
     stock_location_id: uuid(2),
     product_id: uuid(3),
     reason_id: uuid(4),
-    idempotency_key: uuid(6),
   };
   it('in/out exigen cantidad positiva; adjust admite signo pero no cero', () => {
     expect(registerMovementSchema.safeParse({ ...mov, direction: 'in', quantity: '1.5' }).success).toBe(true);
@@ -77,11 +77,13 @@ describe('DTOs', () => {
     expect(registerMovementSchema.safeParse({ ...mov, direction: 'adjust', quantity: '-3' }).success).toBe(true);
     expect(registerMovementSchema.safeParse({ ...mov, direction: 'adjust', quantity: '0' }).success).toBe(false);
   });
-  it('exige idempotency_key uuid', () => {
-    expect(registerMovementSchema.safeParse({ ...mov, idempotency_key: 'x', direction: 'in', quantity: '1' }).success).toBe(false);
+  it('la clave de idempotencia es un uuid en el header, no en el cuerpo', () => {
+    expect(idempotencyKeySchema.safeParse(uuid(6)).success).toBe(true);
+    expect(idempotencyKeySchema.safeParse('x').success).toBe(false);
+    expect('idempotency_key' in registerMovementSchema.shape).toBe(false);
   });
   it('ajuste por conteo acepta cero contado pero no negativo', () => {
-    const base = { stock_location_id: uuid(2), product_id: uuid(3), reason_id: uuid(4), idempotency_key: uuid(6) };
+    const base = { stock_location_id: uuid(2), product_id: uuid(3), reason_id: uuid(4) };
     expect(adjustToCountSchema.safeParse({ ...base, counted_quantity: '0' }).success).toBe(true);
     expect(adjustToCountSchema.safeParse({ ...base, counted_quantity: '-1' }).success).toBe(false);
   });

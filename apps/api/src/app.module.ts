@@ -15,7 +15,7 @@ class HealthController {
 
 // El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio.
 @Module({
-  imports: [CoreModule.forRoot(), HospitalityModule.forRoot(), CommerceModule, AnalyticsModule],
+  imports: [CoreModule.forRoot(), HospitalityModule.forRoot(), CommerceModule.forRoot(), AnalyticsModule],
   controllers: [HealthController],
   // Guards (Origin, sesión, permiso, módulo) y filtro de errores de core: valen para las rutas de todos los dominios.
   providers: [...coreGlobalProviders],

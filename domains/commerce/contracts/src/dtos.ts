@@ -40,6 +40,7 @@ export type CreateMovementReasonDto = z.infer<typeof createMovementReasonSchema>
 /**
  * `quantity`: magnitud > 0 para `in`/`out` (el signo lo pone la dirección);
  * delta con signo y ≠ 0 para `adjust`. organization_id y location_id nunca vienen del cliente.
+ * La clave de idempotencia va en el header `Idempotency-Key` (ver api.ts), no en el cuerpo.
  */
 export const registerMovementSchema = z
   .object({
@@ -49,7 +50,6 @@ export const registerMovementSchema = z
     reason_id: z.uuid(),
     quantity: signedQuantitySchema,
     note: note.optional(),
-    idempotency_key: z.uuid(),
   })
   .superRefine((dto, ctx) => {
     if (isZeroQuantity(dto.quantity)) {
@@ -67,6 +67,5 @@ export const adjustToCountSchema = z.object({
   reason_id: z.uuid(),
   counted_quantity: unsignedQuantitySchema,
   note: note.optional(),
-  idempotency_key: z.uuid(),
 });
 export type AdjustToCountDto = z.infer<typeof adjustToCountSchema>;
