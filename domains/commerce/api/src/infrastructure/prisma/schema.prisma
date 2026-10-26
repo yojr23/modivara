@@ -1,9 +1,149 @@
-// Esquema "commerce" (DATA-001 §1). Sin modelos hasta cerrar la revisión de DATA-001 (PLAN-001 P0-01).
+// Esquema "commerce" (DATA-001 §4 y §6 v1.1). Lo que Prisma no expresa (CHECK, índices por expresión)
+// va en SQL explícito al final de la migración 0001.
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Unit {
+  unit
+  bottle
+  kg
+  g
+  l
+  ml
+
+  @@map("unit")
+}
+
+enum MovementDirection {
+  in
+  out
+  adjust
+
+  @@map("movement_direction")
+}
+
+model Product {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  /// Catálogo por local (DATA-001 §8.3).
+  locationId     String    @map("location_id") @db.Uuid
+  name           String
+  sku            String?
+  category       String?
+  unit           Unit
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+
+  balances  StockBalance[]
+  movements StockMovement[]
+
+  @@unique([id, locationId], map: "uq_products_id_location")
+  @@map("products")
+}
+
+model StockLocation {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  name           String
+  isDefault      Boolean   @default(false) @map("is_default")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+
+  balances  StockBalance[]
+  movements StockMovement[]
+
+  @@unique([id, locationId], map: "uq_stock_locations_id_location")
+  @@map("stock_locations")
+}
+
+model MovementReason {
+  id             String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  name           String
+  direction      MovementDirection
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String?           @map("created_by") @db.Uuid
+  updatedBy      String?           @map("updated_by") @db.Uuid
+  deactivatedAt  DateTime?         @map("deactivated_at") @db.Timestamptz
+
+  movements StockMovement[]
+
+  @@unique([id, direction], map: "uq_movement_reasons_id_direction")
+  @@map("movement_reasons")
+}
+
+model StockBalance {
+  stockLocationId String   @map("stock_location_id") @db.Uuid
+  productId       String   @map("product_id") @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  locationId      String   @map("location_id") @db.Uuid
+  quantity        Decimal  @db.Decimal(12, 3)
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  stockLocation StockLocation @relation(fields: [stockLocationId, locationId], references: [id, locationId])
+  product       Product       @relation(fields: [productId, locationId], references: [id, locationId])
+
+  @@id([stockLocationId, productId])
+  @@map("stock_balances")
+}
+
+model StockMovement {
+  id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId  String            @map("organization_id") @db.Uuid
+  locationId      String            @map("location_id") @db.Uuid
+  stockLocationId String            @map("stock_location_id") @db.Uuid
+  productId       String            @map("product_id") @db.Uuid
+  direction       MovementDirection
+  reasonId        String            @map("reason_id") @db.Uuid
+  delta           Decimal           @db.Decimal(12, 3)
+  balanceAfter    Decimal           @map("balance_after") @db.Decimal(12, 3)
+  note            String?
+  actorUserId     String            @map("actor_user_id") @db.Uuid
+  occurredAt      DateTime          @default(now()) @map("occurred_at") @db.Timestamptz
+  idempotencyKey  String            @map("idempotency_key") @db.Uuid
+
+  stockLocation StockLocation  @relation(fields: [stockLocationId, locationId], references: [id, locationId])
+  product       Product        @relation(fields: [productId, locationId], references: [id, locationId])
+  reason        MovementReason @relation(fields: [reasonId, direction], references: [id, direction])
+
+  @@unique([organizationId, idempotencyKey], map: "uq_stock_movements_idempotency")
+  @@index([stockLocationId, productId, occurredAt(sort: Desc)], map: "ix_stock_movements_product")
+  @@map("stock_movements")
+}
+
+model OutboxEvent {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  eventType      String    @map("event_type")
+  eventVersion   Int       @map("event_version")
+  occurredAt     DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  correlationId  String    @map("correlation_id") @db.Uuid
+  causationId    String?   @map("causation_id") @db.Uuid
+  payload        Json
+  dispatchedAt   DateTime? @map("dispatched_at") @db.Timestamptz
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz
+
+  @@index([nextAttemptAt], map: "ix_outbox_pending", where: raw("dispatched_at IS NULL"))
+  @@map("outbox_events")
 }
