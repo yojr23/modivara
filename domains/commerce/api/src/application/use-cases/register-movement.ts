@@ -47,12 +47,13 @@ export class MovementRecorder {
     const reason = await this.reasons.findById({ id: target.reasonId, organizationId });
     if (!reason) throw new NotFoundError('Movement reason');
 
-    const occurredAt = new Date();
     return this.ledger.withLockedBalance(
       { stockLocationId: stockLocation.id, productId: product.id, organizationId, locationId },
       async (tx) => {
         const existing = await tx.findByIdempotencyKey({ organizationId, idempotencyKey: target.idempotencyKey });
         if (existing) return { movement: existing, replayed: true };
+        // Con el saldo ya bloqueado: así occurred_at crece con el orden real de los saldos (el último balance_after por fecha es el saldo actual).
+        const occurredAt = new Date();
         const movement = StockMovement.register(tx.balance, {
           id: newId(),
           eventId: newId(),
