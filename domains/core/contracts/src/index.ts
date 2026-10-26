@@ -1,6 +1,7 @@
 export * from './api.js';
 export * from './authorization.js';
 export * from './core-access.port.js';
+export * from './core-events.js';
 export * from './domain-event.js';
 export * from './errors.js';
 export * from './events.js';

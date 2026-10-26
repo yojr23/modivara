@@ -6,6 +6,7 @@ import {
   FakeSessionTokenService,
   InMemoryAdminTransactions,
   InMemoryAuditLog,
+  InMemoryOutbox,
   InMemoryEntitlementRepository,
   InMemoryLocationRepository,
   InMemoryMembershipRepository,
@@ -26,6 +27,7 @@ export class World {
   readonly sessions = new InMemorySessionRepository();
   readonly entitlements = new InMemoryEntitlementRepository();
   readonly audit = new InMemoryAuditLog();
+  readonly outbox = new InMemoryOutbox();
   readonly hasher = new FakePasswordHasher();
   readonly tokens = new FakeSessionTokenService();
   readonly admin = new InMemoryAdminTransactions(this);

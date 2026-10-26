@@ -1,4 +1,4 @@
-import type { ModuleName } from '@modivara/core-contracts';
+import type { DomainEvent, ModuleName } from '@modivara/core-contracts';
 import { AppUser } from '../domain/index.js';
 import type { Entitlement, Location, LocationMembership, Organization, Session } from '../domain/index.js';
 import type {
@@ -10,6 +10,7 @@ import type {
   LocationRepository,
   MembershipRepository,
   OrganizationRepository,
+  OutboxAppender,
   PasswordHasher,
   SessionRepository,
   SessionTokenService,
@@ -143,6 +144,11 @@ export class FakeSessionTokenService implements SessionTokenService {
   hash(token: string) { return `hash(${token})`; }
 }
 
+export class InMemoryOutbox implements OutboxAppender {
+  readonly events: DomainEvent[] = [];
+  async append(event: DomainEvent) { this.events.push(event); }
+}
+
 export class InMemoryAuditLog implements AuditLog {
   readonly entries: AuditEntry[] = [];
   async record(entry: AuditEntry) { this.entries.push(entry); }
@@ -162,12 +168,12 @@ const restore = (store: Store, saved: Store) => {
 export class InMemoryAdminTransactions implements AdminTransactions {
   constructor(private readonly base: AdminTransaction & {
     organizations: { items: Store }; locations: { items: Store }; users: { items: Store }; memberships: { items: Store };
-    sessions: { items: Store }; entitlements: { items: Store }; audit: { entries: Store };
+    sessions: { items: Store }; entitlements: { items: Store }; audit: { entries: Store }; outbox: { events: Store };
   }) {}
 
   async withTransaction<T>(work: (tx: AdminTransaction) => Promise<T>): Promise<T> {
     const b = this.base;
-    const stores = [b.organizations.items, b.locations.items, b.users.items, b.memberships.items, b.sessions.items, b.entitlements.items, b.audit.entries];
+    const stores = [b.organizations.items, b.locations.items, b.users.items, b.memberships.items, b.sessions.items, b.entitlements.items, b.audit.entries, b.outbox.events];
     const saved = stores.map(snapshot);
     try {
       return await work(b);

@@ -5,6 +5,7 @@ import { PrismaAuditLog } from './prisma-audit-log.js';
 import { PrismaEntitlementRepository } from './prisma-entitlement-repository.js';
 import { PrismaLocationRepository } from './prisma-location-repository.js';
 import { PrismaMembershipRepository } from './prisma-membership-repository.js';
+import { PrismaOutbox } from './prisma-outbox.js';
 import { PrismaOrganizationRepository } from './prisma-organization-repository.js';
 import { PrismaSessionRepository } from './prisma-session-repository.js';
 import { PrismaUserRepository } from './prisma-user-repository.js';
@@ -27,6 +28,7 @@ export class PrismaAdminTransactions implements AdminTransactions {
         sessions: new PrismaSessionRepository(db),
         entitlements: new PrismaEntitlementRepository(db),
         audit: this.auditFor(db),
+        outbox: new PrismaOutbox(db),
       }),
     { timeout: 15_000 });
   }

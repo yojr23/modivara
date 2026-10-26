@@ -1,5 +1,7 @@
-import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestjs/common';
-import { CORE_ACCESS_PORT } from '@modivara/core-contracts';
+import { Inject, Logger, Module, Optional, type DynamicModule, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import {
+  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, type IntegrationEventSubscriber, type OutboxPollerOptions,
+} from '@modivara/core-contracts';
 import {
   Authorize, AuthenticateSession, BootstrapPlatform, ChangePassword, CoreAccessService, CreateUser, DeactivateUser, GetMe, ListUsers, Login, Logout,
   ProvisionOrganization, ResetPassword, ResolveLocationAccess, RevokeUserSessions, SelectActingOrganization, SetLocationRoles,
@@ -14,6 +16,8 @@ import {
 
 // Tokens de inyección de los puertos (strings: no dependen de identidad de clase ni de módulos duplicados).
 export const CORE_PRISMA = 'CORE_PRISMA';
+/** Poller del outbox propio (para `tick()` en pruebas y el comando de reintento). */
+export const CORE_OUTBOX = 'CORE_OUTBOX';
 export const ORGANIZATIONS = 'CORE_ORGANIZATIONS';
 export const LOCATIONS = 'CORE_LOCATIONS';
 export const USERS = 'CORE_USERS';
@@ -28,6 +32,8 @@ export const SESSION_TOKENS = 'CORE_SESSION_TOKENS';
 export interface CoreModuleOptions {
   /** Por defecto, `CORE_DATABASE_URL` del entorno. */
   databaseUrl?: string;
+  /** Poller del outbox. Por defecto `OUTBOX_POLL_INTERVAL_MS` y valores del poller; `false` = no arranca (seeds: los eventos quedan pendientes para la API). */
+  outbox?: Partial<OutboxPollerOptions> | false;
 }
 
 /** Casos de uso: token = la clase, deps = tokens de puertos en el orden de su constructor. */
@@ -51,8 +57,15 @@ const useCases = [
 ] as const;
 
 @Module({})
-export class CoreModule implements OnModuleDestroy {
-  constructor(@Inject(CORE_PRISMA) private readonly prisma: CorePrisma) {}
+export class CoreModule implements OnModuleInit, OnModuleDestroy {
+  constructor(
+    @Inject(CORE_PRISMA) private readonly prisma: CorePrisma,
+    @Optional() @Inject(CORE_OUTBOX) private readonly outbox?: OutboxPoller,
+  ) {}
+
+  onModuleInit() {
+    this.outbox?.start();
+  }
 
   static forRoot(options: CoreModuleOptions = {}): DynamicModule {
     const databaseUrl = options.databaseUrl ?? process.env.CORE_DATABASE_URL;
@@ -78,6 +91,15 @@ export class CoreModule implements OnModuleDestroy {
         { provide: ENTITLEMENTS, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): EntitlementRepository => new PrismaEntitlementRepository(p) },
         { provide: AUDIT_LOG, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): AuditLog => new PrismaAuditLog(p) },
         { provide: ADMIN_TRANSACTIONS, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): AdminTransactions => new PrismaAdminTransactions(p) },
+        // Los suscriptores los registra el host bajo INTEGRATION_EVENT_SUBSCRIBERS (multi-proveedor); sin ninguno, igual se marca despachado.
+        ...(options.outbox === false
+          ? []
+          : [{
+              provide: CORE_OUTBOX,
+              inject: [CORE_PRISMA, { token: INTEGRATION_EVENT_SUBSCRIBERS, optional: true }],
+              useFactory: (p: CorePrisma, subscribers?: IntegrationEventSubscriber[]) =>
+                new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }, new Logger('core-outbox')),
+            }]),
         { provide: PASSWORD_HASHER, useFactory: (): PasswordHasher => new Argon2PasswordHasher() },
         { provide: SESSION_TOKENS, useFactory: (): SessionTokenService => new CryptoSessionTokenService() },
         ...useCases.map(([useCase, deps]) => ({
@@ -96,6 +118,7 @@ export class CoreModule implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    await this.outbox?.stop();
     await this.prisma.$disconnect();
   }
 }

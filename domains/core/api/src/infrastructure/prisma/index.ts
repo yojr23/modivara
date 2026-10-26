@@ -5,5 +5,6 @@ export * from './prisma-entitlement-repository.js';
 export * from './prisma-location-repository.js';
 export * from './prisma-membership-repository.js';
 export * from './prisma-organization-repository.js';
+export * from './prisma-outbox.js';
 export * from './prisma-session-repository.js';
 export * from './prisma-user-repository.js';

@@ -1,11 +1,12 @@
 import type { AuditLog } from './audit-log.js';
+import type { OutboxAppender } from './outbox.js';
 import type {
   EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, SessionRepository, UserRepository,
 } from './repositories.js';
 
 /**
  * Repositorios ligados a una misma transacción: solo los que usan las operaciones administrativas.
- * DATA-001 §2: la auditoría se escribe en la misma transacción que el cambio.
+ * DATA-001 §2: la auditoría y el outbox (§6) se escriben en la misma transacción que el cambio.
  */
 export interface AdminTransaction {
   organizations: OrganizationRepository;
@@ -15,6 +16,7 @@ export interface AdminTransaction {
   sessions: SessionRepository;
   entitlements: EntitlementRepository;
   audit: AuditLog;
+  outbox: OutboxAppender;
 }
 
 /**

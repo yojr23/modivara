@@ -6,7 +6,7 @@ import { CoreModule } from '@modivara/core-api';
 import { seedCommerce } from './seed/commerce.js';
 
 // Contexto standalone: core y commerce (CORE_DATABASE_URL y COMMERCE_DATABASE_URL), sin HTTP. Correr antes `seed:core`.
-@Module({ imports: [CoreModule.forRoot(), CommerceModule.forRoot({ outbox: false })] })
+@Module({ imports: [CoreModule.forRoot({ outbox: false }), CommerceModule.forRoot({ outbox: false })] })
 class SeedModule {}
 
 const password = process.env.SEED_PASSWORD;

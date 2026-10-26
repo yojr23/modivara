@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ValidationError } from '@modivara/core-contracts';
+import { locationCreatedEventSchema, toEventEnvelope, ValidationError } from '@modivara/core-contracts';
 import { PermissionDeniedError } from '../domain/index.js';
 import { TEST_PASSWORD, World } from '../testing/index.js';
 import { BootstrapPlatform } from './bootstrap-platform.js';
@@ -37,6 +37,19 @@ describe('casos de uso de plataforma (seed)', () => {
     expect(await w.entitlements.listEnabledModules({ organizationId: first.organization.id })).toEqual(['hospitality', 'commerce']);
     expect(w.audit.entries).toHaveLength(audited);
     expect(w.audit.entries.every((e) => e.actorUserId === root.actorUserId)).toBe(true);
+  });
+
+  it('cada local nuevo deja un core.location.created.v1 válido en el outbox y reprovisionar no lo duplica', async () => {
+    const root = await bootstrap.execute(input);
+    const req = { actor: root, slug: 'bar-demo', name: 'Bar Demo', locations: [{ name: 'Centro' }, { name: 'Norte', timezone: 'America/Mexico_City' }], modules: [] as const };
+    const { organization, locations } = await provision.execute(req);
+    await provision.execute(req);
+    const events = w.outbox.events.map((e) => locationCreatedEventSchema.parse(toEventEnvelope(e)));
+    expect(events).toHaveLength(2);
+    expect(events.map((e) => e.payload)).toEqual(locations.map((l) => ({
+      location_id: l.id, organization_id: organization.id, organization_slug: 'bar-demo', location_name: l.name, timezone: l.timezone, created_by: root.actorUserId,
+    })));
+    expect(events.every((e) => e.aggregate_id === e.location_id)).toBe(true);
   });
 
   it('slugs reservados o inválidos se rechazan; un negocio cliente no puede provisionar', async () => {

@@ -6,7 +6,7 @@ import { HospitalityModule } from '@modivara/hospitality-api';
 import { seedHospitality } from './seed/hospitality.js';
 
 // Contexto standalone: core y hospitality (CORE_DATABASE_URL y HOSPITALITY_DATABASE_URL), sin HTTP. Correr antes `seed:core`.
-@Module({ imports: [CoreModule.forRoot(), HospitalityModule.forRoot()] })
+@Module({ imports: [CoreModule.forRoot({ outbox: false }), HospitalityModule.forRoot()] })
 class SeedModule {}
 
 const password = process.env.SEED_PASSWORD;

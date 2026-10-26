@@ -1,4 +1,4 @@
-import { customerSlugSchema, newId, ValidationError, type ModuleName, type Permission } from '@modivara/core-contracts';
+import { customerSlugSchema, newId, ValidationError, type LocationCreatedEvent, type ModuleName, type Permission } from '@modivara/core-contracts';
 import { Entitlement, Location, Organization, PermissionDeniedError } from '../domain/index.js';
 import type { ActorContext } from './actor.js';
 import type { AdminTransaction, AdminTransactions } from './ports/index.js';
@@ -55,6 +55,15 @@ export class ProvisionOrganization {
         location = Location.create({ id: newId(), organizationId: organization.id, name: wanted.name, timezone: wanted.timezone });
         await tx.locations.save(location);
         await audit(organization.id, 'location.created', 'location', location.id, { name: location.name });
+        const now = new Date();
+        await tx.outbox.append({
+          eventId: newId(), eventType: 'core.location.created', eventVersion: 1, occurredAt: now, organizationId: organization.id, locationId: location.id,
+          aggregateId: location.id, correlationId: newId(), causationId: null,
+          payload: {
+            location_id: location.id, organization_id: organization.id, organization_slug: organization.slug, location_name: location.name,
+            timezone: location.timezone, created_by: input.actor.actorUserId,
+          } satisfies LocationCreatedEvent['payload'],
+        });
       }
       locations.push(location);
     }

@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { newId } from '@modivara/core-contracts';
+import { locationCreatedEventSchema, newId, toEventEnvelope } from '@modivara/core-contracts';
 import {
-  AuthenticateSession, ChangePassword, CreateUser, DeactivateUser, Login, type ActorContext,
+  AuthenticateSession, ChangePassword, CreateUser, DeactivateUser, Login, ProvisionOrganization, type ActorContext,
 } from '../../application/index.js';
 import { InvalidCredentialsError, SessionInvalidError } from '../../domain/index.js';
 import { corePrismaForTests, resetCore, seedOrganization } from '../../testing/integration.js';
@@ -133,5 +133,33 @@ describe('auditoría atómica (DATA-001 §2)', () => {
     const ana = await db.appUser.findFirstOrThrow({ where: { username: 'ana' } });
     await expect(new DeactivateUser(failing).execute({ actor: owner, userId: ana.id })).rejects.toThrow('audit down');
     expect((await db.appUser.findUniqueOrThrow({ where: { id: ana.id } })).deactivatedAt).toBeNull();
+  });
+});
+
+describe('outbox de core (DATA-001 §6)', () => {
+  const root: ActorContext = { actorUserId: newId(), organizationId: newId(), isPlatform: true, isOwner: false, sessionId: newId(), actingOrganizationId: null };
+  const req = { actor: root, slug: 'bar-nuevo', name: 'Bar Nuevo', locations: [{ name: 'Centro' }, { name: 'Norte', timezone: 'America/Mexico_City' }], modules: [] as const };
+
+  it('provisionar con 2 locales deja 2 eventos válidos y reprovisionar no los duplica', async () => {
+    const provision = new ProvisionOrganization(admin);
+    const { locations } = await provision.execute(req);
+    await provision.execute(req);
+    const rows = await db.outboxEvent.findMany();
+    expect(rows).toHaveLength(2);
+    for (const r of rows) {
+      const event = locationCreatedEventSchema.parse(toEventEnvelope({
+        eventId: r.id, eventType: r.eventType, eventVersion: r.eventVersion, occurredAt: r.occurredAt, organizationId: r.organizationId,
+        locationId: r.locationId, aggregateId: r.aggregateId, correlationId: r.correlationId, causationId: r.causationId, payload: r.payload,
+      }));
+      const location = locations.find((l) => l.id === event.payload.location_id)!;
+      expect(event.payload).toMatchObject({ organization_slug: 'bar-nuevo', location_name: location.name, timezone: location.timezone, created_by: root.actorUserId });
+      expect(r).toMatchObject({ dispatchedAt: null, attempts: 0, failedAt: null });
+    }
+  });
+
+  it('si falla la auditoría no queda ni el local ni su evento', async () => {
+    const failing = new PrismaAdminTransactions(db, () => ({ record: () => Promise.reject(new Error('audit down')) }));
+    await expect(new ProvisionOrganization(failing).execute(req)).rejects.toThrow('audit down');
+    expect(await db.outboxEvent.count()).toBe(0);
   });
 });
