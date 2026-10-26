@@ -2,6 +2,8 @@ import { type IntegrationEvent, type IntegrationEventSubscriber, locationCreated
 import type { EnsureDefaultStockLocation, SeedMovementReasons } from '../application/index.js';
 
 /** Q-05: ante un local nuevo de core, siembra los motivos del negocio y crea «Principal». Ambos son idempotentes, así que la reentrega es inocua. */
+// OPEN: siembra aunque el negocio no tenga contratado commerce (core no filtra por entitlement); y si el local ya está inactivo el caso de uso falla
+// y el poller agota los 10 intentos (failed_at) en vez de ignorarlo.
 export class LocationCreatedSubscriber implements IntegrationEventSubscriber {
   readonly name = 'commerce.location-created';
 
