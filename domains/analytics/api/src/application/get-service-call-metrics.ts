@@ -22,6 +22,7 @@ export class GetServiceCallMetrics {
 
     const { query } = input;
     const range = resolveRange(query, new Date(), location.timezone);
+    // ponytail: carga en memoria todos los facts del rango; techo = volumen del piloto. Mover la agregación a SQL si crece.
     const facts = await this.facts.findCreatedBetween({
       organizationId: input.organizationId,
       locationId: input.locationId,

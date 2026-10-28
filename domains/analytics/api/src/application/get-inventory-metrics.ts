@@ -27,6 +27,7 @@ export class GetInventoryMetrics {
       productId: query.product_id,
       stockLocationId: query.stock_location_id,
     };
+    // ponytail: carga en memoria todos los facts del rango; techo = volumen del piloto. Mover la agregación a SQL si crece.
     const [movements, latest] = await Promise.all([
       this.facts.findOccurredBetween({ ...scope, range }),
       this.facts.findLatestPerPlaceAndProduct(scope),
