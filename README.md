@@ -61,6 +61,15 @@ docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<la misma clave de
 # con una base propia (CORE_DATABASE_URL y COMMERCE_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:commerce
 ```
 
+Historial de demo (F5-10; después de los tres seeds anteriores; idempotente, se niega con `NODE_ENV=production`): en `bar-demo`, 14 días que terminan ayer (hora del local) con unos 30 llamados por día en horas de noche (hospitality: llamados, transiciones, señales y outbox) y movimientos de stock diarios (commerce: ventas, mermas, cortesías, compras y un ajuste). Cada dominio escribe solo lo suyo con fechas pasadas; analytics lo recibe cuando la API entrega los outbox pendientes (o con `pnpm analytics:rebuild`). Si commerce se sembró antes de F5-10 (stock inicial con fecha reciente) el comando lo detecta y pide recrear la base.
+
+Todo de una vez (core → hospitality → commerce → historial; repetirlo no cambia nada). Con los seeds corriendo sin poller, **arranca la API después (o déjala corriendo: sus pollers entregan lo pendiente)**:
+
+```bash
+docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<clave de demo>' api sh -c 'cd /repo/apps/api && for s in core hospitality commerce history; do node dist/seed-$s.js || exit 1; done'
+# con una base propia (las cuatro *_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed
+```
+
 Tiempo real y outbox de hospitality: Socket.IO en `/api/v1/realtime` (misma cookie de sesión; rechaza sin sesión y con `Origin` distinto del host) emite `service_call.changed` y `gateways.status` a la sala del local tras suscribirse con `location.subscribe`. El poller del outbox corre en el mismo proceso de la API cada `OUTBOX_POLL_INTERVAL_MS` (por defecto 1000) y entrega a los suscriptores registrados bajo `INTEGRATION_EVENT_SUBSCRIBERS` (una transacción por evento; 5 s máximo por entrega, vencido cuenta como fallo con espera creciente). Core, hospitality y commerce tienen cada uno su outbox y el mismo poller (`core-contracts`); core publica `core.location.created.v1` y los otros dos siembran lo suyo al recibirlo. Tras 10 intentos fallidos el evento queda con `failed_at` (y su `last_error`) y el poller deja de tomarlo; nada se borra. Para liberarlo: `pnpm outbox:retry <core|hospitality|commerce> [event_id]` (sin `event_id`, todos los detenidos de ese outbox; pone `failed_at = NULL, attempts = 0` y vence de inmediato).
 
 Reconstruir analytics: `pnpm analytics:rebuild` vacía las tablas de analytics y reproduce en UNA transacción el historial completo (también lo ya despachado o con `failed_at`) que hospitality y commerce exponen por su puerto `EventHistoryReader` (lee su propio `outbox_events` ordenado por `occurred_at, id`, paginado), mezclado en ese mismo orden. Los eventos en vivo esperan al commit y luego se deduplican. Recupera lo despachado antes de que analytics se suscribiera. Un evento inválido aborta, revierte y se informa su `event_id`; imprime cuántos eventos leyó, aplicó, duplicó e ignoró. Corre sin pollers.

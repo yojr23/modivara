@@ -7,7 +7,7 @@ import { HospitalityModule } from '@modivara/hospitality-api';
 import { seedHistory } from './seed/history.js';
 
 // Contexto standalone: core, hospitality y commerce, sin HTTP ni pollers. Correr antes seed:core, seed:hospitality y seed:commerce.
-@Module({ imports: [CoreModule.forRoot({ outbox: false }), HospitalityModule.forRoot({ outbox: false }), CommerceModule.forRoot({ outbox: false })] })
+@Module({ imports: [CoreModule.forRoot({ outbox: false }), HospitalityModule.forRoot({ outbox: false, mqtt: null }), CommerceModule.forRoot({ outbox: false })] })
 class SeedModule {}
 
 const password = process.env.SEED_PASSWORD;
