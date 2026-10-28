@@ -45,3 +45,6 @@ export const STOCK_EVENT_TYPES = {
   out: 'commerce.stock.issued',
   adjust: 'commerce.stock.adjusted',
 } as const;
+
+/** Token del `EventHistoryReader` de commerce (lee su propio outbox; Q-09). */
+export const COMMERCE_EVENT_HISTORY = 'COMMERCE_EVENT_HISTORY';

@@ -1,7 +1,8 @@
 import { Inject, Logger, Module, Optional, type DynamicModule, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import {
-  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, type CoreAccessPort, type IntegrationEventSubscriber, type OutboxPollerOptions,
+  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, readOutboxHistory, type CoreAccessPort, type EventHistoryReader, type IntegrationEventSubscriber, type OutboxPollerOptions,
 } from '@modivara/core-contracts';
+import { HOSPITALITY_EVENT_HISTORY } from '@modivara/hospitality-contracts';
 import {
   AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, EnsureLocationSettings, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
   GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
@@ -145,6 +146,7 @@ export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
               useFactory: (p: HospitalityPrisma, subscribers?: IntegrationEventSubscriber[]) =>
                 new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }, new Logger('hospitality-outbox')),
             }]),
+        { provide: HOSPITALITY_EVENT_HISTORY, inject: [HOSPITALITY_PRISMA], useFactory: (p: HospitalityPrisma): EventHistoryReader => ({ read: () => readOutboxHistory(p) }) },
         { provide: NOTIFICATIONS, useExisting: RealtimeBroadcaster },
         { provide: HOSPITALITY_EVENT_SUBSCRIBER, inject: [EnsureLocationSettings], useFactory: (e: EnsureLocationSettings) => new LocationCreatedSubscriber(e) },
         ...useCases.map(([useCase, deps]) => ({
@@ -153,7 +155,7 @@ export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
           useFactory: (...args: unknown[]) => new (useCase as new (...a: unknown[]) => unknown)(...args),
         })),
       ],
-      exports: [HOSPITALITY_EVENT_SUBSCRIBER, ...useCases.map(([useCase]) => useCase)],
+      exports: [HOSPITALITY_EVENT_SUBSCRIBER, HOSPITALITY_EVENT_HISTORY, ...useCases.map(([useCase]) => useCase)],
     };
   }
 

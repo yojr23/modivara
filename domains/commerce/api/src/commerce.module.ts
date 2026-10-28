@@ -1,7 +1,8 @@
 import { Inject, Logger, Module, Optional, type DynamicModule, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import {
-  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, type IntegrationEventSubscriber, type OutboxPollerOptions,
+  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, readOutboxHistory, type EventHistoryReader, type IntegrationEventSubscriber, type OutboxPollerOptions,
 } from '@modivara/core-contracts';
+import { COMMERCE_EVENT_HISTORY } from '@modivara/commerce-contracts';
 import {
   AdjustToCount, CreateMovementReason, CreateProduct, CreateStockLocation, DeactivateMovementReason, DeactivateProduct, EnsureDefaultStockLocation,
   GetBalances, ListMovementReasons, ListMovements, ListProducts, ListStockLocations, MovementRecorder, RegisterMovement, SeedMovementReasons,
@@ -94,6 +95,7 @@ export class CommerceModule implements OnModuleInit, OnModuleDestroy {
               useFactory: (p: CommercePrisma, subscribers?: IntegrationEventSubscriber[]) =>
                 new OutboxPoller(p, subscribers ?? [], { ...outboxOptionsFromEnv(), ...options.outbox }, new Logger('commerce-outbox')),
             }]),
+        { provide: COMMERCE_EVENT_HISTORY, inject: [COMMERCE_PRISMA], useFactory: (p: CommercePrisma): EventHistoryReader => ({ read: () => readOutboxHistory(p) }) },
         {
           provide: COMMERCE_EVENT_SUBSCRIBER,
           inject: [SeedMovementReasons, EnsureDefaultStockLocation],
@@ -105,7 +107,7 @@ export class CommerceModule implements OnModuleInit, OnModuleDestroy {
           useFactory: (...args: unknown[]) => new (useCase as new (...a: unknown[]) => unknown)(...args),
         })),
       ],
-      exports: [COMMERCE_EVENT_SUBSCRIBER, ...useCases.map(([useCase]) => useCase)],
+      exports: [COMMERCE_EVENT_SUBSCRIBER, COMMERCE_EVENT_HISTORY, ...useCases.map(([useCase]) => useCase)],
     };
   }
 

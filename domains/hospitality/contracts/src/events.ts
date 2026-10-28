@@ -53,3 +53,6 @@ export const HOSPITALITY_EVENT_TYPES = {
   serviceCallAcknowledged: serviceCallAcknowledgedEventSchema.shape.event_type.value,
   serviceCallCompleted: serviceCallCompletedEventSchema.shape.event_type.value,
 } as const;
+
+/** Token del `EventHistoryReader` de hospitality (lee su propio outbox; Q-09). */
+export const HOSPITALITY_EVENT_HISTORY = 'HOSPITALITY_EVENT_HISTORY';

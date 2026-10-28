@@ -50,6 +50,41 @@ interface OutboxRow {
   attempts: number;
 }
 
+const rowToEvent = (row: OutboxRow): IntegrationEvent =>
+  toEventEnvelope({
+    eventId: row.id,
+    eventType: row.event_type,
+    eventVersion: row.event_version,
+    occurredAt: row.occurred_at,
+    organizationId: row.organization_id,
+    locationId: row.location_id,
+    aggregateId: row.aggregate_id,
+    correlationId: row.correlation_id,
+    causationId: row.causation_id,
+    payload: row.payload,
+  });
+
+/**
+ * Historial completo del outbox (despachados y con `failed_at` incluidos) por orden (occurred_at, id), en páginas con cursor.
+ * El cursor viaja como texto para no perder los microsegundos de timestamptz.
+ */
+export async function* readOutboxHistory(db: OutboxSql, pageSize = 500): AsyncGenerator<IntegrationEvent> {
+  let after: { at: string; id: string } | null = null;
+  for (;;) {
+    const rows: Array<OutboxRow & { cursor_at: string }> = await db.$queryRaw`
+      SELECT id, event_type, event_version, occurred_at, organization_id, location_id, aggregate_id, correlation_id, causation_id, payload, attempts,
+             occurred_at::text AS cursor_at
+      FROM outbox_events
+      WHERE ${after?.at ?? null}::timestamptz IS NULL OR (occurred_at, id) > (${after?.at ?? null}::timestamptz, ${after?.id ?? null}::uuid)
+      ORDER BY occurred_at, id
+      LIMIT ${pageSize}::int`;
+    for (const row of rows) yield rowToEvent(row);
+    const last = rows.at(-1);
+    if (!last || rows.length < pageSize) return;
+    after = { at: last.cursor_at, id: last.id };
+  }
+}
+
 /** Espera tras `attempts` fallos: base, 2×base, 4×base… con tope. */
 export const backoffMs = (attempts: number, o: Pick<OutboxPollerOptions, 'baseBackoffMs' | 'maxBackoffMs'>): number =>
   Math.min(o.baseBackoffMs * 2 ** Math.max(0, attempts - 1), o.maxBackoffMs);
@@ -151,18 +186,7 @@ export class OutboxPoller {
   }
 
   private async deliver(row: OutboxRow): Promise<void> {
-    const event: IntegrationEvent = toEventEnvelope({
-      eventId: row.id,
-      eventType: row.event_type,
-      eventVersion: row.event_version,
-      occurredAt: row.occurred_at,
-      organizationId: row.organization_id,
-      locationId: row.location_id,
-      aggregateId: row.aggregate_id,
-      correlationId: row.correlation_id,
-      causationId: row.causation_id,
-      payload: row.payload,
-    });
+    const event = rowToEvent(row);
     for (const subscriber of this.subscribers) {
       if (subscriber.handles(event.event_type)) await this.withTimeout(subscriber.handle(event), subscriber.name);
     }
