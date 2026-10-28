@@ -26,7 +26,11 @@ const rangeShape = {
   group_by: groupBySchema.default('day'),
 };
 
-type RangeInput = { range: RangePreset; from?: string | undefined; to?: string | undefined };
+type RangeInput = { range: RangePreset; from?: string | undefined; to?: string | undefined; group_by?: GroupBy | undefined };
+
+/** Tope de días de un rango `custom` (incluye ambos extremos): acota las cubetas que se generan por consulta. */
+export const MAX_CUSTOM_DAYS = { day: 366, hour: 31 } as const;
+const daysInclusive = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
 
 /** `custom` exige from y to (from <= to); los demás atajos no los admiten. */
 function checkCustomRange(q: RangeInput, ctx: z.RefinementCtx): void {
@@ -34,6 +38,10 @@ function checkCustomRange(q: RangeInput, ctx: z.RefinementCtx): void {
     if (!q.from) ctx.addIssue({ code: 'custom', path: ['from'], message: 'custom exige from' });
     if (!q.to) ctx.addIssue({ code: 'custom', path: ['to'], message: 'custom exige to' });
     if (q.from && q.to && q.from > q.to) ctx.addIssue({ code: 'custom', path: ['to'], message: 'to debe ser >= from' });
+    const max = MAX_CUSTOM_DAYS[q.group_by ?? 'day'];
+    if (q.from && q.to && q.from <= q.to && daysInclusive(q.from, q.to) > max) {
+      ctx.addIssue({ code: 'custom', path: ['to'], message: `custom admite hasta ${max} días con group_by=${q.group_by ?? 'day'}` });
+    }
   } else if (q.from || q.to) {
     ctx.addIssue({ code: 'custom', path: ['range'], message: 'from/to solo aplican con range=custom' });
   }

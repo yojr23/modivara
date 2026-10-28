@@ -25,6 +25,15 @@ describe('consultas', () => {
     expect(q({ from: '2026-02-30', to: '2026-03-01' })).toBe(false);
     expect(q({ from: '2026-10-01', to: '2026-10-01' })).toBe(true);
   });
+  it('custom acota la cantidad de días según la agrupación', () => {
+    const q = (from: string, to: string, group_by: string) => serviceCallMetricsQuerySchema.safeParse({ range: 'custom', from, to, group_by }).success;
+    expect(q('2026-01-01', '2027-01-01', 'day')).toBe(true); // 366 días
+    expect(q('2026-01-01', '2027-01-02', 'day')).toBe(false);
+    expect(q('1900-01-01', '2026-10-27', 'day')).toBe(false);
+    expect(q('2026-10-01', '2026-10-31', 'hour')).toBe(true); // 31 días
+    expect(q('2026-10-01', '2026-11-01', 'hour')).toBe(false);
+    expect(inventoryMetricsQuerySchema.safeParse({ range: 'custom', from: '2026-01-01', to: '2026-03-01', group_by: 'hour' }).success).toBe(false);
+  });
   it('from/to sin custom se rechazan', () => {
     expect(serviceCallMetricsQuerySchema.safeParse({ range: 'today', from: '2026-10-01', to: '2026-10-02' }).success).toBe(false);
   });
