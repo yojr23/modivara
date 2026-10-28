@@ -43,11 +43,18 @@ export const useCallHistory = (l: string, filters: Omit<CallHistoryQuery, 'curso
     retry: false,
   });
 
+/** Un llamado con sus transiciones y nombres de actores (pantalla de historial). */
+export const useCallDetail = (l: string, callId: string) =>
+  useQuery({ queryKey: callsKeys.detail(l, callId), queryFn: () => callsApi.detail(l, callId), retry: false });
+
 function callMutation(l: string, fn: (callId: string) => ReturnType<typeof callsApi.acknowledge>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: (call) => applyCallChange(qc, l, call),
+    onSuccess: (call) => {
+      applyCallChange(qc, l, call);
+      void qc.invalidateQueries({ queryKey: callsKeys.detail(l, call.id) });
+    },
     onError: (e) => {
       const c = toCallConflict(e);
       if (c?.current) applyCallChange(qc, l, c.current);

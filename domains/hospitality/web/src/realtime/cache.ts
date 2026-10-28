@@ -5,6 +5,7 @@ import type { CallHistoryQuery } from '../calls.js';
 export const callsKeys = {
   all: (l: string) => ['hospitality', l, 'service-calls'] as const,
   active: (l: string) => ['hospitality', l, 'service-calls', 'active'] as const,
+  detail: (l: string, callId: string) => ['hospitality', l, 'service-calls', 'detail', callId] as const,
   history: (l: string, q: CallHistoryQuery) => ['hospitality', l, 'service-calls', 'history', q] as const,
 };
 

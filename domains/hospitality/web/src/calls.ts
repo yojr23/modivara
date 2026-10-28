@@ -1,4 +1,4 @@
-import { CALLS_API_PATHS as P, callConflictSchema, serviceCallPageSchema, serviceCallSchema, type ServiceCallDto, type ServiceCallPage } from '@modivara/hospitality-contracts';
+import { CALLS_API_PATHS as P, callConflictSchema, serviceCallDetailSchema, serviceCallPageSchema, serviceCallSchema, type ServiceCallDetailDto, type ServiceCallDto, type ServiceCallPage } from '@modivara/hospitality-contracts';
 import { ApiRequestError, buildPath, request } from './client.js';
 
 export type CallHistoryQuery = {
@@ -36,6 +36,8 @@ export const callsApi = {
   },
   listHistory: (l: string, q: CallHistoryQuery = {}): Promise<ServiceCallPage> =>
     request(base(l) + qs({ status: 'all', ...q }), serviceCallPageSchema),
+  detail: (l: string, callId: string): Promise<ServiceCallDetailDto> =>
+    request(buildPath(P.serviceCall, { locationId: l, callId }), serviceCallDetailSchema),
   // OPEN: el cuerpo de la respuesta de reconocer/finalizar se asume `ServiceCallDto` (no está en el contrato).
   acknowledge: (l: string, callId: string): Promise<ServiceCallDto> =>
     request(buildPath(P.acknowledge, { locationId: l, callId }), serviceCallSchema, { method: 'POST' }),

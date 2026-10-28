@@ -8,5 +8,5 @@ export { callsApi, toCallConflict, type CallConflict, type CallHistoryQuery } fr
 export { callsKeys, mergeActive } from './realtime/cache.js';
 export { RealtimeClient, defaultSocketFactory, type ConnectionStatus, type RealtimeSocket, type RealtimeState, type SocketFactory } from './realtime/client.js';
 export {
-  RealtimeProvider, callErrorState, useAcknowledgeCall, useActiveCalls, useCallHistory, useCompleteCall, useConnectionStatus, useGatewaysStatus,
+  RealtimeProvider, callErrorState, useAcknowledgeCall, useActiveCalls, useCallDetail, useCallHistory, useCompleteCall, useConnectionStatus, useGatewaysStatus,
 } from './realtime/hooks.js';
