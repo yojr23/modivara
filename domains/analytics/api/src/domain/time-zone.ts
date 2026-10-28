@@ -83,3 +83,18 @@ export function bucketOf(instant: Date, unit: BucketUnit, timeZone: string): Buc
     ? { start: localToUtc(p, 0, timeZone), label: day }
     : { start: localToUtc(p, p.hour, timeZone), label: `${day}T${pad(p.hour)}:00` };
 }
+
+/**
+ * Todas las cubetas de [from, to) en orden, para graficar con ceros. No pasa de la cubeta que contiene `until`
+ * (las horas o días futuros no son «cero llamados»). Una hora repetida por DST queda como una sola cubeta, igual que en `bucketOf`.
+ */
+export function bucketsBetween(from: Date, to: Date, unit: BucketUnit, timeZone: string, until: Date): Bucket[] {
+  const out: Bucket[] = [];
+  const end = Math.min(to.getTime(), until.getTime() + 1);
+  for (let t = from.getTime(); t < end; ) {
+    const b = bucketOf(new Date(t), unit, timeZone);
+    if (out.at(-1)?.label !== b.label) out.push(b);
+    t = unit === 'hour' ? t + 3_600_000 : startOfLocalDay(addDays(localParts(b.start, timeZone), 1), timeZone).getTime();
+  }
+  return out;
+}

@@ -61,7 +61,7 @@ describe('métricas de llamados en PostgreSQL', () => {
 
   it('cambiar la zona horaria del local mueve el llamado de hora y de día', async () => {
     await seed();
-    const bogota = (await calls.execute({ ...input, query: { ...day, group_by: 'hour' } })).by_period;
+    const bogota = (await calls.execute({ ...input, query: { ...day, group_by: 'hour' } })).by_period.filter((p) => p.calls > 0);
     expect(bogota.map((p) => [p.bucket_start, p.calls])).toEqual([['2026-10-19T14:00:00.000Z', 2], ['2026-10-20T02:00:00.000Z', 1]]);
     expect(bogota[0]!.bucket_label).toBe('2026-10-19T09:00'); // 14:00Z = 09:00 en Bogotá
 
@@ -69,8 +69,9 @@ describe('métricas de llamados en PostgreSQL', () => {
     const tokyo = await calls.execute({ ...input, query: { ...day, group_by: 'hour' } });
     expect(tokyo.from).toBe('2026-10-18T15:00:00.000Z');
     expect(tokyo.totals.calls).toBe(2);
-    expect(tokyo.by_period.map((p) => [p.bucket_start, p.calls])).toEqual([['2026-10-19T14:00:00.000Z', 2]]);
-    expect(tokyo.by_period[0]!.bucket_label).toBe('2026-10-19T23:00'); // 14:00Z = 23:00 en Tokio
+    const tokyoCalls = tokyo.by_period.filter((p) => p.calls > 0);
+    expect(tokyoCalls.map((p) => [p.bucket_start, p.calls])).toEqual([['2026-10-19T14:00:00.000Z', 2]]);
+    expect(tokyoCalls[0]!.bucket_label).toBe('2026-10-19T23:00'); // 14:00Z = 23:00 en Tokio
 
     const nextDay = await calls.execute({ ...input, query: { range: 'custom', from: '2026-10-20', to: '2026-10-20', group_by: 'day' } });
     expect(nextDay.totals.calls).toBe(1); // en Tokio el llamado de las 02:30Z es del 20
@@ -123,7 +124,7 @@ describe('métricas de inventario en PostgreSQL', () => {
 
   it('el día depende de la zona horaria del local', async () => {
     await move(p1, 'in', [compra, 'Compra'], '1.000', '1.000', '2026-10-20T02:30:00Z'); // 21:30 del 19 en Bogotá
-    const count = async () => (await stock.execute({ ...input, query: { ...day, group_by: 'day' } })).by_period.length;
+    const count = async () => (await stock.execute({ ...input, query: { ...day, group_by: 'day' } })).by_period.filter((p) => p.movement_count > 0).length;
     expect(await count()).toBe(1);
     location.timezone = 'Asia/Tokyo';
     expect(await count()).toBe(0);

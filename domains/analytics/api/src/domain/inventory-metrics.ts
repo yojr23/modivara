@@ -1,8 +1,8 @@
 import { MOVEMENT_DIRECTIONS, formatMilli } from '@modivara/commerce-contracts';
-import type { GroupBy, InventoryMetrics } from '@modivara/analytics-contracts';
-import type { DateRange } from './date-range.js';
+import type { InventoryMetrics } from '@modivara/analytics-contracts';
+import type { MetricsCtx } from './service-call-metrics.js';
 import type { StockMovementFact } from './stock-movement-fact.js';
-import { bucketOf } from './time-zone.js';
+import { bucketOf, bucketsBetween } from './time-zone.js';
 
 /** Saldo actual = `balance_after` del último movimiento por (lugar, producto). */
 export function latestPerPlaceAndProduct(facts: readonly StockMovementFact[]): StockMovementFact[] {
@@ -30,11 +30,15 @@ function isNewer(a: StockMovementFact, b: StockMovementFact): boolean {
 export function computeInventoryMetrics(
   movements: readonly StockMovementFact[],
   latest: readonly StockMovementFact[],
-  ctx: { timeZone: string; groupBy: GroupBy; range: DateRange },
+  ctx: MetricsCtx,
 ): InventoryMetrics {
   const byDirection = new Map<string, { count: number; total: bigint }>(MOVEMENT_DIRECTIONS.map((d) => [d, { count: 0, total: 0n }]));
   const byReason = new Map<string, { sample: StockMovementFact; count: number; total: bigint }>();
   const byPeriod = new Map<string, { start: Date; label: string; count: number; totals: Record<string, bigint> }>();
+  // Cubetas vacías con 0 hasta la actual, para que el front grafique sin rellenar.
+  for (const b of bucketsBetween(ctx.range.from, ctx.range.to, ctx.groupBy, ctx.timeZone, ctx.now ?? new Date())) {
+    byPeriod.set(b.label, { start: b.start, label: b.label, count: 0, totals: { in: 0n, out: 0n, adjust: 0n } });
+  }
 
   for (const m of movements) {
     const s = m.snapshot;

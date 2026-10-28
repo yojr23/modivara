@@ -2,7 +2,15 @@ import type { CallStatus } from '@modivara/hospitality-contracts';
 import type { GroupBy, ServiceCallMetrics } from '@modivara/analytics-contracts';
 import type { DateRange } from './date-range.js';
 import type { ServiceCallFact } from './service-call-fact.js';
-import { bucketOf } from './time-zone.js';
+import { bucketOf, bucketsBetween } from './time-zone.js';
+
+/** `now` limita el relleno de cubetas vacías (por defecto, el reloj). */
+export interface MetricsCtx {
+  timeZone: string;
+  groupBy: GroupBy;
+  range: DateRange;
+  now?: Date | undefined;
+}
 
 export interface DurationStats {
   count: number;
@@ -31,10 +39,13 @@ function tally<T>(items: readonly T[], key: (t: T) => string): Map<string, { sam
   return out;
 }
 
-// ponytail: solo cubetas con datos (sin rellenar ceros); rellenar si el front lo necesita para graficar.
 // ponytail: agrega en memoria; techo = volumen del piloto. Pasar a `date_trunc` en SQL (DATA-001 §5) al crecer.
-function periods(facts: readonly ServiceCallFact[], ctx: { timeZone: string; groupBy: GroupBy }) {
+function periods(facts: readonly ServiceCallFact[], ctx: MetricsCtx) {
   const out = new Map<string, { bucket_start: string; bucket_label: string; calls: number }>();
+  // Cubetas vacías con 0 hasta la actual, para que el front grafique sin rellenar.
+  for (const b of bucketsBetween(ctx.range.from, ctx.range.to, ctx.groupBy, ctx.timeZone, ctx.now ?? new Date())) {
+    out.set(b.label, { bucket_start: b.start.toISOString(), bucket_label: b.label, calls: 0 });
+  }
   for (const f of facts) {
     const b = bucketOf(f.snapshot.createdAt, ctx.groupBy, ctx.timeZone); // una vez por fact
     const p = out.get(b.label);
@@ -50,7 +61,7 @@ function periods(facts: readonly ServiceCallFact[], ctx: { timeZone: string; gro
  */
 export function computeServiceCallMetrics(
   facts: readonly ServiceCallFact[],
-  ctx: { timeZone: string; groupBy: GroupBy; range: DateRange },
+  ctx: MetricsCtx,
 ): ServiceCallMetrics {
   const status = (s: CallStatus) => facts.filter((f) => f.status === s).length;
   const repeats = facts.map((f) => f.snapshot.pressCount - 1);

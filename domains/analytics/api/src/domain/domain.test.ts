@@ -102,7 +102,8 @@ describe('ServiceCallFact', () => {
 });
 
 describe('computeServiceCallMetrics', () => {
-  const range = resolveRange({ range: 'last_7_days' }, new Date('2026-10-20T03:00:00Z'), TZ);
+  const now = new Date('2026-10-20T03:00:00Z'); // 22:00 del 19 en Bogotá
+  const range = resolveRange({ range: 'last_7_days' }, now, TZ);
   let n = 10;
   const call = (createdAt: string, o: { table?: number; zone?: number | null; ackS?: number; doneS?: number; presses?: number } = {}) => {
     const sid = uuid(n++);
@@ -118,7 +119,8 @@ describe('computeServiceCallMetrics', () => {
     if (o.doneS !== undefined) f.applyCompleted({ service_call_id: sid, completed_at: new Date(at + o.doneS * 1000).toISOString(), completed_by: uuid(9), press_count: o.presses ?? 1 });
     return f;
   };
-  const compute = (facts: ServiceCallFact[], groupBy: 'day' | 'hour' = 'day') => computeServiceCallMetrics(facts, { timeZone: TZ, groupBy, range });
+  const compute = (facts: ServiceCallFact[], groupBy: 'day' | 'hour' = 'day') => computeServiceCallMetrics(facts, { timeZone: TZ, groupBy, range, now });
+  const withCalls = (m: { by_period: { bucket_label: string; calls: number }[] }) => m.by_period.filter((p) => p.calls > 0);
 
   it('cuenta estados, pulsaciones repetidas y tiempos', () => {
     const m = compute([
@@ -138,11 +140,21 @@ describe('computeServiceCallMetrics', () => {
     ]);
     expect(m.by_table.map((t) => [t.table_label, t.calls])).toEqual([['M1', 2], ['M2', 1]]);
     expect(m.by_zone.map((z) => [z.zone_name, z.calls])).toEqual([['Z1', 2], [null, 1]]);
-    expect(m.by_period.map((p) => [p.bucket_label, p.calls])).toEqual([['2026-10-19', 1], ['2026-10-20', 2]]);
+    expect(withCalls(m).map((p) => [p.bucket_label, p.calls])).toEqual([['2026-10-19', 1], ['2026-10-20', 2]]);
   });
   it('agrupa por hora', () => {
     const m = compute([call('2026-10-20T04:59:59Z'), call('2026-10-20T05:00:00Z')], 'hour');
-    expect(m.by_period.map((p) => p.bucket_label)).toEqual(['2026-10-19T23:00', '2026-10-20T00:00']);
+    expect(withCalls(m).map((p) => p.bucket_label)).toEqual(['2026-10-19T23:00', '2026-10-20T00:00']);
+  });
+  it('rellena con 0 los periodos sin llamados del rango, sin pasar de la cubeta actual', () => {
+    const days = compute([call('2026-10-15T15:00:00Z')]).by_period;
+    expect(days.map((p) => [p.bucket_label, p.calls])).toEqual([
+      ['2026-10-13', 0], ['2026-10-14', 0], ['2026-10-15', 1], ['2026-10-16', 0], ['2026-10-17', 0], ['2026-10-18', 0], ['2026-10-19', 0],
+    ]);
+    const hours = compute([], 'hour').by_period;
+    expect(hours).toHaveLength(6 * 24 + 23); // del 13 a las 00:00 hasta la hora actual (19, 22:00), inclusive
+    expect(hours.at(-1)!.bucket_label).toBe('2026-10-19T22:00');
+    expect(new Set(hours.map((h) => h.bucket_label)).size).toBe(hours.length);
   });
   it('ignora duraciones negativas', () => {
     const m = compute([call('2026-10-19T15:00:00Z', { ackS: -5 })]);
@@ -192,8 +204,10 @@ describe('inventario', () => {
       ['in', 'Compra', '0.300'],
       ['out', 'Merma', '-0.050'],
     ]);
-    expect(m.by_period).toHaveLength(1);
-    expect(m.by_period[0]).toMatchObject({ movement_count: 4, in_delta: '0.300', out_delta: '-0.050', adjust_delta: '-1.000' });
+    const moved = m.by_period.filter((p) => p.movement_count > 0);
+    expect(moved).toHaveLength(1);
+    expect(m.by_period.every((p) => p.movement_count > 0 || (p.in_delta === '0.000' && p.out_delta === '0.000'))).toBe(true);
+    expect(moved[0]).toMatchObject({ movement_count: 4, in_delta: '0.300', out_delta: '-0.050', adjust_delta: '-1.000' });
   });
   it('desempata movimientos simultáneos de forma determinista', () => {
     const a = mov('in', '1', '1', '2026-10-19T10:00:00Z');

@@ -25,7 +25,8 @@ describe('F5-10 seed histórico', () => {
 
     const calls = serviceCallMetricsSchema.parse((await as('bar-demo/admin').get(P.serviceCallMetrics.replace(':locationId', locationId) + '?range=last_30_days&group_by=day')).body);
     expect(calls.totals).toMatchObject({ calls: first.calls, completed: first.calls, pending: 0, in_progress: 0 });
-    expect(new Set(calls.by_period.map((b) => b.bucket_label)).size).toBe(14);
+    expect(calls.by_period.filter((b) => b.calls > 0)).toHaveLength(14);
+    expect(calls.by_period).toHaveLength(30); // last_30_days con los días sin llamados en 0 (hoy incluido)
     expect(calls.by_table).toHaveLength(15);
     expect(calls.time_to_acknowledge.average_seconds).toBeGreaterThan(60);
     expect(calls.time_to_acknowledge.average_seconds).toBeLessThan(240);
