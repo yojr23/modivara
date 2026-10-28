@@ -21,3 +21,10 @@ export type {
   StockMovementFactRepository,
 } from './application/index.js';
 export { EventOutOfOrderError, InvalidEventError, TenantMismatchError } from './domain/index.js';
+export {
+  createAnalyticsPrisma,
+  PrismaProcessedEventStore,
+  PrismaServiceCallFactRepository,
+  PrismaStockMovementFactRepository,
+} from './infrastructure/prisma/index.js';
+export type { AnalyticsPrisma } from './infrastructure/prisma/index.js';
