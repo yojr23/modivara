@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@modivara/analytics-api": "workspace:*",
-    "@modivara/commerce-api": "workspace:*",
+    "@modivara/analytics-contracts": "workspace:*",    "@modivara/commerce-api": "workspace:*",
     "@modivara/core-api": "workspace:*",
     "@modivara/core-contracts": "workspace:*",
     "@modivara/hospitality-api": "workspace:*",

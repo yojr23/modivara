@@ -6,6 +6,7 @@ import {
 import {
   createAnalyticsPrisma, PrismaProcessedEventStore, PrismaServiceCallFactRepository, PrismaStockMovementFactRepository, type AnalyticsPrisma,
 } from './infrastructure/prisma/index.js';
+import { MetricsController } from './presentation/index.js';
 
 // Tokens de inyección de los puertos (strings, como en commerce).
 export const ANALYTICS_PRISMA = 'ANALYTICS_PRISMA';
@@ -43,6 +44,7 @@ export class AnalyticsModule implements OnModuleDestroy {
     const databaseUrl = options.databaseUrl ?? process.env.ANALYTICS_DATABASE_URL;
     return {
       module: AnalyticsModule,
+      controllers: [MetricsController],
       providers: [
         {
           provide: ANALYTICS_PRISMA,

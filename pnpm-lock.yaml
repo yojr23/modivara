@@ -26,6 +26,9 @@ importers:
       '@modivara/analytics-api':
         specifier: workspace:*
         version: link:../../domains/analytics/api
+      '@modivara/analytics-contracts':
+        specifier: workspace:*
+        version: link:../../domains/analytics/contracts
       '@modivara/commerce-api':
         specifier: workspace:*
         version: link:../../domains/commerce/api

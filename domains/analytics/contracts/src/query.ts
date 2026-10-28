@@ -50,3 +50,9 @@ export const inventoryMetricsQuerySchema = z
   .object({ ...rangeShape, product_id: z.uuid().optional(), stock_location_id: z.uuid().optional() })
   .superRefine(checkCustomRange);
 export type InventoryMetricsQuery = z.infer<typeof inventoryMetricsQuerySchema>;
+
+/** API de métricas bajo `/api/v1` (PLAN-001 F5-07). Por local: el guard de permisos verifica ESE local. */
+export const ANALYTICS_API_PATHS = {
+  serviceCallMetrics: '/locations/:locationId/metrics/service-calls',
+  inventoryMetrics: '/locations/:locationId/metrics/inventory',
+} as const;
