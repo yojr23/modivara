@@ -1,7 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { toErrorState } from '../client.js';
-import { callsApi, toCallConflict } from '../calls.js';
+import { callsApi, toCallConflict, type CallHistoryQuery } from '../calls.js';
 import { applyCallChange, callsKeys } from './cache.js';
 import { RealtimeClient, type RealtimeState, type SocketFactory } from './client.js';
 
@@ -32,6 +32,16 @@ export const useGatewaysStatus = () => useRealtimeState().gateways;
 /** Llamados activos: REST + `service_call.changed` aplicado al caché por el `RealtimeProvider`. */
 export const useActiveCalls = (l: string) =>
   useQuery({ queryKey: callsKeys.active(l), queryFn: () => callsApi.listActive(l), retry: false });
+
+/** Historial paginado (más reciente primero): `fetchNextPage` sigue el cursor opaco; `data.pages` son las páginas. */
+export const useCallHistory = (l: string, filters: Omit<CallHistoryQuery, 'cursor'> = {}) =>
+  useInfiniteQuery({
+    queryKey: callsKeys.history(l, filters),
+    queryFn: ({ pageParam }) => callsApi.listHistory(l, { ...filters, ...(pageParam && { cursor: pageParam }) }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    retry: false,
+  });
 
 function callMutation(l: string, fn: (callId: string) => ReturnType<typeof callsApi.acknowledge>) {
   const qc = useQueryClient();

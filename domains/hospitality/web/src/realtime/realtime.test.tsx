@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
-  ApiRequestError, RealtimeProvider, callErrorState, hospitalityKeys, useAcknowledgeCall, useActiveCalls, useConnectionStatus, useGatewaysStatus,
+  ApiRequestError, RealtimeProvider, callErrorState, hospitalityKeys, useAcknowledgeCall, useActiveCalls, useCallHistory, useConnectionStatus, useGatewaysStatus,
   type RealtimeSocket,
 } from '../index.js';
 
@@ -128,4 +128,27 @@ it('reconocer: éxito actualiza el caché; 409 con llamado vigente se traduce a 
   expect(callErrorState(err)).toEqual({ state: 'conflict' });
   expect(callErrorState(null)).toBeUndefined();
   expect(hospitalityKeys.zones(L)).toBeDefined();
+});
+
+it('useCallHistory sigue el cursor opaco, concatena páginas y envía filtros', async () => {
+  const pages = [{ items: [call(1), call(2)], next_cursor: 'c1' }, { items: [call(3)], next_cursor: null }];
+  const f = vi.fn().mockImplementation(async () => json(pages.shift()));
+  vi.stubGlobal('fetch', f);
+  const { wrapper } = setup();
+  const filters = { from: '2026-01-01T00:00:00Z', to: '2026-01-02T00:00:00Z', limit: 2 };
+  const { result } = renderHook(() => useCallHistory(L, filters), { wrapper });
+  await waitFor(() => expect(result.current.hasNextPage).toBe(true));
+  expect(f.mock.calls[0]![0]).toBe(`/api/v1/locations/${L}/service-calls?status=all&from=2026-01-01T00%3A00%3A00Z&to=2026-01-02T00%3A00%3A00Z&limit=2`);
+  await act(() => result.current.fetchNextPage());
+  await waitFor(() => expect(result.current.data?.pages.flatMap((p) => p.items).map((c) => c.id)).toEqual([id(1), id(2), id(3)]));
+  expect(f.mock.calls[1]![0]).toContain('cursor=c1');
+  expect(result.current.hasNextPage).toBe(false);
+});
+
+it('useCallHistory tipa el 403', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 'forbidden' }, 403)));
+  const { wrapper } = setup();
+  const { result } = renderHook(() => useCallHistory(L), { wrapper });
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  expect(callErrorState(result.current.error)).toEqual({ state: 'forbidden' });
 });
