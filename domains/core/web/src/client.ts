@@ -1,6 +1,7 @@
 import {
-  CORE_API_PATHS, apiErrorSchema, loginResponseSchema, meResponseSchema,
-  type LoginRequest, type LoginResponse, type MeResponse,
+  CORE_API_PATHS, apiErrorSchema, loginResponseSchema, meResponseSchema, membershipResponseSchema, userResponseSchema, usersResponseSchema,
+  type CreateUserRequest, type LoginRequest, type LoginResponse, type MeResponse, type MembershipResponse,
+  type ResetPasswordRequest, type SetLocationRolesRequest, type UserResponse, type UsersResponse,
 } from '@modivara/core-contracts';
 
 export const API_BASE = '/api/v1';
@@ -20,6 +21,25 @@ export class InvalidResponseError extends Error {
     this.name = 'InvalidResponseError';
   }
 }
+
+/** Estado de UI tipado: 403 sin permiso, 409 usuario duplicado, 400/422 validación (p. ej. contraseña débil). */
+export type ErrorState = 'unauthorized' | 'forbidden' | 'not_found' | 'conflict' | 'validation' | 'unknown';
+export function toErrorState(e: unknown): ErrorState {
+  if (!(e instanceof ApiRequestError)) return 'unknown';
+  switch (e.status) {
+    case 401: return 'unauthorized';
+    case 403: return 'forbidden';
+    case 404: return 'not_found';
+    case 409: return 'conflict';
+    case 400: case 422: return 'validation';
+    default: return 'unknown';
+  }
+}
+
+/** Sustituye `:param` codificando cada valor. */
+const path = (template: string, params: Record<string, string>) =>
+  template.replace(/:(\w+)/g, (_, k: string) => encodeURIComponent(params[k] ?? ''));
+const post = (body?: unknown): RequestInit => ({ method: 'POST', ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 
 type Parser<T> = { safeParse(data: unknown): { success: true; data: T } | { success: false } };
 
@@ -47,4 +67,17 @@ export const coreApi = {
   login: (input: LoginRequest): Promise<LoginResponse> =>
     request(CORE_API_PATHS.login, loginResponseSchema, { method: 'POST', body: JSON.stringify(input) }),
   logout: (): Promise<void> => request(CORE_API_PATHS.logout, null, { method: 'POST' }),
+};
+
+export const usersApi = {
+  list: async (): Promise<UserResponse[]> => (await request<UsersResponse>(CORE_API_PATHS.users, usersResponseSchema)).users,
+  create: (input: CreateUserRequest): Promise<UserResponse> => request(CORE_API_PATHS.users, userResponseSchema, post(input)),
+  resetPassword: (userId: string, input: ResetPasswordRequest): Promise<void> =>
+    request(path(CORE_API_PATHS.userPasswordReset, { userId }), null, post(input)),
+  deactivate: (userId: string): Promise<void> => request(path(CORE_API_PATHS.userDeactivate, { userId }), null, post()),
+  revokeSessions: (userId: string): Promise<void> => request(path(CORE_API_PATHS.userRevokeSessions, { userId }), null, post()),
+  setLocationRoles: (userId: string, locationId: string, input: SetLocationRolesRequest): Promise<MembershipResponse> =>
+    request(path(CORE_API_PATHS.userLocationRoles, { userId, locationId }), membershipResponseSchema, {
+      method: 'PUT', body: JSON.stringify(input),
+    }),
 };
