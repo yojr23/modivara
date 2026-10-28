@@ -2,7 +2,7 @@
 
 Monorepo del MVP (pnpm workspaces). Destino: cuatro repositorios (`platform-core`, `hospitality-ops`, `commerce`, `analytics`); ver ADR-002 D1.
 
-Documentación de arquitectura en `../documentos/` (ADR-001, ADR-002, TECH-001 v1.3, DATA-001, BRAND-002).
+Documentación de arquitectura en `../documentos/` (ADR-001, ADR-002, TECH-001 v1.4, DATA-001 v1.1, BRAND-002) y plan de trabajo con el estado por fase en `PLAN-001`.
 
 ## Desarrollo
 
@@ -52,6 +52,13 @@ Datos de demo de hospitality (después de `seed:core`; idempotente, se niega con
 ```bash
 docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<la misma clave de demo>' api sh -c 'cd /repo/apps/api && node dist/seed-hospitality.js'
 # con una base propia (CORE_DATABASE_URL y HOSPITALITY_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:hospitality
+```
+
+Datos de demo de commerce (después de `seed:core`; idempotente, se niega con `NODE_ENV=production`): en `bar-demo` y `bar-demo-pisos`, motivos sembrados, lugar «Principal» y 10 productos con stock inicial.
+
+```bash
+docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<la misma clave de demo>' api sh -c 'cd /repo/apps/api && node dist/seed-commerce.js'
+# con una base propia (CORE_DATABASE_URL y COMMERCE_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:commerce
 ```
 
 Tiempo real y outbox de hospitality: Socket.IO en `/api/v1/realtime` (misma cookie de sesión; rechaza sin sesión y con `Origin` distinto del host) emite `service_call.changed` y `gateways.status` a la sala del local tras suscribirse con `location.subscribe`. El poller del outbox corre en el mismo proceso de la API cada `OUTBOX_POLL_INTERVAL_MS` (por defecto 1000) y entrega a los suscriptores registrados bajo `INTEGRATION_EVENT_SUBSCRIBERS` (una transacción por evento; 5 s máximo por entrega, vencido cuenta como fallo con espera creciente). Core, hospitality y commerce tienen cada uno su outbox y el mismo poller (`core-contracts`); core publica `core.location.created.v1` y los otros dos siembran lo suyo al recibirlo. Tras 10 intentos fallidos el evento queda con `failed_at` (y su `last_error`) y el poller deja de tomarlo; nada se borra. Para liberarlo: `pnpm outbox:retry <core|hospitality|commerce> [event_id]` (sin `event_id`, todos los detenidos de ese outbox; pone `failed_at = NULL, attempts = 0` y vence de inmediato).
