@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { newId, permissionsFor, type Permission, type RequestActor } from '@modivara/core-contracts';
-import { type CallType, callConflictSchema, serviceCallPageSchema, serviceCallSchema, tableSchema, zoneSchema } from '@modivara/hospitality-contracts';
+import { type CallType, callConflictSchema, serviceCallDetailSchema, serviceCallPageSchema, serviceCallSchema, tableSchema, zoneSchema } from '@modivara/hospitality-contracts';
 import { ServiceCall } from '../domain/service-calls/service-call.js';
 import { createHospitalityTestApp, type TestCaller } from '../testing/http.js';
 
@@ -132,5 +132,41 @@ describe('F3-08 acknowledge / complete', () => {
     expect(doneAgain.status).toBe(200);
     expect(doneAgain.body).toEqual(done.body);
     expect(t.repos.calls.transitions.filter((x) => x.serviceCallId === id).map((x) => x.action)).toEqual(['create', 'acknowledge', 'complete']);
+  });
+});
+
+describe('F3-14 nombres de actores y detalle', () => {
+  const nameOf = (c: TestCaller, name: string) => t.core.addUser(c.actor.actorUserId, c.actor.organizationId, name);
+
+  it('lista y detalle resuelven nombres (reconoce uno, cierra otro); transiciones por occurred_at', async () => {
+    nameOf(staff, 'Ana');
+    nameOf(staff2, 'Beto');
+    const id = await seedCall(orgA, locA, null, new Date('2026-10-16T10:00:00Z'));
+    await t.as(staff).post(`${base}/service-calls/${id}/acknowledge`);
+    await t.as(staff2).post(`${base}/service-calls/${id}/complete`);
+
+    const list = serviceCallPageSchema.parse((await t.as(staff).get(`${base}/service-calls?status=completed&from=2026-10-16T00:00:00Z&to=2026-10-17T00:00:00Z`)).body);
+    expect(list.items[0]).toMatchObject({ id, acknowledged_by_name: 'Ana', completed_by_name: 'Beto' });
+
+    const res = await t.as(staff).get(`${base}/service-calls/${id}`);
+    expect(res.status).toBe(200);
+    const d = serviceCallDetailSchema.parse(res.body);
+    expect(d).toMatchObject({ id, acknowledged_by: staff.actor.actorUserId, acknowledged_by_name: 'Ana', completed_by_name: 'Beto' });
+    expect(d.transitions.map((x) => [x.action, x.actor_user_id, x.actor_name])).toEqual([
+      ['create', null, null],
+      ['acknowledge', staff.actor.actorUserId, 'Ana'],
+      ['complete', staff2.actor.actorUserId, 'Beto'],
+    ]);
+    const times = d.transitions.map((x) => Date.parse(x.occurred_at));
+    expect(times).toEqual([...times].sort((a, b) => a - b));
+  });
+
+  it('inventory 403; llamado de otro local/negocio y desconocido 404; id mal formado 400', async () => {
+    const id = await seedCall(orgA, locA, null, new Date('2026-10-16T11:00:00Z'));
+    expect((await t.as(inventory).get(`${base}/service-calls/${id}`)).status).toBe(403);
+    expect((await t.as(staffB).get(`${base}/service-calls/${id}`)).status).toBe(404);
+    expect((await t.as(staffB).get(`/locations/${locB}/service-calls/${id}`)).status).toBe(404);
+    expect((await t.as(staff).get(`${base}/service-calls/${newId()}`)).status).toBe(404);
+    expect((await t.as(staff).get(`${base}/service-calls/no-uuid`)).status).toBe(400);
   });
 });

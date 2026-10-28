@@ -3,6 +3,7 @@ import type { Device } from '../../domain/devices/device.js';
 import type { DeviceAssignment } from '../../domain/devices/device-assignment.js';
 import type { Gateway } from '../../domain/devices/gateway.js';
 import type { ServiceCall } from '../../domain/service-calls/service-call.js';
+import type { CallTransitionRecord } from '../../domain/service-calls/transitions.js';
 import type { DiningTable } from '../../domain/tables/dining-table.js';
 import type { LocationSettings } from '../../domain/settings/location-settings.js';
 import type { Zone } from '../../domain/tables/zone.js';
@@ -35,6 +36,8 @@ export interface ServiceCallRepository {
   listActive(scope: Scope): Promise<ServiceCall[]>;
   /** Activos: más antiguos primero (tablero); historial (`all` o un estado): más recientes primero. Orden total por `(created_at, id)`. */
   list(scope: Scope, query: CallListQuery): Promise<ServiceCall[]>;
+  /** Historia del llamado ordenada por `occurred_at` (desempate por id); vacía si no es del local. */
+  listTransitions(key: ById): Promise<CallTransitionRecord[]>;
   /**
    * Persiste en UNA transacción el agregado, sus transiciones y sus eventos en el outbox, y llama a `call.pullEvents()`/`call.pullTransitions()`.
    * Lanza `ConcurrencyConflictError` (con el estado actual) si el estado cambió desde que se leyó

@@ -58,6 +58,10 @@ export class InMemoryServiceCallRepository implements ServiceCallRepository {
   async listActive(scope: Scope) {
     return this.store.all().filter((c) => inScope(c, scope) && c.isActive);
   }
+  async listTransitions({ id, ...scope }: ById) {
+    if (!(await this.findById({ id, ...scope }))) return [];
+    return this.transitions.filter((t) => t.serviceCallId === id).sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime()).map(({ serviceCallId: _, ...t }) => t);
+  }
   async list(scope: Scope, q: CallListQuery) {
     const asc = q.status === 'active';
     const key = (c: ServiceCall) => [c.createdAt.getTime(), c.id] as const;
@@ -284,6 +288,12 @@ export class FakeCoreAccess implements CoreAccessPort {
   revokeSession(token: string) { this.sessions.delete(token); }
   /** Permisos del usuario en un local (lo que core resolvería con sus membresías). */
   grant(actorUserId: string, locationId: string, permissions: readonly Permission[]) { this.grants.set(`${actorUserId}/${locationId}`, new Set(permissions)); }
+  private readonly names = new Map<string, { organizationId: string; name: string }>();
+  /** Usuario de prueba con nombre visible (los desactivados también resuelven, como en core). */
+  addUser(id: string, organizationId: string, name: string) { this.names.set(id, { organizationId, name }); }
+  async userDisplayNames({ organizationId, userIds }: { organizationId: string; userIds: readonly string[] }) {
+    return new Map(userIds.flatMap((id) => (this.names.get(id)?.organizationId === organizationId ? [[id, this.names.get(id)!.name] as [string, string]] : [])));
+  }
   async authenticateSession(token: string) { return this.sessions.get(token) ?? null; }
   async permissionsAt(actor: RequestActor, locationId: string) {
     const loc = this.locations.get(locationId);

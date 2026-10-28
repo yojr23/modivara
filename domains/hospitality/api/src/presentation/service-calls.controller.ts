@@ -1,9 +1,10 @@
 import { Catch, Controller, Get, HttpCode, Inject, Param, Post, Query, UseFilters, type ArgumentsHost, type ExceptionFilter, Headers } from '@nestjs/common';
 import { CORE_ACCESS_PORT, NotFoundError, type CoreAccessPort, type RequestActor } from '@modivara/core-contracts';
-import { CALLS_API_PATHS as P, listServiceCallsQuerySchema, type ServiceCallDto, type ServiceCallPage } from '@modivara/hospitality-contracts';
+import { CALLS_API_PATHS as P, listServiceCallsQuerySchema, type ServiceCallDetailDto, type ServiceCallDto, type ServiceCallPage } from '@modivara/hospitality-contracts';
 import { AcknowledgeCall } from '../application/acknowledge-call.js';
 import { CallViews } from '../application/call-view.js';
 import { CompleteCall } from '../application/complete-call.js';
+import { GetServiceCall } from '../application/get-service-call.js';
 import { ListServiceCalls } from '../application/list-service-calls.js';
 import { ConcurrencyConflictError } from '../domain/errors.js';
 import { contextOf, CurrentActor, idOf, RequireModule, RequirePermission } from './decorators.js';
@@ -27,6 +28,7 @@ export class ServiceCallsController {
   constructor(
     @Inject(CORE_ACCESS_PORT) private readonly core: CoreAccessPort,
     @Inject(ListServiceCalls) private readonly list: ListServiceCalls,
+    @Inject(GetServiceCall) private readonly detail: GetServiceCall,
     @Inject(AcknowledgeCall) private readonly acknowledge: AcknowledgeCall,
     @Inject(CompleteCall) private readonly complete: CompleteCall,
     @Inject(CallViews) private readonly views: CallViews,
@@ -51,6 +53,15 @@ export class ServiceCallsController {
       ...(q.cursor && { cursor: q.cursor }),
     });
     return { items: page.items, next_cursor: page.nextCursor };
+  }
+
+  @Get(P.serviceCall)
+  @RequirePermission('hospitality.calls.read')
+  async show(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('callId') callId: string): Promise<ServiceCallDetailDto> {
+    const ctx = contextOf(actor, locationId);
+    const permissions = await this.core.permissionsAt(actor, ctx.locationId, 'hospitality');
+    if (!permissions) throw new NotFoundError('location');
+    return this.detail.execute({ ...ctx, permissions, callId: idOf(callId) });
   }
 
   // OPEN: almacenamiento de `Idempotency-Key` (DATA-001 solo la define para movimientos de commerce). Hoy se acepta el header y la

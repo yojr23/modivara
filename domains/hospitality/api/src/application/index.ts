@@ -6,6 +6,7 @@ export * from './ensure-location-settings.js';
 export * from './gateway-health.js';
 export * from './gateways.js';
 export * from './list-active-calls.js';
+export * from './get-service-call.js';
 export * from './list-service-calls.js';
 export * from './ports/index.js';
 export * from './register-button-press.js';

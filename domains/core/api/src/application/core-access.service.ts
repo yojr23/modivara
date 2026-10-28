@@ -2,7 +2,7 @@ import { NotFoundError, type CoreAccessPort, type LocationRef, type ModuleName, 
 import { SessionInvalidError } from '../domain/index.js';
 import type { AuthenticateSession } from './authenticate-session.js';
 import { isLocationAvailable } from './location-availability.js';
-import type { EntitlementRepository, LocationRepository } from './ports/index.js';
+import type { EntitlementRepository, LocationRepository, UserRepository } from './ports/index.js';
 import type { ResolveLocationAccess } from './resolve-location-access.js';
 
 /** Implementación en proceso de `CoreAccessPort`; al separar repositorios se reemplaza por un cliente HTTP. */
@@ -10,6 +10,7 @@ export class CoreAccessService implements CoreAccessPort {
   constructor(
     private readonly locations: LocationRepository,
     private readonly entitlements: EntitlementRepository,
+    private readonly users: Pick<UserRepository, 'displayNames'>,
     private readonly authenticate: Pick<AuthenticateSession, 'execute'>,
     private readonly access: Pick<ResolveLocationAccess, 'execute'>,
   ) {}
@@ -23,6 +24,10 @@ export class CoreAccessService implements CoreAccessPort {
     if (!found) return null;
     const { location } = found;
     return { id: location.id, organizationId: location.organizationId, timezone: location.timezone, active: isLocationAvailable(found) };
+  }
+
+  userDisplayNames(ref: { organizationId: string; userIds: readonly string[] }) {
+    return this.users.displayNames(ref);
   }
 
   async authenticateSession(token: string): Promise<RequestActor | null> {

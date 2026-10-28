@@ -1,11 +1,12 @@
 import { z } from 'zod';
-import { CALL_STATUSES, CALL_TYPES } from './enums.js';
+import { CALL_ACTIONS, CALL_STATUSES, CALL_TYPES } from './enums.js';
 import { CONNECTIVITY_STATUSES } from './config-api.js';
 
 /** API de llamados bajo `/api/v1` (PLAN-001 F3-08). Toda consulta pasa por `canSeeCall` en el servidor. */
 export const CALLS_API_PATHS = {
   serviceCalls: '/locations/:locationId/service-calls',
   acknowledge: '/locations/:locationId/service-calls/:callId/acknowledge',
+  serviceCall: '/locations/:locationId/service-calls/:callId',
   complete: '/locations/:locationId/service-calls/:callId/complete',
 } as const;
 
@@ -23,10 +24,27 @@ export const serviceCallSchema = z.object({
   last_press_at: z.iso.datetime({ offset: true }),
   acknowledged_at: z.iso.datetime({ offset: true }).nullable(),
   acknowledged_by: z.uuid().nullable(),
+  /** Nombre visible resuelto por core; null si no hay actor o ya no se puede resolver. */
+  acknowledged_by_name: z.string().nullable(),
   completed_at: z.iso.datetime({ offset: true }).nullable(),
   completed_by: z.uuid().nullable(),
+  completed_by_name: z.string().nullable(),
 });
 export type ServiceCallDto = z.infer<typeof serviceCallSchema>;
+
+/** `GET service-calls/:callId`: el llamado más su historia, por `occurred_at`. `actor_*` null cuando el origen es un botón. */
+export const callTransitionSchema = z.object({
+  action: z.enum(CALL_ACTIONS),
+  from_status: z.enum(CALL_STATUSES).nullable(),
+  to_status: z.enum(CALL_STATUSES),
+  occurred_at: z.iso.datetime({ offset: true }),
+  actor_user_id: z.uuid().nullable(),
+  actor_name: z.string().nullable(),
+  device_event_id: z.uuid().nullable(),
+});
+export const serviceCallDetailSchema = serviceCallSchema.extend({ transitions: z.array(callTransitionSchema) });
+export type CallTransitionDto = z.infer<typeof callTransitionSchema>;
+export type ServiceCallDetailDto = z.infer<typeof serviceCallDetailSchema>;
 
 /** Reconocer y finalizar responden con el llamado actualizado. */
 export const callActionResponseSchema = serviceCallSchema;

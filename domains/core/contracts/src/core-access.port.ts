@@ -28,6 +28,11 @@ export interface CoreAccessPort {
    * negocio (indistinguibles), o si se pide `module` y el negocio no lo tiene habilitado (el superadmin pasa siempre).
    */
   permissionsAt(actor: RequestActor, locationId: string, module?: ModuleName): Promise<ReadonlySet<Permission> | null>;
+  /**
+   * Nombres visibles de usuarios del negocio, en una sola consulta (usuarios desactivados incluidos). Los ids que no son del negocio
+   * ni de la organización plataforma (superadmin que actúa en él) no aparecen en el resultado.
+   */
+  userDisplayNames(ref: { organizationId: string; userIds: readonly string[] }): Promise<Map<string, string>>;
 }
 
 /** Token de inyección bajo el que `CoreModule` exporta el `CoreAccessPort`; otros dominios lo inyectan sin importar internos de core. */

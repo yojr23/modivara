@@ -90,7 +90,7 @@ describe('acceso a locales', () => {
 
   describe('CoreAccessService (CoreAccessPort)', () => {
     const makePort = () =>
-      new CoreAccessService(w.locations, w.entitlements, new AuthenticateSession(w.sessions, w.users, w.organizations, w.tokens), resolve);
+      new CoreAccessService(w.locations, w.entitlements, w.users, new AuthenticateSession(w.sessions, w.users, w.organizations, w.tokens), resolve);
 
     it('devuelve LocationRef o null', async () => {
       const port = makePort();
@@ -113,6 +113,14 @@ describe('acceso a locales', () => {
       const port = makePort();
       expect(await port.authenticateSession(token)).toEqual(actor);
       expect(await port.authenticateSession('otro')).toBeNull();
+    });
+
+    it('userDisplayNames: del negocio y de la plataforma; no de otro negocio', async () => {
+      const ana = await w.addUser(w.sol, 'ana');
+      const root = await w.addUser(w.platform, 'root');
+      const lola = await w.addUser(w.luna, 'lola');
+      const names = await makePort().userDisplayNames({ organizationId: w.sol.id, userIds: [ana.id, root.id, lola.id] });
+      expect([...names.keys()].sort()).toEqual([ana.id, root.id].sort());
     });
 
     it('permissionsAt: permisos del rol en el local; null en local ajeno o con módulo deshabilitado', async () => {

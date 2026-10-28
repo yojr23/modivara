@@ -32,7 +32,7 @@ describe('PrismaEntitlementRepository', () => {
     const sol = await seedOrganization(db, 'bar-sol');
     await repo.save(Entitlement.create({ organizationId: sol.id, module: 'hospitality' }));
     await repo.save(Entitlement.create({ organizationId: sol.id, module: 'commerce', enabled: false }));
-    const port = new CoreAccessService(new PrismaLocationRepository(db), repo, undefined as never, undefined as never) // sesión y permisos: ver access.test.ts;
+    const port = new CoreAccessService(new PrismaLocationRepository(db), repo, undefined as never, undefined as never, undefined as never) // sesión y permisos: ver access.test.ts;
     expect(await port.isModuleEnabled(sol.id, 'hospitality')).toBe(true);
     expect(await port.isModuleEnabled(sol.id, 'commerce')).toBe(false);
     expect(await port.isModuleEnabled(sol.id, 'analytics')).toBe(false);

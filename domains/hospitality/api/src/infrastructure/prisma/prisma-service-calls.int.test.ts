@@ -249,3 +249,19 @@ describe('list (cursor estable por (created_at, id))', () => {
     expect(await calls.list({ organizationId: t.organizationId, locationId: newId() }, { status: 'all', limit: 10 })).toEqual([]);
   });
 });
+
+describe('listTransitions', () => {
+  it('ordenadas por occurred_at y acotadas al local', async () => {
+    const s = await setup(1);
+    const callId = (await press.registerPress(s.normalized('btn-1'))).serviceCallId!;
+    const call = (await calls.findById({ ...t, id: callId }))!;
+    call.acknowledge(waiter, new Date(Date.now() + 1000));
+    await calls.save(call);
+    const again = (await calls.findById({ ...t, id: callId }))!;
+    again.complete(waiter, new Date(Date.now() + 2000));
+    await calls.save(again);
+    expect((await calls.listTransitions({ ...t, id: callId })).map((x) => x.action)).toEqual(['create', 'acknowledge', 'complete']);
+    expect(await calls.listTransitions({ ...t, locationId: newId(), id: callId })).toEqual([]);
+    expect(await calls.listTransitions({ ...t, organizationId: newId(), id: callId })).toEqual([]);
+  });
+});

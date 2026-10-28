@@ -5,7 +5,7 @@ import {
 import { HOSPITALITY_EVENT_HISTORY } from '@modivara/hospitality-contracts';
 import {
   AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, EnsureLocationSettings, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
-  GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice, SeedCallHistory,
+  GetDeviceStatus, ListActiveCalls, ListServiceCalls, GetServiceCall, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice, SeedCallHistory,
 } from './application/index.js';
 import type {
   ButtonPressStore, CallHistoryStore, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, GatewayRepository,
@@ -76,7 +76,8 @@ const useCases = [
   [GetConnectivity, [CORE, GATEWAYS]],
   [GetDeviceStatus, [CORE, TABLES, ASSIGNMENTS, GetConnectivity]],
   [ListActiveCalls, [CORE, CALLS, TABLES, ZONES, SETTINGS]],
-  [CallViews, [TABLES, ZONES]],
+  [CallViews, [TABLES, ZONES, CORE]],
+  [GetServiceCall, [CORE, CALLS, CallViews, SETTINGS]],
   [ListServiceCalls, [CORE, CALLS, CallViews, SETTINGS]],
   [AcknowledgeCall, [CALLS, NOTIFICATIONS]],
   [CompleteCall, [CALLS, NOTIFICATIONS]],

@@ -1,3 +1,5 @@
+import { CallViews } from '../application/call-view.js';
+import { GetServiceCall } from '../application/get-service-call.js';
 import { AcknowledgeCall } from '../application/acknowledge-call.js';
 import { CompleteCall } from '../application/complete-call.js';
 import { AssignDevice, ListDevices, ListUnknownDevices, RegisterDevice, UnassignDevice } from '../application/devices.js';
@@ -36,6 +38,7 @@ export function buildWorld() {
   const gateways = new InMemoryGatewayRepository();
   const settings = new InMemoryLocationSettingsRepository();
   const events = new InMemoryDeviceEventRepository(devices);
+  const views = new CallViews(tables, zones, core);
   const store = new InMemoryButtonPressStore(calls, events);
   const notifications = new RecordingNotifications((id) => calls.all().some((c) => c.id === id));
 
@@ -75,6 +78,8 @@ export function buildWorld() {
     createGateway: new CreateGateway(core, gateways),
     heartbeat: new RecordHeartbeat(core, gateways),
     connectivity,
+    views,
+    getCall: new GetServiceCall(core, calls, views, settings),
     listActive: new ListActiveCalls(core, calls, tables, zones, settings),
     listUnknown: new ListUnknownDevices(events, core),
   };

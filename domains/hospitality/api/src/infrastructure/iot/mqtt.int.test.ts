@@ -19,7 +19,7 @@ import { hospitalityPrismaForTests, resetHospitality, TEST_HOSPITALITY_DATABASE_
 const t = tenant();
 const actorUserId = newId();
 let moduleEnabled = true;
-const core: CoreAccessPort = { isModuleEnabled: async () => moduleEnabled, authenticateSession: async () => null, permissionsAt: async () => null,
+const core: CoreAccessPort = { isModuleEnabled: async () => moduleEnabled, authenticateSession: async () => null, permissionsAt: async () => null, userDisplayNames: async () => new Map<string, string>(),
   getLocation: async (id) => (id === t.locationId ? { id, organizationId: t.organizationId, timezone: 'America/Bogota', active: true } : null) };
 
 @Global()

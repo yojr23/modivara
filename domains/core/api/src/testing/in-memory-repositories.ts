@@ -46,6 +46,7 @@ export class InMemoryLocationRepository implements LocationRepository {
 export class InMemoryUserRepository implements UserRepository {
   readonly items = new Map<string, AppUser>();
   saves = 0;
+  constructor(private readonly organizations?: InMemoryOrganizationRepository) {}
   async findById({ id, organizationId }: { id: string; organizationId: string }) {
     const u = this.items.get(id);
     return u && u.organizationId === organizationId ? u : null;
@@ -61,6 +62,14 @@ export class InMemoryUserRepository implements UserRepository {
     return [...this.items.values()].filter((u) => u.organizationId === organizationId).sort((a, b) => a.username.localeCompare(b.username));
   }
   async save(u: AppUser) { this.saves++; this.items.set(u.id, u); }
+  async displayNames({ organizationId, userIds }: { organizationId: string; userIds: readonly string[] }) {
+    const names = new Map<string, string>();
+    for (const id of userIds) {
+      const u = this.items.get(id);
+      if (u && (u.organizationId === organizationId || this.organizations?.items.get(u.organizationId)?.isPlatform)) names.set(id, u.displayName);
+    }
+    return names;
+  }
 
   readonly #locks = new Map<string, Promise<unknown>>();
   /** Serializa por usuario y trabaja sobre una copia, como una transacción: sin el bloqueo habría actualizaciones perdidas. */

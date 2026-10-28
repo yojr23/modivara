@@ -50,6 +50,16 @@ export class PrismaUserRepository implements UserRepository {
     return rows.map(toDomain);
   }
 
+  async displayNames({ organizationId, userIds }: { organizationId: string; userIds: readonly string[] }) {
+    if (!userIds.length) return new Map<string, string>();
+    // OPEN: ¿el superadmin (organización plataforma) puede verse con nombre en el historial de cualquier negocio? Hoy sí.
+    const rows = await this.prisma.appUser.findMany({
+      where: { id: { in: [...userIds] }, OR: [{ organizationId }, { organization: { isPlatform: true } }] },
+      select: { id: true, displayName: true },
+    });
+    return new Map(rows.map((r) => [r.id, r.displayName]));
+  }
+
   save(u: AppUser) {
     return saveUser(this.prisma, u);
   }

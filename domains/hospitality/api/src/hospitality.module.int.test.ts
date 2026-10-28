@@ -11,7 +11,7 @@ const actorUserId = newId();
 const core: CoreAccessPort = {
   isModuleEnabled: async () => true,
   authenticateSession: async () => null,
-  permissionsAt: async () => null,
+  permissionsAt: async () => null, userDisplayNames: async () => new Map<string, string>(),
   getLocation: async (id) => (id === t.locationId ? { id, organizationId: t.organizationId, timezone: 'America/Bogota', active: true } : null),
 };
 

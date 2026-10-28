@@ -22,7 +22,7 @@ export const TEST_PASSWORD = 'Secret123';
 export class World {
   readonly organizations = new InMemoryOrganizationRepository();
   readonly locations = new InMemoryLocationRepository(this.organizations);
-  readonly users = new InMemoryUserRepository();
+  readonly users = new InMemoryUserRepository(this.organizations);
   readonly memberships = new InMemoryMembershipRepository();
   readonly sessions = new InMemorySessionRepository();
   readonly entitlements = new InMemoryEntitlementRepository();

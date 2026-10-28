@@ -45,6 +45,8 @@ export interface UserRepository {
   /** Todos los usuarios del negocio, también los desactivados (el seed no debe recrearlos). */
   listAll(ref: { organizationId: string }): Promise<AppUser[]>;
   save(user: AppUser): Promise<void>;
+  /** Nombres visibles por id, también de desactivados; solo usuarios del negocio o de la organización plataforma (superadmin actuando). */
+  displayNames(ref: { organizationId: string; userIds: readonly string[] }): Promise<Map<string, string>>;
   /**
    * Sección crítica del login por usuario: el adaptador abre una transacción, bloquea la fila
    * (`SELECT … FOR UPDATE`), entrega el usuario recién leído (`null` si ya no existe o está desactivado) y

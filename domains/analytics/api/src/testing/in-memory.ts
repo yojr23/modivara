@@ -87,6 +87,7 @@ export class InMemoryCoreAccess implements CoreAccessPort {
   async isModuleEnabled() { return true; }
   async authenticateSession() { return null; }
   async permissionsAt() { return null; }
+  async userDisplayNames() { return new Map<string, string>(); }
   private readonly locations = new Map<string, LocationRef>();
 
   add(location: LocationRef): this {

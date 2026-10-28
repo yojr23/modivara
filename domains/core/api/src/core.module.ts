@@ -109,8 +109,8 @@ export class CoreModule implements OnModuleInit, OnModuleDestroy {
         })),
         {
           provide: CORE_ACCESS_PORT,
-          inject: [LOCATIONS, ENTITLEMENTS, AuthenticateSession, ResolveLocationAccess],
-          useFactory: (l: LocationRepository, e: EntitlementRepository, a: AuthenticateSession, r: ResolveLocationAccess) => new CoreAccessService(l, e, a, r),
+          inject: [LOCATIONS, ENTITLEMENTS, USERS, AuthenticateSession, ResolveLocationAccess],
+          useFactory: (l: LocationRepository, e: EntitlementRepository, u: UserRepository, a: AuthenticateSession, r: ResolveLocationAccess) => new CoreAccessService(l, e, u, a, r),
         },
       ],
       exports: [CORE_ACCESS_PORT, ...useCases.map(([useCase]) => useCase)],

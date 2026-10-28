@@ -42,6 +42,16 @@ export class PrismaServiceCallRepository implements ServiceCallRepository {
     return rows.map(toServiceCall);
   }
 
+  async listTransitions({ id, organizationId, locationId }: ById) {
+    const rows = await this.db.serviceCallTransition.findMany({
+      where: { serviceCallId: id, organizationId, locationId },
+      orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map((r) => ({
+      action: r.action, fromStatus: r.fromStatus, toStatus: r.toStatus, actorUserId: r.actorUserId, deviceEventId: r.deviceEventId, occurredAt: r.occurredAt,
+    }));
+  }
+
   async save(call: ServiceCall) {
     const p = call.toProps();
     try {

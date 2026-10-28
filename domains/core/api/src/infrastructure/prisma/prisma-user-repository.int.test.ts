@@ -85,3 +85,21 @@ describe('PrismaUserRepository', () => {
     });
   });
 });
+
+describe('PrismaUserRepository.displayNames', () => {
+  it('acotado al negocio; incluye desactivados y al superadmin de la plataforma; ajenos ausentes', async () => {
+    const sol = await seedOrganization(db, 'bar-sol');
+    const luna = await seedOrganization(db, 'bar-luna');
+    const labs = await seedOrganization(db, 'labs', { isPlatform: true });
+    const ana = await seedUser(db, sol, 'ana');
+    const gone = await seedUser(db, sol, 'gone');
+    gone.deactivate(new Date());
+    await repo.save(gone);
+    const root = await seedUser(db, labs, 'root');
+    const lola = await seedUser(db, luna, 'lola');
+
+    const names = await repo.displayNames({ organizationId: sol.id, userIds: [ana.id, gone.id, root.id, lola.id, newId()] });
+    expect(Object.fromEntries(names)).toEqual({ [ana.id]: 'ana', [gone.id]: 'gone', [root.id]: 'root' });
+    expect((await repo.displayNames({ organizationId: sol.id, userIds: [] })).size).toBe(0);
+  });
+});
