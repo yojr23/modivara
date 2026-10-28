@@ -8,7 +8,13 @@ import type { Unit } from '@modivara/commerce-contracts';
 import { BUSINESSES, MODULES, SUPERADMIN } from './core.js';
 
 // DATA-001 §7: «unos 10 productos con stock inicial y motivos sembrados». OPEN: el documento no fija cuáles ni cuánto stock; es un surtido de bar inventado.
-const BAR_PRODUCTS: ReadonlyArray<{ name: string; unit: Unit; category: string; stock: string }> = [
+/**
+ * La entrada inicial se fecha 15 días atrás para que anteceda al historial de demo (`seed:history`, 14 días que terminan ayer) y el
+ * saldo actual sea siempre el del último movimiento. OPEN: sembrar sin historial deja el stock inicial con esa fecha pasada.
+ */
+export const INITIAL_STOCK_AT = (): Date => new Date(Date.now() - 15 * 86_400_000);
+
+export const BAR_PRODUCTS: ReadonlyArray<{ name: string; unit: Unit; category: string; stock: string }> = [
   { name: 'Cerveza', unit: 'bottle', category: 'Cervezas', stock: '48' },
   { name: 'Cerveza artesanal', unit: 'bottle', category: 'Cervezas', stock: '24' },
   { name: 'Ron', unit: 'bottle', category: 'Licores', stock: '12' },
@@ -22,7 +28,7 @@ const BAR_PRODUCTS: ReadonlyArray<{ name: string; unit: Unit; category: string; 
 ];
 
 /** Misma entrada inicial = misma clave: repetir el seed no suma el stock otra vez (el movimiento original se devuelve). */
-const seedKey = (locationId: string, productName: string): string => {
+export const seedKey = (locationId: string, productName: string): string => {
   const h = createHash('sha256').update(`seed:commerce:${locationId}:${productName}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
@@ -55,7 +61,7 @@ export async function seedCommerce(app: INestApplicationContext, password: strin
       const product = existing.get(p.name) ?? (await app.get(CreateProduct).execute({ ...ctx, name: p.name, unit: p.unit, category: p.category }));
       await app.get(RegisterMovement).execute({
         ...ctx, stockLocationId: stockLocation.id, productId: product.id, reasonId: purchase.id, direction: 'in', quantity: p.stock,
-        note: 'Stock inicial (seed)', idempotencyKey: seedKey(ctx.locationId, p.name),
+        note: 'Stock inicial (seed)', idempotencyKey: seedKey(ctx.locationId, p.name), occurredAt: INITIAL_STOCK_AT(),
       });
     }
   }

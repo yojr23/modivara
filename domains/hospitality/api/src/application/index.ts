@@ -11,3 +11,4 @@ export * from './ports/index.js';
 export * from './register-button-press.js';
 export * from './support.js';
 export * from './zones-and-tables.js';
+export * from './seed-call-history.js';

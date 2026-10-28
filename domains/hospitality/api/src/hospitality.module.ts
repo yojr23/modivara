@@ -5,10 +5,10 @@ import {
 import { HOSPITALITY_EVENT_HISTORY } from '@modivara/hospitality-contracts';
 import {
   AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, EnsureLocationSettings, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
-  GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice,
+  GetDeviceStatus, ListActiveCalls, ListServiceCalls, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice, SeedCallHistory,
 } from './application/index.js';
 import type {
-  ButtonPressStore, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, GatewayRepository,
+  ButtonPressStore, CallHistoryStore, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, GatewayRepository,
   GatewayHealthNotifier, LocationSettingsRepository, NotificationPort, ServiceCallRepository, ZoneRepository,
 } from './application/ports/index.js';
 import { LocationCreatedSubscriber, DeviceEventsController, DeviceStatusController, PlatformController, ServiceCallsController, TablesController, ZonesController } from './presentation/index.js';
@@ -19,7 +19,7 @@ import { GatewayKeyGuard } from './presentation/gateway-key.guard.js';
 import { GatewayHealthMonitor } from './infrastructure/realtime/gateway-health.js';
 import { GatewayPressAdapter, RealtimeBroadcaster, RealtimeGateway } from './infrastructure/index.js';
 import {
-  createHospitalityPrisma, PrismaButtonPressStore, PrismaDeviceAssignmentRepository, PrismaDeviceEventRepository, PrismaDeviceRepository,
+  createHospitalityPrisma, PrismaButtonPressStore, PrismaCallHistoryStore, PrismaDeviceAssignmentRepository, PrismaDeviceEventRepository, PrismaDeviceRepository,
   PrismaDiningTableRepository, PrismaGatewayRepository, PrismaLocationSettingsRepository, PrismaServiceCallRepository, PrismaZoneRepository, type HospitalityPrisma,
 } from './infrastructure/prisma/index.js';
 
@@ -38,6 +38,7 @@ export const CALLS = 'HOSPITALITY_CALLS';
 export const DEVICE_EVENTS = 'HOSPITALITY_DEVICE_EVENTS';
 export const SETTINGS = 'HOSPITALITY_SETTINGS';
 export const PRESS_STORE = 'HOSPITALITY_PRESS_STORE';
+export const CALL_HISTORY_STORE = 'HOSPITALITY_CALL_HISTORY_STORE';
 export const NOTIFICATIONS = 'HOSPITALITY_NOTIFICATIONS';
 export const GATEWAY_HEALTH_NOTIFIER = 'HOSPITALITY_GATEWAY_HEALTH_NOTIFIER';
 
@@ -79,6 +80,7 @@ const useCases = [
   [ListServiceCalls, [CORE, CALLS, CallViews, SETTINGS]],
   [AcknowledgeCall, [CALLS, NOTIFICATIONS]],
   [CompleteCall, [CALLS, NOTIFICATIONS]],
+  [SeedCallHistory, [CORE, TABLES, ZONES, DEVICES, ASSIGNMENTS, GATEWAYS, CALLS, CALL_HISTORY_STORE]],
   [RegisterButtonPress, [CORE, DEVICES, ASSIGNMENTS, TABLES, ZONES, PRESS_STORE, NOTIFICATIONS]],
   [DetectGatewayHealthChanges, [GATEWAYS, GATEWAY_HEALTH_NOTIFIER]],
   [GatewayPressAdapter, [GATEWAYS, DEVICES]],
@@ -120,6 +122,7 @@ export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
         repo(SETTINGS, (p): LocationSettingsRepository => new PrismaLocationSettingsRepository(p)),
         repo(CALLS, (p): ServiceCallRepository => new PrismaServiceCallRepository(p)),
         repo(DEVICE_EVENTS, (p): DeviceEventRepository => new PrismaDeviceEventRepository(p)),
+        repo(CALL_HISTORY_STORE, (p): CallHistoryStore => new PrismaCallHistoryStore(p)),
         repo(PRESS_STORE, (p): ButtonPressStore => new PrismaButtonPressStore(p)),
         { provide: GatewayRateLimiter, useFactory: () => new GatewayRateLimiter(options.rateLimit) },
         GatewayKeyGuard,

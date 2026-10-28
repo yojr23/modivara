@@ -21,6 +21,8 @@ export interface MovementTarget extends StockContext {
   reasonId: string;
   note?: string;
   idempotencyKey: string;
+  /** Solo seeds de demo (historial con fechas pasadas): los controladores nunca lo llenan; por defecto, ahora. */
+  occurredAt?: Date;
 }
 
 export interface RegisterMovementCommand extends MovementTarget {
@@ -59,7 +61,7 @@ export class MovementRecorder {
           return { movement: existing, replayed: true };
         }
         // Con el saldo ya bloqueado: así occurred_at crece con el orden real de los saldos (el último balance_after por fecha es el saldo actual).
-        const occurredAt = new Date();
+        const occurredAt = target.occurredAt ?? new Date();
         const movement = StockMovement.register(tx.balance, {
           id: newId(),
           eventId: newId(),

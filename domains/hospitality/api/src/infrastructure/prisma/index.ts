@@ -8,3 +8,4 @@ export * from './prisma-gateway-repository.js';
 export * from './prisma-location-settings-repository.js';
 export * from './prisma-service-call-repository.js';
 export * from './prisma-zone-repository.js';
+export * from './prisma-call-history-store.js';
