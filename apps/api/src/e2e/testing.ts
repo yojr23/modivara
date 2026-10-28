@@ -62,7 +62,7 @@ export async function startHost() {
     post: (path: string, body?: object, headers: Record<string, string> = {}) => http().post(`/api/v1${path}`).set('Cookie', cookies.get(who)!).set(headers).send(body),
     put: (path: string, body: object) => http().put(`/api/v1${path}`).set('Cookie', cookies.get(who)!).send(body),
   });
-  for (const [slug, user] of [['labs', 'superadmin'], ['bar-demo', 'admin'], ['bar-demo', 'barra'], ['bar-demo', 'inventario1']] as const) await login(slug, user);
+  for (const [slug, user] of [['labs', 'superadmin'], ['bar-demo', 'admin'], ['bar-demo', 'barra'], ['bar-demo', 'inventario1'], ['bar-demo-pisos', 'admin']] as const) await login(slug, user);
 
   const me = (await as('bar-demo/admin').get('/me')).body as MeResponse;
   const locationId = me.locations[0]!.id;

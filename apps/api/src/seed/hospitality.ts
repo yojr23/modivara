@@ -42,28 +42,33 @@ export async function seedHospitality(app: INestApplicationContext, password: st
     return (existing?.table ?? (await app.get(CreateTable).execute({ ...ctx, label, zoneId }))).id;
   }
 
+  // Un gateway (clave impresa solo al crearlo) y un botón asignado por mesa; `prefix` distingue los códigos entre negocios.
+  async function ensureButtons(ctx: ActorContext, prefix: string, tableIds: string[]): Promise<void> {
+    if ((await app.get(GetConnectivity).execute(ctx)).gateways.length === 0) {
+      const { gateway, plainKey } = await app.get(CreateGateway).execute({ ...ctx, name: 'Gateway demo' });
+      printKey(`SIM_GATEWAY_KEY=${plainKey}   # gateway ${gateway.id}; no se vuelve a mostrar`);
+    }
+    const devices = await app.get(ListDevices).execute(ctx);
+    for (const [i, tableId] of tableIds.entries()) {
+      const code = prefix + buttonCode(i + 1);
+      const existing = devices.find((d) => d.device.code === code);
+      const device = existing?.device ?? (await app.get(RegisterDevice).execute({ ...ctx, code }));
+      if (!existing?.tableId) await app.get(AssignDevice).execute({ ...ctx, deviceId: device.id, tableId });
+    }
+  }
+
   // Bar Demo: 15 mesas sin zonas, un gateway y 15 botones asignados.
   const demo = await contextOf('bar-demo');
   const tableIds: string[] = [];
   for (let n = 1; n <= TABLES_IN_BAR_DEMO; n++) tableIds.push(await ensureTable(demo, tableLabel(n), null));
+  await ensureButtons(demo, '', tableIds);
 
-  if ((await app.get(GetConnectivity).execute(demo)).gateways.length === 0) {
-    const { gateway, plainKey } = await app.get(CreateGateway).execute({ ...demo, name: 'Gateway demo' });
-    printKey(`SIM_GATEWAY_KEY=${plainKey}   # gateway ${gateway.id}; no se vuelve a mostrar`);
-  }
-
-  const devices = await app.get(ListDevices).execute(demo);
-  for (let n = 1; n <= TABLES_IN_BAR_DEMO; n++) {
-    const code = buttonCode(n);
-    const existing = devices.find((d) => d.device.code === code);
-    const device = existing?.device ?? (await app.get(RegisterDevice).execute({ ...demo, code }));
-    if (!existing?.tableId) await app.get(AssignDevice).execute({ ...demo, deviceId: device.id, tableId: tableIds[n - 1]! });
-  }
-
-  // Bar Demo Pisos: zonas con los mismos números de mesa repetidos en cada una.
+  // Bar Demo Pisos: zonas con los mismos números de mesa repetidos en cada una; gateway y botones `p-btn-NN`.
   const pisos = await contextOf('bar-demo-pisos');
+  const pisosTableIds: string[] = [];
   for (const zone of ZONES_IN_PISOS) {
     const zoneId = await ensureZone(pisos, zone);
-    for (let n = 1; n <= TABLES_PER_ZONE; n++) await ensureTable(pisos, tableLabel(n), zoneId);
+    for (let n = 1; n <= TABLES_PER_ZONE; n++) pisosTableIds.push(await ensureTable(pisos, tableLabel(n), zoneId));
   }
+  await ensureButtons(pisos, 'p-', pisosTableIds);
 }

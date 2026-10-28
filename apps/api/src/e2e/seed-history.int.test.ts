@@ -15,10 +15,11 @@ const count = async (db: { $queryRawUnsafe<T>(sql: string): Promise<T> }, table:
   Number((await db.$queryRawUnsafe<Array<{ n: bigint }>>(`SELECT count(*) AS n FROM ${table}`))[0]!.n);
 
 describe('F5-10 seed histórico', () => {
-  it('14 días de métricas en Bar Demo, idempotente y con saldos de analytics = commerce', async () => {
+  it('14 días de métricas en Bar Demo y Bar Demo Pisos, idempotente y con saldos de analytics = commerce', async () => {
     const { app, as, locationId, hospitalityDb, analyticsDb } = host;
     await seedHospitality(app, PASSWORD, () => {});
-    const first = await seedHistory(app, PASSWORD);
+    const all = await seedHistory(app, PASSWORD);
+    const first = all['bar-demo']!;
     expect(first.calls).toBeGreaterThan(14 * 15);
     expect(first.movements).toBeGreaterThan(14 * 10);
     await drain();
@@ -42,10 +43,24 @@ describe('F5-10 seed histórico', () => {
       expect(Number(b.quantity)).toBeGreaterThanOrEqual(0);
     }
 
+    // Bar Demo Pisos: también 14 días, y las métricas separan las dos zonas (con números de mesa repetidos).
+    const pisosLocation = ((await as('bar-demo-pisos/admin').get('/me')).body as { locations: Array<{ id: string }> }).locations[0]!.id;
+    const pisosUrl = P.serviceCallMetrics.replace(':locationId', pisosLocation) + '?range=last_30_days&group_by=day';
+    const pisos = serviceCallMetricsSchema.parse((await as('bar-demo-pisos/admin').get(pisosUrl)).body);
+    expect(all['bar-demo-pisos']!.calls).toBeGreaterThan(14 * 5);
+    expect(pisos.totals).toMatchObject({ calls: all['bar-demo-pisos']!.calls, pending: 0, in_progress: 0 });
+    expect(pisos.by_period.filter((b) => b.calls > 0)).toHaveLength(14);
+    expect(pisos.by_zone.map((z) => z.zone_name).sort()).toEqual(['2º piso', 'Terraza']);
+    expect(pisos.by_table).toHaveLength(6);
+    const terraza = pisos.by_zone.find((z) => z.zone_name === 'Terraza')!;
+    const filtered = serviceCallMetricsSchema.parse((await as('bar-demo-pisos/admin').get(`${pisosUrl}&zone_id=${terraza.zone_id}`)).body);
+    expect(filtered.totals.calls).toBe(terraza.calls);
+    expect(filtered.totals.calls).toBeLessThan(pisos.totals.calls);
+
     // Segunda corrida: nada cambia (ni en los dominios ni en analytics).
     const before = [await count(hospitalityDb, 'service_calls'), await count(hospitalityDb, 'device_events'), await count(hospitalityDb, 'outbox_events'), await count(analyticsDb, 'service_call_facts'), await count(analyticsDb, 'stock_movement_facts')];
     await seedHospitality(app, PASSWORD, () => {});
-    expect(await seedHistory(app, PASSWORD)).toEqual({ calls: 0, movements: 0 });
+    expect(await seedHistory(app, PASSWORD)).toEqual({ 'bar-demo': { calls: 0, movements: 0 }, 'bar-demo-pisos': { calls: 0, movements: 0 } });
     await drain();
     expect([await count(hospitalityDb, 'service_calls'), await count(hospitalityDb, 'device_events'), await count(hospitalityDb, 'outbox_events'), await count(analyticsDb, 'service_call_facts'), await count(analyticsDb, 'stock_movement_facts')]).toEqual(before);
   }, 120_000);

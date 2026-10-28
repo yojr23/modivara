@@ -9,7 +9,7 @@ export { CreateGateway, type ConnectivityStatus, type DeviceStatus, GetConnectiv
 export { type ActiveCallView, ListActiveCalls } from './application/list-active-calls.js';
 export { DetectGatewayHealthChanges } from './application/gateway-health.js';
 export { RegisterButtonPress } from './application/register-button-press.js';
-export { SeedCallHistory } from './application/seed-call-history.js';
+export { SeedCallHistory, DEMO_CALL_PROFILE, type CallProfile } from './application/seed-call-history.js';
 export { type ActorContext, type PermittedContext, type TenantContext } from './application/support.js';
 export {
   CreateTable, CreateZone, DeactivateTable, DeactivateZone, ListTables, ListZones, type TableView, UpdateTable, UpdateZone,

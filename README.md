@@ -47,7 +47,7 @@ docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<clave de demo>' a
 
 Usuarios: `labs/superadmin`, `bar-demo/{admin,barra,mesero1,inventario1}`, `bar-demo-pisos/admin`.
 
-Datos de demo de hospitality (después de `seed:core`; idempotente, se niega con `NODE_ENV=production`): `bar-demo` con 15 mesas sin zonas, un gateway y los botones `btn-01…btn-15` asignados; `bar-demo-pisos` con las zonas «Terraza» y «2º piso» y números de mesa repetidos por zona. La clave del gateway se imprime **una sola vez**, solo cuando se crea (`SIM_GATEWAY_KEY=…`): cópiala al `.env` para el simulador.
+Datos de demo de hospitality (después de `seed:core`; idempotente, se niega con `NODE_ENV=production`): `bar-demo` con 15 mesas sin zonas, un gateway y los botones `btn-01…btn-15` asignados; `bar-demo-pisos` con las zonas «Terraza» y «2º piso», números de mesa repetidos por zona, su propio gateway y los botones `p-btn-01…p-btn-06`. La clave del gateway se imprime **una sola vez**, solo cuando se crea (`SIM_GATEWAY_KEY=…`): cópiala al `.env` para el simulador.
 
 ```bash
 docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<la misma clave de demo>' api sh -c 'cd /repo/apps/api && node dist/seed-hospitality.js'
@@ -61,7 +61,7 @@ docker compose exec -e NODE_ENV=development -e SEED_PASSWORD='<la misma clave de
 # con una base propia (CORE_DATABASE_URL y COMMERCE_DATABASE_URL en el entorno): SEED_PASSWORD=... pnpm seed:commerce
 ```
 
-Historial de demo (F5-10; después de los tres seeds anteriores; idempotente, se niega con `NODE_ENV=production`): en `bar-demo`, 14 días que terminan ayer (hora del local) con unos 30 llamados por día en horas de noche (hospitality: llamados, transiciones, señales y outbox) y movimientos de stock diarios (commerce: ventas, mermas, cortesías, compras y un ajuste). Cada dominio escribe solo lo suyo con fechas pasadas; analytics lo recibe cuando la API entrega los outbox pendientes (o con `pnpm analytics:rebuild`). Si commerce se sembró antes de F5-10 (stock inicial con fecha reciente) el comando lo detecta y pide recrear la base.
+Historial de demo (F5-10; después de los tres seeds anteriores; idempotente, se niega con `NODE_ENV=production`): en `bar-demo` y `bar-demo-pisos`, 14 días que terminan ayer (hora del local) con unos 30 (Pisos: unos 12) llamados por día en horas de noche (hospitality: llamados, transiciones, señales y outbox) y movimientos de stock diarios (commerce: ventas, mermas, cortesías, compras y un ajuste). Los números inventados están en `DEMO_CALL_PROFILE` y `DEMO_STOCK_PROFILE`. Cada dominio escribe solo lo suyo con fechas pasadas; analytics lo recibe cuando la API entrega los outbox pendientes (o con `pnpm analytics:rebuild`). Si commerce se sembró antes de F5-10 (stock inicial con fecha reciente) el comando lo detecta y pide recrear la base.
 
 Todo de una vez (core → hospitality → commerce → historial; repetirlo no cambia nada). Con los seeds corriendo sin poller, **arranca la API después (o déjala corriendo: sus pollers entregan lo pendiente)**:
 

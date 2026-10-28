@@ -17,8 +17,9 @@ if (!password) {
 }
 const app = await NestFactory.createApplicationContext(SeedModule, { logger: ['error', 'warn'] });
 try {
-  const { calls, movements } = await seedHistory(app, password);
-  console.log(`seed:history listo (bar-demo: ${calls} llamados y ${movements} movimientos de stock nuevos; 0 si ya había historial).`);
+  for (const [slug, { calls, movements }] of Object.entries(await seedHistory(app, password))) {
+    console.log(`seed:history listo (${slug}: ${calls} llamados y ${movements} movimientos de stock nuevos; 0 si ya había historial).`);
+  }
 } finally {
   await app.close();
 }

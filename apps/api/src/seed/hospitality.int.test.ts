@@ -25,11 +25,11 @@ describe('seed:hospitality', () => {
       await seedCore(app, PASSWORD);
       const lines: string[] = [];
       await seedHospitality(app, PASSWORD, (l) => lines.push(l));
-      expect(lines).toHaveLength(1);
-      const key = /^SIM_GATEWAY_KEY=(\S+)/.exec(lines[0]!)![1]!;
+      expect(lines).toHaveLength(2); // una clave por gateway (Bar Demo y Pisos)
+      const key = /^SIM_GATEWAY_KEY=(\S+)/.exec(lines[0]!)![1]!; // la primera es la de Bar Demo
 
       await seedHospitality(app, PASSWORD, (l) => lines.push(l));
-      expect(lines).toHaveLength(1); // la segunda corrida no imprime la clave
+      expect(lines).toHaveLength(2); // la segunda corrida no imprime la clave
 
       const root = await app.get(BootstrapPlatform).execute({ username: 'superadmin', displayName: 'Superadmin', password: PASSWORD });
       const ctx = async (slug: string) => {
@@ -56,6 +56,10 @@ describe('seed:hospitality', () => {
       expect(labels).toHaveLength(6);
       expect(labels).toContain('Terraza/Mesa 1');
       expect(labels).toContain('2º piso/Mesa 1');
+      expect((await app.get(GetConnectivity).execute(pisos)).gateways).toHaveLength(1);
+      const pisosDevices = await app.get(ListDevices).execute(pisos);
+      expect(pisosDevices.map((d) => d.device.code).sort()).toEqual(Array.from({ length: 6 }, (_, i) => `p-btn-${String(i + 1).padStart(2, '0')}`));
+      expect(pisosDevices.every((d) => d.tableId !== null)).toBe(true);
     } finally {
       await app.close();
     }

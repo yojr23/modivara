@@ -7,11 +7,24 @@ import type {
 } from './ports/index.js';
 import { type ActorContext, requireActiveLocation, scopeOf } from './support.js';
 
-// Horas locales de la ventana con su peso: la demanda se concentra por la noche (OPEN: curva inventada para la demo).
-const HOUR_WEIGHTS: ReadonlyArray<readonly [number, number]> = [[12, 1], [13, 2], [14, 1], [15, 1], [16, 1], [17, 2], [18, 4], [19, 6], [20, 8], [21, 9], [22, 8], [23, 4]];
-const TOTAL_WEIGHT = HOUR_WEIGHTS.reduce((s, [, w]) => s + w, 0);
-const CALLS_PER_DAY = 28;
-const SEED = 20261027;
+/**
+ * Todos los números inventados del historial de demo, en un solo lugar. OPEN: son supuestos de la demo, no mediciones;
+ * hay que reemplazarlos por lo medido en el piloto (PLAN-001 F6-13).
+ */
+export const DEMO_CALL_PROFILE = {
+  seed: 20261027,
+  /** [hora local, peso]: la demanda se concentra por la noche. */
+  hourWeights: [[12, 1], [13, 2], [14, 1], [15, 1], [16, 1], [17, 2], [18, 4], [19, 6], [20, 8], [21, 9], [22, 8], [23, 4]] as ReadonlyArray<readonly [number, number]>,
+  callsPerDay: 28,
+  callsPerDayJitter: [-8, 12] as readonly [number, number],
+  ackSeconds: [60, 240] as readonly [number, number],
+  completionSeconds: [120, 360] as readonly [number, number],
+  lateRate: 0.06,
+  lateMinutes: [15, 40] as readonly [number, number],
+  repeatRate: 0.2,
+  repeatPresses: [1, 3] as readonly [number, number],
+};
+export type CallProfile = typeof DEMO_CALL_PROFILE;
 
 /**
  * SOLO DEMO (F5-10): historial de llamados de los últimos `days` días que terminan ayer (hora local del local), con filas reales
@@ -30,7 +43,7 @@ export class SeedCallHistory {
     private readonly store: CallHistoryStore,
   ) {}
 
-  async execute(ctx: ActorContext, options: { days?: number; now?: Date } = {}): Promise<number> {
+  async execute(ctx: ActorContext, options: { days?: number; now?: Date; profile?: CallProfile } = {}): Promise<number> {
     if (process.env.NODE_ENV === 'production') throw new Error('El historial de demo se niega a correr con NODE_ENV=production.');
     await requireActiveLocation(this.core, ctx);
     const location = await this.core.getLocation(ctx.locationId);
@@ -53,11 +66,13 @@ export class SeedCallHistory {
     });
     if (buttons.length === 0) throw new Error('No hay botones asignados a mesas: corre antes seed:hospitality.');
 
-    const rnd = seededRandom(SEED);
+    const p = options.profile ?? DEMO_CALL_PROFILE;
+    const totalWeight = p.hourWeights.reduce((s, [, w]) => s + w, 0);
+    const rnd = seededRandom(p.seed);
     const between = (min: number, max: number) => min + Math.floor(rnd() * (max - min + 1));
     const pickHour = () => {
-      let r = rnd() * TOTAL_WEIGHT;
-      for (const [h, w] of HOUR_WEIGHTS) if ((r -= w) < 0) return h;
+      let r = rnd() * totalWeight;
+      for (const [h, w] of p.hourWeights) if ((r -= w) < 0) return h;
       return 23;
     };
     const busyUntil = new Map<string, number>();
@@ -65,13 +80,13 @@ export class SeedCallHistory {
 
     for (let back = options.days ?? 14; back >= 1; back--) {
       const day = addDays(today, -back);
-      const starts = Array.from({ length: CALLS_PER_DAY + between(-8, 12) }, () => localTimeToUtc(tz, day, pickHour(), between(0, 59), between(0, 59)));
+      const starts = Array.from({ length: p.callsPerDay + between(...p.callsPerDayJitter) }, () => localTimeToUtc(tz, day, pickHour(), between(0, 59), between(0, 59)));
       for (const start of starts.sort((a, b) => a.getTime() - b.getTime())) {
         const { device, table } = buttons[between(0, buttons.length - 1)]!;
         // Late = unas pocas quedan sin finalizar mucho rato (15–40 min); el resto: reconocida en 1–4 min y finalizada en 3–10 min en total.
-        const ackAt = new Date(start.getTime() + between(60, 240) * 1000);
-        const late = rnd() < 0.06;
-        const doneAt = new Date(ackAt.getTime() + (late ? between(15 * 60, 40 * 60) : between(120, 360)) * 1000);
+        const ackAt = new Date(start.getTime() + between(...p.ackSeconds) * 1000);
+        const late = rnd() < p.lateRate;
+        const doneAt = new Date(ackAt.getTime() + (late ? between(p.lateMinutes[0] * 60, p.lateMinutes[1] * 60) : between(...p.completionSeconds)) * 1000);
         if (doneAt >= now || (busyUntil.get(table.id) ?? 0) > start.getTime()) continue;
         busyUntil.set(table.id, doneAt.getTime() + 60_000);
 
@@ -87,7 +102,7 @@ export class SeedCallHistory {
         });
         const events = [press(start, 'call_created', firstEventId, call.id)];
         // Pulsaciones repetidas mientras esperaba (antes del reconocimiento, que es cuando viaja `press_count`).
-        const repeats = rnd() < 0.2 ? between(1, 3) : 0;
+        const repeats = rnd() < p.repeatRate ? between(...p.repeatPresses) : 0;
         for (let i = 1; i <= repeats; i++) {
           const at = new Date(start.getTime() + ((ackAt.getTime() - start.getTime()) * i) / (repeats + 1));
           call.registerPress(at);
