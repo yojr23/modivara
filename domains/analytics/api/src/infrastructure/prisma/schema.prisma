@@ -1,9 +1,56 @@
-// Esquema "analytics" (DATA-001 §1). Sin modelos hasta cerrar la revisión de DATA-001 (PLAN-001 P0-01).
+// Esquema "analytics" (DATA-001 §5): proyecciones construidas solo desde eventos, sin FK a otros esquemas.
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model ProcessedEvent {
+  eventId     String   @id @map("event_id") @db.Uuid
+  eventType   String   @map("event_type")
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz
+
+  @@map("processed_events")
+}
+
+model ServiceCallFact {
+  serviceCallId  String    @id @map("service_call_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  tableId        String    @map("table_id") @db.Uuid
+  tableLabel     String    @map("table_label")
+  zoneId         String?   @map("zone_id") @db.Uuid
+  zoneName       String?   @map("zone_name")
+  callType       String    @map("call_type")
+  createdAt      DateTime  @map("created_at") @db.Timestamptz
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz
+  pressCount     Int       @default(1) @map("press_count")
+
+  @@index([locationId, createdAt], map: "ix_service_call_facts_period")
+  @@map("service_call_facts")
+}
+
+model StockMovementFact {
+  movementId      String   @id @map("movement_id") @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  locationId      String   @map("location_id") @db.Uuid
+  stockLocationId String   @map("stock_location_id") @db.Uuid
+  productId       String   @map("product_id") @db.Uuid
+  productName     String   @map("product_name")
+  direction       String
+  reasonId        String   @map("reason_id") @db.Uuid
+  reasonName      String   @map("reason_name")
+  delta           Decimal  @db.Decimal(12, 3)
+  balanceAfter    Decimal  @map("balance_after") @db.Decimal(12, 3)
+  occurredAt      DateTime @map("occurred_at") @db.Timestamptz
+
+  @@index([locationId, occurredAt], map: "ix_stock_movement_facts_period")
+  @@map("stock_movement_facts")
 }
