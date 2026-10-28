@@ -1,4 +1,4 @@
-export { AnalyticsModule } from './analytics.module.js';
+export { ANALYTICS_EVENT_SUBSCRIBER, ANALYTICS_PRISMA, AnalyticsModule, type AnalyticsModuleOptions } from './analytics.module.js';
 export {
   AnalyticsEventSubscriber,
   GetInventoryMetrics,

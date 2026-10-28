@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { Module, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { AnalyticsModule } from '@modivara/analytics-api';
 import { COMMERCE_OUTBOX, CommerceModule, ListMovementReasons, ListStockLocations } from '@modivara/commerce-api';
 import { SEEDED_MOVEMENT_REASONS } from '@modivara/commerce-contracts';
 import { BootstrapPlatform, CORE_OUTBOX, CoreModule, ProvisionOrganization } from '@modivara/core-api';
@@ -12,12 +13,14 @@ import { IntegrationSubscribersModule } from '../integration-subscribers.module.
 const CORE_URL = 'postgresql://core_app:test@127.0.0.1:55432/modivara_test?schema=core';
 const HOSPITALITY_URL = 'postgresql://hospitality_app:test@127.0.0.1:55432/modivara_test?schema=hospitality';
 const COMMERCE_URL = 'postgresql://commerce_app:test@127.0.0.1:55432/modivara_test?schema=commerce';
+const ANALYTICS_URL = 'postgresql://analytics_app:test@127.0.0.1:55432/modivara_test?schema=analytics';
 const MANUAL = { outbox: { intervalMs: 3_600_000 } }; // solo `tick()` manual: la prueba controla cuándo se entrega
 
 const hospitality = HospitalityModule.forRoot({ databaseUrl: HOSPITALITY_URL, mqtt: null, ...MANUAL });
 const commerce = CommerceModule.forRoot({ databaseUrl: COMMERCE_URL, ...MANUAL });
+const analytics = AnalyticsModule.forRoot({ databaseUrl: ANALYTICS_URL });
 
-@Module({ imports: [CoreModule.forRoot({ databaseUrl: CORE_URL, ...MANUAL }), hospitality, commerce, IntegrationSubscribersModule.forDomains({ hospitality, commerce })] })
+@Module({ imports: [CoreModule.forRoot({ databaseUrl: CORE_URL, ...MANUAL }), hospitality, commerce, analytics, IntegrationSubscribersModule.forDomains({ hospitality, commerce, analytics })] })
 class HostModule {}
 
 type Raw = { $executeRawUnsafe(sql: string): Promise<unknown>; $queryRawUnsafe<T>(sql: string): Promise<T> };
