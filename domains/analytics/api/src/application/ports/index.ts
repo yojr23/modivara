@@ -3,3 +3,4 @@ export * from './event-subscriber.js';
 export * from './processed-event.store.js';
 export * from './service-call-fact.repository.js';
 export * from './stock-movement-fact.repository.js';
+export * from './projection-transaction.js';

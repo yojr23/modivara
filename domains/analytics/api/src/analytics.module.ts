@@ -4,7 +4,7 @@ import {
   AnalyticsEventSubscriber, buildEventRegistry, GetInventoryMetrics, GetServiceCallMetrics, ProjectEvent, RebuildProjections, type EventRegistry,
 } from './application/index.js';
 import {
-  createAnalyticsPrisma, PrismaProcessedEventStore, PrismaServiceCallFactRepository, PrismaStockMovementFactRepository, type AnalyticsPrisma,
+  createAnalyticsPrisma, PrismaProcessedEventStore, PrismaProjectionTransaction, PrismaServiceCallFactRepository, PrismaStockMovementFactRepository, type AnalyticsPrisma,
 } from './infrastructure/prisma/index.js';
 import { MetricsController } from './presentation/index.js';
 
@@ -15,6 +15,7 @@ export const ANALYTICS_EVENT_SUBSCRIBER = 'ANALYTICS_EVENT_SUBSCRIBER';
 export const SERVICE_CALL_FACTS = 'ANALYTICS_SERVICE_CALL_FACTS';
 export const STOCK_MOVEMENT_FACTS = 'ANALYTICS_STOCK_MOVEMENT_FACTS';
 export const PROCESSED_EVENTS = 'ANALYTICS_PROCESSED_EVENTS';
+export const PROJECTION_TRANSACTION = 'ANALYTICS_PROJECTION_TRANSACTION';
 export const EVENT_REGISTRY = 'ANALYTICS_EVENT_REGISTRY';
 
 export interface AnalyticsModuleOptions {
@@ -30,7 +31,7 @@ const useCases = [
   [AnalyticsEventSubscriber, [ProjectEvent]],
   [GetServiceCallMetrics, [SERVICE_CALL_FACTS, CORE]],
   [GetInventoryMetrics, [STOCK_MOVEMENT_FACTS, CORE]],
-  [RebuildProjections, [SERVICE_CALL_FACTS, STOCK_MOVEMENT_FACTS, PROCESSED_EVENTS, AnalyticsEventSubscriber]],
+  [RebuildProjections, [PROJECTION_TRANSACTION]],
 ] as const;
 
 const repo = <T>(provide: string, make: (p: AnalyticsPrisma) => T) => ({ provide, inject: [ANALYTICS_PRISMA], useFactory: make });
@@ -55,6 +56,7 @@ export class AnalyticsModule implements OnModuleDestroy {
         },
         repo(SERVICE_CALL_FACTS, (p) => new PrismaServiceCallFactRepository(p)),
         repo(STOCK_MOVEMENT_FACTS, (p) => new PrismaStockMovementFactRepository(p)),
+        repo(PROJECTION_TRANSACTION, (p) => new PrismaProjectionTransaction(p)),
         repo(PROCESSED_EVENTS, (p) => new PrismaProcessedEventStore(p)),
         {
           provide: EVENT_REGISTRY,

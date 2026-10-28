@@ -4,6 +4,7 @@ export {
   GetInventoryMetrics,
   GetServiceCallMetrics,
   ProjectEvent,
+  RebuildAbortedError,
   RebuildProjections,
 } from './application/index.js';
 export type {
@@ -14,6 +15,8 @@ export type {
   LocationRef,
   ProcessedEventStore,
   ProjectionResult,
+  ProjectionTransaction,
+  Projector,
   RebuildSummary,
   ServiceCallFactQuery,
   ServiceCallFactRepository,

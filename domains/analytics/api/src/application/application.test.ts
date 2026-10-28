@@ -60,7 +60,12 @@ function setup() {
     calls, stocks, processed, subscriber, projectEvent,
     callMetrics: new GetServiceCallMetrics(calls, core),
     stockMetrics: new GetInventoryMetrics(stocks, core),
-    rebuild: new RebuildProjections(calls, stocks, processed, subscriber),
+    rebuild: new RebuildProjections({
+      run: (work) => work({
+        clear: async () => { await Promise.all([calls.clear(), stocks.clear(), processed.clear()]); },
+        project: (event) => projectEvent.execute(event),
+      }),
+    }),
   };
 }
 type Ctx = ReturnType<typeof setup>;
@@ -247,21 +252,33 @@ describe('proyección e inventario', () => {
 });
 
 describe('RebuildProjections', () => {
-  it('vacía y reprocesa un historial (también asíncrono) dejando las mismas métricas', async () => {
+  const reader = (events: unknown[]) => ({
+    async *read() {
+      for (const e of events) yield e as never;
+    },
+  });
+
+  it('vacía y reprocesa el historial de varios emisores mezclado por (occurred_at, id) dejando las mismas métricas', async () => {
     const c = setup();
     const history = [created(), acked(), completed(), stock('received', '3', '3', '2026-10-19T14:00:00Z')];
     for (const e of history) await c.subscriber.handle(e);
     const before = await c.callMetrics.execute({ organizationId: ORG, locationId: LOC, query: today });
-    // basura previa que debe desaparecer
-    await c.subscriber.handle(created(undefined, uuid(77), 4));
+    await c.subscriber.handle(created(undefined, uuid(77), 4)); // basura previa que debe desaparecer
 
-    async function* stream() {
-      for (const e of [...history, history[0]!, env('core.x', {})]) yield e;
-    }
-    const summary = await c.rebuild.execute(stream());
+    // el segundo lector trae el `created` aunque el primero ya empiece por `acknowledged`: la mezcla los ordena
+    const at = (e: ReturnType<typeof env>, iso: string) => ({ ...e, occurred_at: iso });
+    const hospitality = reader([at(acked(), '2026-10-19T15:01:00Z'), at(completed(), '2026-10-19T15:03:00Z')]);
+    const other = reader([history[0], history[0], env('core.x', {})]);
+    const summary = await c.rebuild.execute([hospitality, other, reader([history[3]])]);
     expect(summary).toEqual({ total: 6, applied: 4, duplicates: 1, ignored: 1 });
     expect(c.calls.items.has(uuid(77))).toBe(false);
     expect(await c.callMetrics.execute({ organizationId: ORG, locationId: LOC, query: today })).toEqual(before);
-    expect(await c.rebuild.execute(history)).toMatchObject({ applied: 4 });
+  });
+
+  it('un evento inválido aborta e indica su event_id', async () => {
+    const c = setup();
+    const bad = created(undefined, uuid(88), 4);
+    delete (bad.payload as Record<string, unknown>).table_id;
+    await expect(c.rebuild.execute([reader([created(), bad])])).rejects.toMatchObject({ eventId: bad.event_id });
   });
 });

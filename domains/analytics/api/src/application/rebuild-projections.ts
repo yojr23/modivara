@@ -1,5 +1,5 @@
-import type { AnalyticsEventSubscriber } from './analytics-event-subscriber.js';
-import type { ProcessedEventStore, ServiceCallFactRepository, StockMovementFactRepository } from './ports/index.js';
+import type { EventHistoryReader, IntegrationEvent } from '@modivara/core-contracts';
+import type { ProjectionTransaction } from './ports/index.js';
 
 export interface RebuildSummary {
   total: number;
@@ -8,33 +8,55 @@ export interface RebuildSummary {
   ignored: number;
 }
 
+/** Un evento inválido aborta la reconstrucción (la transacción se revierte y la proyección anterior queda intacta). */
+export class RebuildAbortedError extends Error {
+  constructor(readonly eventId: string, cause: unknown) {
+    super(`Rebuild aborted at event ${eventId}: ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
+  }
+}
+
+const before = (a: IntegrationEvent, b: IntegrationEvent) =>
+  a.occurred_at < b.occurred_at || (a.occurred_at === b.occurred_at && a.event_id < b.event_id);
+
+/** Mezcla flujos ya ordenados por (occurred_at, id) en uno solo con el mismo orden, sin cargarlos enteros. */
+async function* merge(streams: AsyncIterable<IntegrationEvent>[]): AsyncGenerator<IntegrationEvent> {
+  const iterators = streams.map((s) => s[Symbol.asyncIterator]());
+  const heads = await Promise.all(iterators.map((i) => i.next()));
+  for (;;) {
+    let best = -1;
+    heads.forEach((h, i) => {
+      if (!h!.done && (best < 0 || before(h!.value, (heads[best] as IteratorYieldResult<IntegrationEvent>).value))) best = i;
+    });
+    if (best < 0) return;
+    yield (heads[best] as IteratorYieldResult<IntegrationEvent>).value;
+    heads[best] = await iterators[best]!.next();
+  }
+}
+
 /**
- * Vacía las tres tablas de analytics y reprocesa un historial de eventos (DATA-001 §5).
- * Vaciar y reprocesar debe ser atómico respecto a los eventos en vivo: el adaptador ejecuta los `clear()` y el
- * reproceso en una sola transacción (o bloquea el suscriptor), para que un evento en vivo no se pierda ni se duplique
- * a mitad de la reconstrucción. Esta clase no lo garantiza por sí sola.
- * OPEN: ¿de dónde sale el historial sin leer tablas ajenas? DATA-001 §5 habla de reprocesar `outbox_events`
- * de hospitality y commerce, pero Analytics no puede leer sus esquemas (PLAN-001 Q-09). Aquí se recibe como iterable.
- * OPEN: ante un evento inválido se aborta (la proyección queda parcial); ¿omitir y reportar en su lugar?
+ * Vacía las tablas de analytics y reproceso el historial de los emisores (DATA-001 §5, Q-09) en una sola transacción:
+ * los eventos en vivo esperan al commit y luego se deduplican por `processed_events`. El historial se mezcla por (occurred_at, id)
+ * para que un `acknowledged` nunca se procese antes de su `created`.
  */
 export class RebuildProjections {
-  constructor(
-    private readonly callFacts: ServiceCallFactRepository,
-    private readonly stockFacts: StockMovementFactRepository,
-    private readonly processed: ProcessedEventStore,
-    private readonly subscriber: AnalyticsEventSubscriber,
-  ) {}
+  constructor(private readonly transaction: ProjectionTransaction) {}
 
-  async execute(history: Iterable<unknown> | AsyncIterable<unknown>): Promise<RebuildSummary> {
-    await Promise.all([this.callFacts.clear(), this.stockFacts.clear(), this.processed.clear()]);
-    const summary: RebuildSummary = { total: 0, applied: 0, duplicates: 0, ignored: 0 };
-    for await (const event of history) {
-      summary.total++;
-      const result = await this.subscriber.project(event);
-      if (result === 'applied') summary.applied++;
-      else if (result === 'duplicate') summary.duplicates++;
-      else summary.ignored++;
-    }
-    return summary;
+  execute(readers: readonly EventHistoryReader[]): Promise<RebuildSummary> {
+    return this.transaction.run(async (projector) => {
+      await projector.clear();
+      const summary: RebuildSummary = { total: 0, applied: 0, duplicates: 0, ignored: 0 };
+      for await (const event of merge(readers.map((r) => r.read()))) {
+        summary.total++;
+        try {
+          const result = await projector.project(event);
+          if (result === 'applied') summary.applied++;
+          else if (result === 'duplicate') summary.duplicates++;
+          else summary.ignored++;
+        } catch (e) {
+          throw new RebuildAbortedError(event.event_id, e);
+        }
+      }
+      return summary;
+    });
   }
 }
