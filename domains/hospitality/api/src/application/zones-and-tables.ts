@@ -2,7 +2,7 @@ import type { CoreAccessPort } from '@modivara/core-contracts';
 import { ConflictError, DuplicateError, NotFoundError, TableInUseError } from '../domain/errors.js';
 import { DiningTable } from '../domain/tables/dining-table.js';
 import { Zone } from '../domain/tables/zone.js';
-import type { DeviceAssignmentRepository, DiningTableRepository, ZoneRepository } from './ports/index.js';
+import type { DeviceAssignmentRepository, DiningTableRepository, ServiceCallRepository, ZoneRepository } from './ports/index.js';
 import { type ActorContext, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
 
 export class CreateZone {
@@ -146,14 +146,18 @@ export class DeactivateTable {
     private readonly core: CoreAccessPort,
     private readonly tables: DiningTableRepository,
     private readonly assignments: DeviceAssignmentRepository,
+    private readonly calls: ServiceCallRepository,
   ) {}
 
+  /** Q-15 (28/10/2026): bloquea si la mesa tiene botones asignados o un llamado activo; el admin los resuelve antes. */
   async execute(input: ActorContext & { tableId: string }): Promise<void> {
     await requireActiveLocation(this.core, input);
     const table = owned(await this.tables.findById({ ...scopeOf(input), id: input.tableId }), input, 'table');
     if (!table.isActive) throw new NotFoundError('table');
     // OPEN: ¿desactivar una mesa debe desasignar sus botones solos? Por ahora se exige desasignarlos antes (más fácil de relajar).
     if ((await this.assignments.listActiveByTable({ ...scopeOf(input), tableId: table.id })).length > 0) throw new TableInUseError();
+    // ponytail: comprobación sin bloqueo; una pulsación simultánea podría abrir un llamado justo después. Bloquear la mesa si pasa en el piloto.
+    if ((await this.calls.list(scopeOf(input), { status: 'active', tableId: table.id, limit: 1 })).length > 0) throw new TableInUseError();
     table.deactivate(input.actorUserId, new Date());
     await this.tables.save(table);
   }

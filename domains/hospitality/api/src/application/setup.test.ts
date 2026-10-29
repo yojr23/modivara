@@ -54,6 +54,17 @@ describe('zonas y mesas', () => {
     await w.deactivateTable.execute({ ...w.ctx, tableId: table.id });
   });
 
+  it('no desactiva una mesa con un llamado activo (Q-15), aunque ya no tenga botón', async () => {
+    const { table, device } = await seedTableWithButton(w);
+    const callId = (await w.registerPress.registerPress(w.press())).serviceCallId!;
+    await w.unassignDevice.execute({ ...w.ctx, deviceId: device.id });
+    await expect(w.deactivateTable.execute({ ...w.ctx, tableId: table.id })).rejects.toBeInstanceOf(TableInUseError);
+    await w.acknowledge.execute({ ...w.ctx, callId });
+    await expect(w.deactivateTable.execute({ ...w.ctx, tableId: table.id })).rejects.toBeInstanceOf(TableInUseError);
+    await w.complete.execute({ ...w.ctx, callId });
+    await w.deactivateTable.execute({ ...w.ctx, tableId: table.id });
+  });
+
   it('aislamiento por local: no renombra mesas de otro local', async () => {
     const t = await w.createTable.execute({ ...w.ctx, label: '1' });
     const other = { ...w.ctx, locationId: crypto.randomUUID() };

@@ -37,7 +37,7 @@ export class DeviceAlreadyAssignedError extends DomainError {
 export class TableInUseError extends DomainError {
   readonly code = 'table_in_use';
   constructor() {
-    super('Table still has devices assigned');
+    super('Table still has devices assigned or an active service call');
   }
 }
 

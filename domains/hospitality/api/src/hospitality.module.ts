@@ -68,7 +68,7 @@ const useCases = [
   [DeactivateZone, [CORE, ZONES, TABLES]],
   [ListTables, [CORE, ZONES, TABLES]],
   [ListDevices, [CORE, DEVICES, ASSIGNMENTS]],
-  [DeactivateTable, [CORE, TABLES, ASSIGNMENTS]],
+  [DeactivateTable, [CORE, TABLES, ASSIGNMENTS, CALLS]],
   [RegisterDevice, [CORE, DEVICES]],
   [AssignDevice, [DEVICES, TABLES, ASSIGNMENTS]],
   [UnassignDevice, [ASSIGNMENTS]],

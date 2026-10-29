@@ -71,7 +71,7 @@ export function buildWorld() {
     listTables: new ListTables(core, zones, tables),
     listDevices: new ListDevices(core, devices, assignments),
     deviceStatus: new GetDeviceStatus(core, tables, assignments, connectivity),
-    deactivateTable: new DeactivateTable(core, tables, assignments),
+    deactivateTable: new DeactivateTable(core, tables, assignments, calls),
     registerDevice: new RegisterDevice(core, devices),
     assignDevice: new AssignDevice(devices, tables, assignments),
     unassignDevice: new UnassignDevice(assignments),
