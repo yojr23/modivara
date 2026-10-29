@@ -2,7 +2,7 @@
 
 Monorepo del MVP (pnpm workspaces). Destino: cuatro repositorios (`platform-core`, `hospitality-ops`, `commerce`, `analytics`); ver ADR-002 D1.
 
-Documentación de arquitectura en `../documentos/` (ADR-001, ADR-002, TECH-001 v1.4, DATA-001 v1.1, BRAND-002) y plan de trabajo con el estado por fase en `PLAN-001`.
+Documentación de arquitectura en `docs/` (ADR-001, ADR-002, ADR-003, TECH-001, DATA-001, BRAND-002, más HANDOFF y NOCHE-LOG) y plan de trabajo con el estado por fase en `PLAN-001`.
 
 ## Desarrollo
 
