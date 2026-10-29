@@ -72,6 +72,7 @@ export const REALTIME_EVENTS = {
   subscribe: 'location.subscribe',
   serviceCallChanged: 'service_call.changed',
   gatewaysStatus: 'gateways.status',
+  layoutPublished: 'layout.published',
 } as const;
 export const realtimeSubscribeSchema = z.object({ location_id: z.uuid() });
 export const realtimeSubscribeAckSchema = z.union([z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), code: z.string() })]);

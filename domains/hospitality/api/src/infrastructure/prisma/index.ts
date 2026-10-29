@@ -5,6 +5,7 @@ export * from './prisma-device-event-repository.js';
 export * from './prisma-device-repository.js';
 export * from './prisma-dining-table-repository.js';
 export * from './prisma-gateway-repository.js';
+export * from './prisma-layout-repository.js';
 export * from './prisma-location-settings-repository.js';
 export * from './prisma-service-call-repository.js';
 export * from './prisma-zone-repository.js';

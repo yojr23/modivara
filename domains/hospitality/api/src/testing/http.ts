@@ -83,7 +83,8 @@ export class TestErrorFilter implements ExceptionFilter {
 }
 
 /** HospitalityModule real con repositorios en memoria y el guard/filtro de prueba, en lugar de CoreModule y sus guards globales. */
-export async function createHospitalityTestApp() {
+/** Con `databaseUrl` usa la base real (db-test) en lugar de los repositorios en memoria. */
+export async function createHospitalityTestApp(options: { databaseUrl?: string } = {}) {
   const core = new FakeCoreAccess();
   const devices = new InMemoryDeviceRepository();
   const repos = {
@@ -102,13 +103,14 @@ export async function createHospitalityTestApp() {
   class FakeCoreModule {}
 
   @Module({
-    imports: [FakeCoreModule, HospitalityModule.forRoot({ databaseUrl: 'postgresql://unused', outbox: false })],
+    imports: [FakeCoreModule, HospitalityModule.forRoot({ databaseUrl: options.databaseUrl ?? 'postgresql://unused', outbox: false })],
     providers: [{ provide: APP_GUARD, useClass: TestAuthGuard }, { provide: APP_FILTER, useClass: TestErrorFilter }],
   })
   class TestHostModule {}
 
-  const app: INestApplication = (
-    await Test.createTestingModule({ imports: [TestHostModule] })
+  const builder = Test.createTestingModule({ imports: [TestHostModule] });
+  if (!options.databaseUrl) {
+    builder
       .overrideProvider(HOSPITALITY_PRISMA).useValue({ $disconnect: async () => undefined })
       .overrideProvider(ZONES).useValue(repos.zones)
       .overrideProvider(TABLES).useValue(repos.tables)
@@ -117,8 +119,10 @@ export async function createHospitalityTestApp() {
       .overrideProvider(GATEWAYS).useValue(repos.gateways)
       .overrideProvider(DEVICE_EVENTS).useValue(repos.events)
       .overrideProvider(SETTINGS).useValue(repos.settings)
-      .overrideProvider(CALLS).useValue(repos.calls)
-      .compile()
+      .overrideProvider(CALLS).useValue(repos.calls);
+  }
+  const app: INestApplication = (
+    await builder.compile()
   ).createNestApplication();
   app.setGlobalPrefix('api/v1');
   app.useWebSocketAdapter(new IoAdapter(app)); // el host real lo hace en main.ts
@@ -129,6 +133,7 @@ export async function createHospitalityTestApp() {
     get: (path: string) => http.get(`/api/v1${path}`).set(TEST_ACTOR_HEADER, JSON.stringify(caller)),
     post: (path: string, body?: object, headers: Record<string, string> = {}) => http.post(`/api/v1${path}`).set(TEST_ACTOR_HEADER, JSON.stringify(caller)).set(headers).send(body),
     patch: (path: string, body: object) => http.patch(`/api/v1${path}`).set(TEST_ACTOR_HEADER, JSON.stringify(caller)).send(body),
+    put: (path: string, body: object) => http.put(`/api/v1${path}`).set(TEST_ACTOR_HEADER, JSON.stringify(caller)).send(body),
   });
   // Lo que core resolvería con las membresías: el controlador de llamados pide los permisos por local a `CoreAccessPort.permissionsAt`.
   const grantPermissions = (caller: TestCaller) => {

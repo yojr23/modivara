@@ -3,7 +3,7 @@ import { type CoreAccessPort, type Permission, type RequestActor } from '@modiva
 import { REALTIME_EVENTS } from '@modivara/hospitality-contracts';
 import type { DefaultEventsMap, RemoteSocket } from 'socket.io';
 import type { CallViews } from '../../application/call-view.js';
-import type { CallChange, GatewayHealthChange, GatewayHealthNotifier, LocationSettingsRepository, NotificationPort } from '../../application/ports/index.js';
+import type { CallChange, GatewayHealthChange, GatewayHealthNotifier, LayoutNotifier, LayoutPublishedChange, LocationSettingsRepository, NotificationPort } from '../../application/ports/index.js';
 import { canSeeCall } from '../../domain/service-calls/visibility.js';
 import type { ServiceCall } from '../../domain/service-calls/service-call.js';
 import { locationRoom, type RealtimeGateway, type SocketData } from './realtime.gateway.js';
@@ -16,7 +16,7 @@ type Member = RemoteSocket<DefaultEventsMap, SocketData>;
  * en ese local (`canSeeCall` para llamados) y revalida la sesión: quien cerró sesión o perdió el permiso deja de recibir, y su socket se cierra.
  * ponytail: una revalidación por token y aviso (1–2 consultas); con salas grandes, cachear unos segundos.
  */
-export class RealtimeBroadcaster implements NotificationPort, GatewayHealthNotifier {
+export class RealtimeBroadcaster implements NotificationPort, GatewayHealthNotifier, LayoutNotifier {
   private readonly logger = new Logger('Realtime');
 
   constructor(
@@ -37,6 +37,12 @@ export class RealtimeBroadcaster implements NotificationPort, GatewayHealthNotif
   async connectivityChanged(change: GatewayHealthChange): Promise<void> {
     const payload = { location_id: change.locationId, connectivity: change.connected ? 'all_connected' : 'some_disconnected' } as const;
     await this.emitToLocation(change.locationId, REALTIME_EVENTS.gatewaysStatus, payload, (_actor, permissions) => permissions.has('hospitality.devices.status' satisfies Permission));
+  }
+
+  /** `layout.published`: quien lee los planos (`hospitality.calls.read`) vuelve a pedirlos. */
+  async layoutPublished(change: LayoutPublishedChange): Promise<void> {
+    const payload = { location_id: change.locationId, zone_id: change.zoneId, version: change.version };
+    await this.emitToLocation(change.locationId, REALTIME_EVENTS.layoutPublished, payload, (_actor, permissions) => permissions.has('hospitality.calls.read' satisfies Permission));
   }
 
   private async emitToLocation(

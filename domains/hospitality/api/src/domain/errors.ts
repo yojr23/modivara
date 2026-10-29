@@ -1,4 +1,5 @@
 import { DomainError } from '@modivara/core-contracts';
+import type { SpaceLayout } from './layouts/space-layout.js';
 import type { ServiceCall } from './service-calls/service-call.js';
 
 // Errores comunes: los mismos de core-contracts, para que el borde HTTP traduzca igual en los 4 dominios.
@@ -45,5 +46,13 @@ export class ConcurrencyConflictError extends DomainError {
   readonly code = 'concurrency_conflict';
   constructor(readonly current: ServiceCall | null) {
     super('The service call was modified concurrently');
+  }
+}
+
+/** La revisión enviada no es la vigente del borrador: el borde responde 409 con el borrador actual (null si no hay). */
+export class LayoutRevisionConflictError extends DomainError {
+  readonly code = 'revision_conflict';
+  constructor(readonly current: SpaceLayout | null) {
+    super('The layout draft was modified concurrently');
   }
 }

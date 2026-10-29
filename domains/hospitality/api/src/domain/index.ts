@@ -3,6 +3,7 @@ export * from './devices/device-assignment.js';
 export * from './devices/device-event.js';
 export * from './devices/gateway.js';
 export * from './errors.js';
+export * from './layouts/space-layout.js';
 export * from './service-calls/debounce.js';
 export * from './service-calls/service-call.js';
 export * from './service-calls/transitions.js';

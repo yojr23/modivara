@@ -5,13 +5,13 @@ import {
 import { HOSPITALITY_EVENT_HISTORY } from '@modivara/hospitality-contracts';
 import {
   AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, EnsureLocationSettings, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
-  GetDeviceStatus, ListActiveCalls, ListServiceCalls, GetServiceCall, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice, SeedCallHistory,
+  GetDeviceStatus, GetLayoutDraft, ListActiveCalls, ListPublishedLayouts, PublishLayout, SaveLayoutDraft, ListServiceCalls, GetServiceCall, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice, SeedCallHistory,
 } from './application/index.js';
 import type {
   ButtonPressStore, CallHistoryStore, DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, GatewayRepository,
-  GatewayHealthNotifier, LocationSettingsRepository, NotificationPort, ServiceCallRepository, ZoneRepository,
+  GatewayHealthNotifier, LayoutRepository, LocationSettingsRepository, NotificationPort, ServiceCallRepository, ZoneRepository,
 } from './application/ports/index.js';
-import { LocationCreatedSubscriber, DeviceEventsController, DeviceStatusController, PlatformController, ServiceCallsController, TablesController, ZonesController } from './presentation/index.js';
+import { LocationCreatedSubscriber, DeviceEventsController, LayoutsController, DeviceStatusController, PlatformController, ServiceCallsController, TablesController, ZonesController } from './presentation/index.js';
 import { GatewayIngest } from './infrastructure/iot/gateway-ingest.js';
 import { GatewayRateLimiter, type GatewayRateLimitOptions } from './infrastructure/iot/gateway-rate-limiter.js';
 import { MqttAdapter, type MqttOptions, mqttOptionsFromEnv } from './infrastructure/iot/mqtt.adapter.js';
@@ -20,7 +20,7 @@ import { GatewayHealthMonitor } from './infrastructure/realtime/gateway-health.j
 import { GatewayPressAdapter, RealtimeBroadcaster, RealtimeGateway } from './infrastructure/index.js';
 import {
   createHospitalityPrisma, PrismaButtonPressStore, PrismaCallHistoryStore, PrismaDeviceAssignmentRepository, PrismaDeviceEventRepository, PrismaDeviceRepository,
-  PrismaDiningTableRepository, PrismaGatewayRepository, PrismaLocationSettingsRepository, PrismaServiceCallRepository, PrismaZoneRepository, type HospitalityPrisma,
+  PrismaDiningTableRepository, PrismaGatewayRepository, PrismaLayoutRepository, PrismaLocationSettingsRepository, PrismaServiceCallRepository, PrismaZoneRepository, type HospitalityPrisma,
 } from './infrastructure/prisma/index.js';
 
 // Tokens de inyección de los puertos (strings: no dependen de identidad de clase ni de módulos duplicados).
@@ -35,12 +35,14 @@ export const DEVICES = 'HOSPITALITY_DEVICES';
 export const ASSIGNMENTS = 'HOSPITALITY_ASSIGNMENTS';
 export const GATEWAYS = 'HOSPITALITY_GATEWAYS';
 export const CALLS = 'HOSPITALITY_CALLS';
+export const LAYOUTS = 'HOSPITALITY_LAYOUTS';
 export const DEVICE_EVENTS = 'HOSPITALITY_DEVICE_EVENTS';
 export const SETTINGS = 'HOSPITALITY_SETTINGS';
 export const PRESS_STORE = 'HOSPITALITY_PRESS_STORE';
 export const CALL_HISTORY_STORE = 'HOSPITALITY_CALL_HISTORY_STORE';
 export const NOTIFICATIONS = 'HOSPITALITY_NOTIFICATIONS';
 export const GATEWAY_HEALTH_NOTIFIER = 'HOSPITALITY_GATEWAY_HEALTH_NOTIFIER';
+export const LAYOUT_NOTIFIER = 'HOSPITALITY_LAYOUT_NOTIFIER';
 
 export interface HospitalityModuleOptions {
   /** Por defecto, `HOSPITALITY_DATABASE_URL` del entorno. */
@@ -81,6 +83,10 @@ const useCases = [
   [ListServiceCalls, [CORE, CALLS, CallViews, SETTINGS]],
   [AcknowledgeCall, [CALLS, NOTIFICATIONS]],
   [CompleteCall, [CALLS, NOTIFICATIONS]],
+  [ListPublishedLayouts, [CORE, LAYOUTS, ZONES, TABLES]],
+  [GetLayoutDraft, [CORE, LAYOUTS, ZONES, TABLES]],
+  [SaveLayoutDraft, [CORE, LAYOUTS, ZONES, TABLES]],
+  [PublishLayout, [CORE, LAYOUTS, LAYOUT_NOTIFIER]],
   [SeedCallHistory, [CORE, TABLES, ZONES, DEVICES, ASSIGNMENTS, GATEWAYS, CALLS, CALL_HISTORY_STORE]],
   [RegisterButtonPress, [CORE, DEVICES, ASSIGNMENTS, TABLES, ZONES, PRESS_STORE, NOTIFICATIONS]],
   [DetectGatewayHealthChanges, [GATEWAYS, GATEWAY_HEALTH_NOTIFIER]],
@@ -106,7 +112,7 @@ export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
     const databaseUrl = options.databaseUrl ?? process.env.HOSPITALITY_DATABASE_URL;
     return {
       module: HospitalityModule,
-      controllers: [ZonesController, TablesController, DeviceStatusController, PlatformController, DeviceEventsController, ServiceCallsController],
+      controllers: [ZonesController, TablesController, DeviceStatusController, PlatformController, DeviceEventsController, ServiceCallsController, LayoutsController],
       providers: [
         {
           provide: HOSPITALITY_PRISMA,
@@ -121,6 +127,7 @@ export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
         repo(ASSIGNMENTS, (p): DeviceAssignmentRepository => new PrismaDeviceAssignmentRepository(p)),
         repo(GATEWAYS, (p): GatewayRepository => new PrismaGatewayRepository(p)),
         repo(SETTINGS, (p): LocationSettingsRepository => new PrismaLocationSettingsRepository(p)),
+        repo(LAYOUTS, (p): LayoutRepository => new PrismaLayoutRepository(p)),
         repo(CALLS, (p): ServiceCallRepository => new PrismaServiceCallRepository(p)),
         repo(DEVICE_EVENTS, (p): DeviceEventRepository => new PrismaDeviceEventRepository(p)),
         repo(CALL_HISTORY_STORE, (p): CallHistoryStore => new PrismaCallHistoryStore(p)),
@@ -134,6 +141,7 @@ export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
           useFactory: (g: RealtimeGateway, core: CoreAccessPort, v: CallViews, s: LocationSettingsRepository) => new RealtimeBroadcaster(g, core, v, s),
         },
         { provide: GATEWAY_HEALTH_NOTIFIER, useExisting: RealtimeBroadcaster },
+        { provide: LAYOUT_NOTIFIER, useExisting: RealtimeBroadcaster },
         { provide: GatewayHealthMonitor, inject: [DetectGatewayHealthChanges], useFactory: (d: DetectGatewayHealthChanges) => new GatewayHealthMonitor(d) },
         {
           provide: MqttAdapter,
