@@ -6,6 +6,7 @@ export { AcknowledgeCall, type CallActionInput } from './application/acknowledge
 export { CompleteCall } from './application/complete-call.js';
 export { AssignDevice, type DeviceView, ListDevices, ListUnknownDevices, RegisterDevice, UnassignDevice, type UnknownDevice } from './application/devices.js';
 export { CreateGateway, type ConnectivityStatus, type DeviceStatus, GetConnectivity, GetDeviceStatus, type GatewayConnectivity, RecordHeartbeat } from './application/gateways.js';
+export { GetLayoutDraft, ListPublishedLayouts, PublishLayout, SaveLayoutDraft } from './application/layouts.js';
 export { type ActiveCallView, ListActiveCalls } from './application/list-active-calls.js';
 export { DetectGatewayHealthChanges } from './application/gateway-health.js';
 export { RegisterButtonPress } from './application/register-button-press.js';
@@ -28,6 +29,8 @@ export type {
   GatewayHealthNotifier,
   GatewayRepository,
   IoTInputPort,
+  LayoutNotifier,
+  LayoutRepository,
   LocationSettingsRepository,
   NormalizedPress,
   NotificationPort,

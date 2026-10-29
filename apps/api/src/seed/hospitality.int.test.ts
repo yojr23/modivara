@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BootstrapPlatform, CoreModule, ProvisionOrganization } from '@modivara/core-api';
-import { GatewayPressAdapter, GetConnectivity, HospitalityModule, ListDevices, ListTables, ListZones } from '@modivara/hospitality-api';
+import { GatewayPressAdapter, GetConnectivity, HospitalityModule, ListDevices, ListPublishedLayouts, ListTables, ListZones } from '@modivara/hospitality-api';
 import { seedCore } from './core.js';
 import { seedHospitality } from './hospitality.js';
 import { resetBoth } from './testing.js';
@@ -60,6 +60,16 @@ describe('seed:hospitality', () => {
       const pisosDevices = await app.get(ListDevices).execute(pisos);
       expect(pisosDevices.map((d) => d.device.code).sort()).toEqual(Array.from({ length: 6 }, (_, i) => `p-btn-${String(i + 1).padStart(2, '0')}`));
       expect(pisosDevices.every((d) => d.tableId !== null)).toBe(true);
+
+      // ADR-003: un plano publicado por espacio (la segunda corrida no publica otra versión).
+      const count = (l: { elements: { type: string }[] }, type: string) => l.elements.filter((e) => e.type === type).length;
+      const [demoPlan, ...others] = await app.get(ListPublishedLayouts).execute(demo);
+      expect(others).toEqual([]);
+      expect(demoPlan).toMatchObject({ zoneId: null, version: 1 });
+      expect([count(demoPlan!, 'table'), count(demoPlan!, 'bar'), count(demoPlan!, 'door')]).toEqual([15, 1, 1]);
+      const pisosPlans = await app.get(ListPublishedLayouts).execute(pisos);
+      expect(pisosPlans.map((l) => [l.version, count(l, 'table')])).toEqual([[1, 3], [1, 3]]);
+      expect(new Set(pisosPlans.map((l) => l.zoneId)).size).toBe(2);
     } finally {
       await app.close();
     }
