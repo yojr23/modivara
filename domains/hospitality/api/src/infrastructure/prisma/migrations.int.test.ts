@@ -123,3 +123,51 @@ describe('migración hospitality 0001', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('migración hospitality 0003 (planos de espacios)', () => {
+  const layout = (data: Record<string, unknown> = {}, loc = t) =>
+    db.spaceLayout.create({ data: { ...loc, version: 0, status: 'draft', canvasWidth: 800, canvasHeight: 600, elements: [], revision: 1, ...data } as never });
+  const pub = (version: number, data: Record<string, unknown> = {}, loc = t) =>
+    layout({ status: 'published', version, publishedAt: new Date(), publishedBy: newId(), ...data }, loc);
+
+  it('un solo borrador por espacio; el espacio sin zona (NULL) cuenta como uno', async () => {
+    const z = await zone('Terraza');
+    await layout();
+    await expect(layout()).rejects.toThrow();
+    await expect(layout({ zoneId: z.id })).resolves.toBeDefined();
+    await expect(layout({ zoneId: z.id })).rejects.toThrow();
+    await expect(layout({}, other)).resolves.toBeDefined();
+  });
+
+  it('un solo publicado por espacio; archivados y versiones conviven, sin repetir versión', async () => {
+    const z = await zone('Terraza');
+    for (const zoneId of [null, z.id]) {
+      const first = await pub(1, { zoneId });
+      await expect(pub(2, { zoneId })).rejects.toThrow();
+      await db.spaceLayout.update({ where: { id: first.id }, data: { status: 'archived' } });
+      await expect(pub(1, { zoneId, status: 'archived' })).rejects.toThrow(); // versión repetida
+      await expect(pub(2, { zoneId })).resolves.toBeDefined();
+    }
+  });
+
+  it('estado, versión y publicación deben ser coherentes', async () => {
+    await expect(layout({ status: 'bogus' })).rejects.toThrow();
+    await expect(layout({ publishedAt: new Date(), publishedBy: newId() })).rejects.toThrow(); // borrador con publicación
+    await expect(pub(1, { publishedBy: null })).rejects.toThrow(); // fecha sin autor
+    await expect(layout({ status: 'published', version: 1 })).rejects.toThrow(); // publicado sin fecha ni autor
+    await expect(pub(0)).rejects.toThrow(); // publicado sin versión
+    await expect(layout({ version: 1 })).rejects.toThrow(); // borrador con versión
+    await expect(layout({ revision: 0 })).rejects.toThrow();
+  });
+
+  it('lienzo positivo y acotado; elementos es un arreglo', async () => {
+    await expect(layout({ canvasWidth: 0 })).rejects.toThrow();
+    await expect(layout({ canvasHeight: 10_001 })).rejects.toThrow();
+    await expect(layout({ elements: {} })).rejects.toThrow();
+  });
+
+  it('FK compuesta: la zona debe ser del mismo local', async () => {
+    const foreign = await zone('Z', other);
+    await expect(layout({ zoneId: foreign.id })).rejects.toThrow();
+  });
+});

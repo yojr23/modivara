@@ -8,7 +8,7 @@ export const hospitalityPrismaForTests = (): HospitalityPrisma => createHospital
 /** Deja el esquema hospitality vacío entre pruebas (las migraciones ya están aplicadas por el globalSetup). */
 export async function resetHospitality(prisma: HospitalityPrisma): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE outbox_events, device_events, service_call_transitions, service_calls, device_assignments, devices, gateways, dining_tables, zones, location_settings CASCADE',
+    'TRUNCATE outbox_events, device_events, service_call_transitions, service_calls, device_assignments, devices, gateways, space_layouts, dining_tables, zones, location_settings CASCADE',
   );
 }
 

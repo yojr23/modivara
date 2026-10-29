@@ -60,6 +60,14 @@ enum DeviceEventResult {
   @@map("device_event_result")
 }
 
+enum LayoutStatus {
+  draft
+  published
+  archived
+
+  @@map("layout_status")
+}
+
 model LocationSettings {
   locationId     String         @id @map("location_id") @db.Uuid
   organizationId String         @map("organization_id") @db.Uuid
@@ -84,7 +92,8 @@ model Zone {
   updatedBy      String?   @map("updated_by") @db.Uuid
   deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
 
-  tables DiningTable[]
+  tables  DiningTable[]
+  layouts SpaceLayout[]
 
   @@unique([id, locationId], map: "uq_zones_id_location")
   @@map("zones")
@@ -109,6 +118,34 @@ model DiningTable {
 
   @@unique([id, locationId], map: "uq_dining_tables_id_location")
   @@map("dining_tables")
+}
+
+/// Plano de un espacio (ADR-003): `zone_id` null = espacio por defecto del local. Elementos en JSONB validado por Zod en contracts.
+/// Los índices únicos reales llevan NULLS NOT DISTINCT en el SQL explícito de la migración 0003.
+model SpaceLayout {
+  id             String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  locationId     String       @map("location_id") @db.Uuid
+  zoneId         String?      @map("zone_id") @db.Uuid
+  version        Int
+  status         LayoutStatus
+  canvasWidth    Int          @map("canvas_width")
+  canvasHeight   Int          @map("canvas_height")
+  elements       Json
+  revision       Int
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @default(now()) @map("updated_at") @db.Timestamptz
+  createdBy      String?      @map("created_by") @db.Uuid
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  publishedAt    DateTime?    @map("published_at") @db.Timestamptz
+  publishedBy    String?      @map("published_by") @db.Uuid
+
+  zone Zone? @relation(fields: [zoneId, locationId], references: [id, locationId])
+
+  @@unique([locationId, zoneId], map: "uq_space_layouts_draft", where: raw("status = 'draft'::layout_status"))
+  @@unique([locationId, zoneId], map: "uq_space_layouts_published", where: raw("status = 'published'::layout_status"))
+  @@unique([locationId, zoneId, version], map: "uq_space_layouts_version", where: raw("status <> 'draft'::layout_status"))
+  @@map("space_layouts")
 }
 
 model Gateway {
