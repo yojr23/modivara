@@ -1,6 +1,7 @@
-import { REALTIME_EVENTS as E, REALTIME_PATH, gatewaysStatusSchema, realtimeSubscribeAckSchema, serviceCallSchema, type ServiceCallDto } from '@modivara/hospitality-contracts';
+import { REALTIME_EVENTS as E, REALTIME_PATH, gatewaysStatusSchema, layoutPublishedSchema, realtimeSubscribeAckSchema, serviceCallSchema, type ServiceCallDto } from '@modivara/hospitality-contracts';
 import type { QueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
+import { layoutKeys } from '../layouts.js';
 import { callsKeys, applyCallChange } from './cache.js';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
@@ -35,6 +36,7 @@ export class RealtimeClient {
     s.on('connect_error', () => this.set({ status: 'disconnected' }));
     s.on(E.serviceCallChanged, (raw: unknown) => this.onCall(raw));
     s.on(E.gatewaysStatus, (raw: unknown) => this.onGateways(raw));
+    s.on(E.layoutPublished, (raw: unknown) => this.onLayout(raw));
   }
 
   getState = (): RealtimeState => this.state;
@@ -56,7 +58,10 @@ export class RealtimeClient {
       if (!a.success || !a.data.ok) return this.set({ status: 'disconnected' });
       this.set({ status: 'connected' });
       // Los eventos se pierden mientras no hay suscripción: tras re-suscribir se relee el estado autoritativo.
-      if (this.subscribedBefore) void this.qc.invalidateQueries({ queryKey: callsKeys.all(this.locationId) });
+      if (this.subscribedBefore) {
+        void this.qc.invalidateQueries({ queryKey: callsKeys.all(this.locationId) });
+        void this.qc.invalidateQueries({ queryKey: layoutKeys.published(this.locationId) });
+      }
       this.subscribedBefore = true;
     });
   }
@@ -68,6 +73,12 @@ export class RealtimeClient {
     if (p.success && p.data.location_id === this.locationId) this.apply(p.data);
   }
   private apply(call: ServiceCallDto) { applyCallChange(this.qc, this.locationId, call); }
+
+  /** Plano publicado: los tableros abiertos lo releen por REST (no se aplica el aviso al caché). */
+  private onLayout(raw: unknown) {
+    const p = layoutPublishedSchema.safeParse(raw);
+    if (!this.closed && p.success && p.data.location_id === this.locationId) void this.qc.invalidateQueries({ queryKey: layoutKeys.published(this.locationId) });
+  }
 
   private onGateways(raw: unknown) {
     const p = gatewaysStatusSchema.safeParse(raw);

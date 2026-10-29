@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import type { PublishLayoutBody, SaveLayoutDraftBody } from '@modivara/hospitality-contracts';
 import { hospitalityApi as api, toErrorState, type TableInput, type ZoneInput } from './client.js';
+import { layoutKeys, layoutsApi, toLayoutConflict } from './layouts.js';
 
 /** Claves por local: nunca se mezclan datos de dos locales. */
 export const hospitalityKeys = {
@@ -35,7 +37,25 @@ export const useUpdateZone = (l: string) =>
   mutation((v: { zoneId: string; input: Partial<ZoneInput> }) => api.updateZone(l, v.zoneId, v.input), () => zoneKeys(l));
 export const useDeactivateZone = (l: string) => mutation((zoneId: string) => api.deactivateZone(l, zoneId), () => zoneKeys(l));
 
-export const useCreateTable = (l: string) => mutation((v: TableInput) => api.createTable(l, v), () => tableKeys(l));
+// Planos (ADR-003). El plano publicado se refresca con `layout.published` (RealtimeProvider); el borrador solo cambia por quien edita.
+export const useLayouts = (l: string) => useQuery({ queryKey: layoutKeys.published(l), queryFn: () => layoutsApi.listPublished(l), retry });
+/** Borrador + publicado de un espacio (`zoneId` null = espacio por defecto). */
+export const useLayoutDraft = (l: string, zoneId: string | null) =>
+  useQuery({ queryKey: layoutKeys.draft(l, zoneId), queryFn: () => layoutsApi.getDraft(l, zoneId), retry });
+/** 409 (`conflict`): relee el borrador vigente, que también viene en `toLayoutConflict(error).current`. */
+export function useSaveLayoutDraft(l: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: SaveLayoutDraftBody) => layoutsApi.saveDraft(l, v),
+    onSettled: (_r, e, v) => (e && !toLayoutConflict(e) ? undefined : qc.invalidateQueries({ queryKey: layoutKeys.draft(l, v.zone_id) })),
+  });
+}
+export const usePublishLayout = (l: string) =>
+  mutation((v: PublishLayoutBody) => layoutsApi.publish(l, v), (v) => [layoutKeys.draft(l, v.zone_id), layoutKeys.published(l)]);
+/** Estado de UI del error de guardar/publicar un plano; 409 incluye el borrador vigente si vino. */
+export const layoutErrorState = (e: unknown) => (e == null ? undefined : toLayoutConflict(e) ?? { state: toErrorState(e) });
+
+export const useCreateTable =(l: string) => mutation((v: TableInput) => api.createTable(l, v), () => tableKeys(l));
 export const useUpdateTable = (l: string) =>
   mutation((v: { tableId: string; input: Partial<TableInput> }) => api.updateTable(l, v.tableId, v.input), () => tableKeys(l));
 export const useDeactivateTable = (l: string) => mutation((tableId: string) => api.deactivateTable(l, tableId), () => tableKeys(l));
