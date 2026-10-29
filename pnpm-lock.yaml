@@ -133,6 +133,9 @@ importers:
       '@modivara/core-web':
         specifier: workspace:*
         version: link:../../domains/core/web
+      '@modivara/hospitality-contracts':
+        specifier: workspace:*
+        version: link:../../domains/hospitality/contracts
       '@modivara/hospitality-web':
         specifier: workspace:*
         version: link:../../domains/hospitality/web
