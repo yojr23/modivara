@@ -99,7 +99,7 @@ Documentos: TECH-001 **v1.4**, DATA-001 **v1.1**, BRAND-002 (referencias), PLAN-
 
 Verificado: typecheck, build, separabilidad, `prisma validate` ×4 y **374 pruebas**; `docker compose build/up` OK (la API recibe solo las 4 URLs de su dominio; el simulador no recibe credenciales de la base). Rama con 69 commits sobre `main`.
 
-Nota de historial: dos commits intermedios de core (`55444cc`, `bf3c550`) no compilan aislados (archivos nuevos quedaron en `950e848`); no se reescribió el historial.
+Nota de historial: dos commits intermedios de core (`7348e05`, `bf2b37e`) no compilan aislados (archivos nuevos quedaron en `c79cf46`); no se reescribió el historial.
 
 Pendientes abiertos: dead-letter de analytics, ventana `since` de botones desconocidos, almacenamiento del límite por IP, unificar `duplicate`/`conflict` (ver `modivara/MEMORY.md`).
 
@@ -167,7 +167,7 @@ Pendiente: F5-12 `[DISEÑO]` (tablero de métricas) y F5-13 (E2E). Con esto el b
 - Métricas: `by_period` trae en 0 los periodos sin datos hasta la cubeta actual; `custom` acotado a 366 días (31 por hora), corrigiendo un hallazgo de seguridad (cubetas sin límite).
 - Seed: perfil de demo único (`DEMO_CALL_PROFILE`, `DEMO_STOCK_PROFILE`); Bar Demo Pisos con gateway, 6 botones y 14 días de historial (181 llamados, 241 movimientos).
 - Documentos: TECH-001 v1.5 (rutas reales, catálogo por local), DATA-001 v1.2 (outbox de core, `failed_at`, reconstrucción por puerto de historial), PLAN-001 v1.2.
-- Verificado: typecheck, pruebas unitarias e integración (47 archivos), separabilidad y build en `6519cc1`.
+- Verificado: typecheck, pruebas unitarias e integración (47 archivos), separabilidad y build en `a258db8`.
 
 ---
 
