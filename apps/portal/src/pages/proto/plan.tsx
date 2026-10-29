@@ -4,17 +4,18 @@ import { cn } from '@/ui/cn';
 // [DISEÑO] Prototipo de L-05/L-06 con datos locales: no llama a la API. Formas y tipos = contratos reales (ADR-003 §17).
 
 export type Space = { id: string; name: string; width: number; height: number; elements: LayoutElement[] };
-export type Table = { id: string; label: string; spaceId: string };
+/** `hasButton` = DeviceStatusDto.tables[].has_button; nunca ids ni claves del hardware. */
+export type Table = { id: string; label: string; spaceId: string; hasButton: boolean };
 
 const id = () => crypto.randomUUID();
-const table = (label: string, spaceId: string): Table => ({ id: id(), label, spaceId });
+const table = (label: string, spaceId: string): Table => ({ id: id(), label, spaceId, hasButton: label !== 'Mesa 10' && label !== 'Mesa 12' });
 
 export const SALON = 'salon';
 export const TERRAZA = 'terraza';
 
 export const TABLES: Table[] = [
-  ...Array.from({ length: 11 }, (_, i) => table(`Mesa ${i + 1}`, SALON)),
-  ...Array.from({ length: 5 }, (_, i) => table(`Mesa ${i + 12}`, TERRAZA)),
+  ...Array.from({ length: 12 }, (_, i) => table(`Mesa ${i + 1}`, SALON)),
+  ...Array.from({ length: 5 }, (_, i) => table(`Mesa ${i + 13}`, TERRAZA)),
 ];
 
 const at = (t: Table, shape: 'round' | 'square' | 'rect', x: number, y: number, w = 70, h = w, rotation = 0): LayoutElement => ({
@@ -24,15 +25,16 @@ const box = (type: 'wall' | 'door' | 'bar', x: number, y: number, width: number,
 const text = (t: string, x: number, y: number): LayoutElement => ({ id: id(), type: 'label', text: t, x, y, rotation: 0 });
 
 const [m1, m2, m3, m4, m5, m6, m7, m8, m9, m10] = TABLES;
-const [t12, t13, t14, t15, t16] = TABLES.slice(11);
+const [t12, t13, t14, t15, t16] = TABLES.slice(12);
 
-// Mesa 11 queda fuera a propósito: aparece en «Mesas sin ubicar».
+// Mesas 11 y 12 quedan fuera a propósito: aparecen en «Mesas sin ubicar».
 export const SPACES: Space[] = [
   {
     id: SALON, name: 'Salón principal', width: 1000, height: 640,
     elements: [
       box('bar', 140, 40, 500, 56),
       box('wall', 720, 40, 14, 340),
+      box('wall', 30, 40, 14, 520),
       box('door', 60, 620, 100, 14),
       text('Entrada', 60, 600),
       text('Ventanal', 820, 70),
