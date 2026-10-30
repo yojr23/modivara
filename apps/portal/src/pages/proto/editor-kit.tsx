@@ -82,10 +82,10 @@ export function useLayoutEditor() {
   const at = (w: number, h: number, point?: { x: number; y: number }) => ({
     x: round((point?.x ?? space.width / 2) - w / 2), y: round((point?.y ?? space.height / 2) - h / 2), rotation: 0,
   });
-  function addTool(tool: Exclude<ToolId, 'select' | 'table'>) {
-    if (tool === 'label') return add({ id: crypto.randomUUID(), type: 'label', text: 'Etiqueta', ...at(0, 0) });
+  function addTool(tool: Exclude<ToolId, 'select' | 'table'>, point?: { x: number; y: number }) {
+    if (tool === 'label') return add({ id: crypto.randomUUID(), type: 'label', text: 'Etiqueta', ...at(0, 0, point) });
     const [width, height] = { wall: [200, 14], door: [100, 14], bar: [300, 56] }[tool];
-    add({ id: crypto.randomUUID(), type: tool, width: width!, height: height!, ...at(width!, height!) });
+    add({ id: crypto.randomUUID(), type: tool, width: width!, height: height!, ...at(width!, height!, point) });
   }
   const place = (t: Table, point?: { x: number; y: number }) =>
     add({ id: crypto.randomUUID(), type: 'table', table_id: t.id, shape: 'round', width: 70, height: 70, ...at(70, 70, point) });
@@ -255,7 +255,9 @@ export function PlanCanvas({ ed, readOnly = false, className }: { ed: Ed; readOn
 
   function onDrop(e: DragEvent) {
     const t = ed.tables.find((x) => x.id === e.dataTransfer.getData('text/table-id'));
+    const tool = e.dataTransfer.getData('text/tool') as Exclude<ToolId, 'select' | 'table'> | '';
     if (t) ed.place(t, toCanvas(e));
+    else if (tool) ed.addTool(tool, toCanvas(e));
   }
 
   return (

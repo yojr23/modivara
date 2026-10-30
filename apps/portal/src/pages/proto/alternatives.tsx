@@ -253,13 +253,86 @@ function CheckRow({ ok, warn = false, children }: { ok: boolean; warn?: boolean;
   );
 }
 
+/** Paleta visible: mesas reales del espacio y elementos de referencia (tocar o arrastrar al plano). */
+function Palette({ ed }: { ed: Ed }) {
+  const here = ed.tables.filter((t) => t.spaceId === ed.spaceId).length;
+  return (
+    <>
+      <section aria-labelledby="pal-tables">
+        <h2 id="pal-tables" className="font-display text-lg font-bold">Mesas de {ed.space.name}</h2>
+        <p className="mb-3 text-sm text-muted">{here - ed.unplaced.length} de {here} en el plano. Arrastra o toca Ubicar.</p>
+        <UnplacedTables ed={ed} />
+      </section>
+      <section aria-labelledby="pal-refs" className="border-t border-line pt-5">
+        <h2 id="pal-refs" className="mb-1 font-display text-lg font-bold">Elementos del local</h2>
+        <p className="mb-3 text-sm text-muted">Toca para añadir al centro o arrastra al plano. No reciben llamados.</p>
+        <div className="grid grid-cols-2 gap-2">
+          {REFS.map(({ id, label, Icon }) => (
+            <button
+              key={id} type="button" draggable onDragStart={(e) => e.dataTransfer.setData('text/tool', id)} onClick={() => ed.addTool(id as AddTool)}
+              className="flex h-16 cursor-grab flex-col items-center justify-center gap-1 rounded-md border border-line text-sm font-medium hover:border-line-strong hover:bg-sunken"
+            >
+              <Icon aria-hidden className="size-5" />{label}
+            </button>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+/** «¿Qué falta?»: estado del borrador mientras se distribuye. */
+function Todo({ ed }: { ed: Ed }) {
+  return (
+    <section aria-labelledby="todo">
+      <h2 id="todo" className="mb-3 font-display text-lg font-bold">¿Qué falta?</h2>
+      <ul className="space-y-2">
+        <CheckRow ok={ed.unplaced.length === 0} warn>{ed.unplaced.length ? `${ed.unplaced.length} mesas sin ubicar` : 'Todas las mesas están en el plano'}</CheckRow>
+        <CheckRow ok={ed.outside.length === 0}>{ed.outside.length ? `${ed.outside.length} elementos fuera del lienzo` : 'Todo dentro del lienzo'}</CheckRow>
+        <CheckRow ok={ed.hits.size === 0} warn>{ed.hits.size ? 'Hay elementos encimados (no impide publicar)' : 'Nada encimado'}</CheckRow>
+        <CheckRow ok={!ed.dirty} warn>{ed.dirty ? 'Cambios sin guardar' : 'Borrador guardado'}</CheckRow>
+      </ul>
+      <p className="mt-6 text-sm text-muted">Toca una mesa para cambiar su nombre o su forma. Arrástrala para moverla; el tirador de arriba la gira.</p>
+    </section>
+  );
+}
+
+/** Revisión previa a publicar: comprobaciones, conteo y botón final. */
+function Review({ ed }: { ed: Ed }) {
+  const count = (type: string) => ed.space.elements.filter((e) => e.type === type).length;
+  return (
+    <div className="space-y-6">
+      <section aria-labelledby="review">
+        <h2 id="review" className="mb-3 font-display text-xl font-bold">Revisar {ed.space.name}</h2>
+        <ul className="space-y-2">
+          <CheckRow ok>Cada mesa aparece una sola vez</CheckRow>
+          <CheckRow ok>Todas las mesas son de {ed.space.name}</CheckRow>
+          <CheckRow ok={ed.outside.length === 0}>{ed.outside.length ? 'Hay elementos fuera del lienzo: muévelos dentro' : 'Todo dentro del lienzo'}</CheckRow>
+          <CheckRow ok={ed.hits.size === 0} warn>{ed.hits.size ? 'Hay elementos encimados; se puede publicar' : 'Nada encimado'}</CheckRow>
+          <CheckRow ok={ed.unplaced.length === 0} warn>{ed.unplaced.length ? `${ed.unplaced.length} mesas sin ubicar: sus llamados siguen llegando a la cola` : 'Todas las mesas ubicadas'}</CheckRow>
+        </ul>
+      </section>
+      <section aria-labelledby="review-sum">
+        <h3 id="review-sum" className="mb-2 font-bold">Contenido</h3>
+        <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-sm">
+          {([['Mesas en el plano', count('table')], ['Mesas sin ubicar', ed.unplaced.length], ['Barras', count('bar')], ['Puertas', count('door')], ['Paredes', count('wall')], ['Etiquetas', count('label')]] as const).map(([k, v]) => (
+            <div key={k} className="contents"><dt className="text-muted">{k}</dt><dd className="text-right font-semibold tabular-nums">{v}</dd></div>
+          ))}
+        </dl>
+      </section>
+      <p className="text-sm text-muted">
+        Al publicar, el tablero del personal muestra este plano{ed.published ? ` y la versión ${ed.published} pasa al archivo` : ''}.
+      </p>
+      <Button size="lg" className="w-full" onClick={ed.requestPublish} disabled={ed.outside.length > 0}><Send aria-hidden className="size-5" />Publicar plano</Button>
+    </div>
+  );
+}
+
 export function EditorC() {
   const ed = useLayoutEditor();
   const [step, setStep] = useState(2);
   const [start, setStart] = useState<'copy' | 'empty'>('copy');
   const { space, el } = ed;
-  const tablesHere = ed.tables.filter((t) => t.spaceId === ed.spaceId);
-  const count = (type: string) => space.elements.filter((e) => e.type === type).length;
 
   function next() {
     if (step === 1 && start === 'empty' && space.elements.length) ed.clearSpace();
@@ -337,22 +410,7 @@ export function EditorC() {
       {step === 2 && (
         <div className="grid min-h-0 flex-1 grid-cols-[288px_minmax(0,1fr)_304px]">
           <aside className="space-y-6 overflow-y-auto border-r border-line bg-surface p-5">
-            <section aria-labelledby="c-tables">
-              <h2 id="c-tables" className="font-display text-lg font-bold">Mesas de {space.name}</h2>
-              <p className="mb-3 text-sm text-muted">{tablesHere.length - ed.unplaced.length} de {tablesHere.length} en el plano. Arrastra o toca Ubicar.</p>
-              <UnplacedTables ed={ed} />
-            </section>
-            <section aria-labelledby="c-refs" className="border-t border-line pt-5">
-              <h2 id="c-refs" className="mb-1 font-display text-lg font-bold">Referencias del local</h2>
-              <p className="mb-3 text-sm text-muted">Ayudan a ubicarse; no reciben llamados.</p>
-              <div className="grid grid-cols-2 gap-2">
-                {REFS.map(({ id, label, Icon }) => (
-                  <button key={id} type="button" onClick={() => ed.addTool(id as AddTool)} className="flex h-11 items-center gap-2 rounded-md border border-line px-3 text-sm font-medium hover:bg-sunken">
-                    <Icon aria-hidden className="size-4" />{label}
-                  </button>
-                ))}
-              </div>
-            </section>
+            <Palette ed={ed} />
           </aside>
 
           <main className="flex min-h-0 flex-col bg-sunken">
@@ -376,16 +434,7 @@ export function EditorC() {
                 <Inspector ed={ed} compact />
               </section>
             ) : (
-              <section aria-labelledby="c-todo">
-                <h2 id="c-todo" className="mb-3 font-display text-lg font-bold">¿Qué falta?</h2>
-                <ul className="space-y-2">
-                  <CheckRow ok={ed.unplaced.length === 0} warn>{ed.unplaced.length ? `${ed.unplaced.length} mesas sin ubicar` : 'Todas las mesas están en el plano'}</CheckRow>
-                  <CheckRow ok={ed.outside.length === 0}>{ed.outside.length ? `${ed.outside.length} elementos fuera del lienzo` : 'Todo dentro del lienzo'}</CheckRow>
-                  <CheckRow ok={ed.hits.size === 0} warn>{ed.hits.size ? 'Hay elementos encimados (no impide publicar)' : 'Nada encimado'}</CheckRow>
-                  <CheckRow ok={!ed.dirty} warn>{ed.dirty ? 'Cambios sin guardar' : 'Borrador guardado'}</CheckRow>
-                </ul>
-                <p className="mt-6 text-sm text-muted">Toca una mesa para cambiar su nombre o su forma. Arrástrala para moverla; el tirador de arriba la gira.</p>
-              </section>
+              <Todo ed={ed} />
             )}
           </aside>
         </div>
@@ -397,29 +446,8 @@ export function EditorC() {
             <p className="mb-3 text-sm text-muted">Vista previa del plano que verá el personal. Los llamados en vivo se ven en el tablero.</p>
             <div className="min-h-0 flex-1 overflow-auto"><PlanCanvas ed={ed} readOnly /></div>
           </main>
-          <aside aria-labelledby="c-review" className="space-y-6 overflow-y-auto border-l border-line bg-surface p-6">
-            <section>
-              <h1 id="c-review" className="mb-3 text-xl font-bold">Revisar {space.name}</h1>
-              <ul className="space-y-2">
-                <CheckRow ok>Cada mesa aparece una sola vez</CheckRow>
-                <CheckRow ok>Todas las mesas son de {space.name}</CheckRow>
-                <CheckRow ok={ed.outside.length === 0}>{ed.outside.length ? 'Hay elementos fuera del lienzo: corrígelos en Distribución' : 'Todo dentro del lienzo'}</CheckRow>
-                <CheckRow ok={ed.hits.size === 0} warn>{ed.hits.size ? 'Hay elementos encimados; se puede publicar' : 'Nada encimado'}</CheckRow>
-                <CheckRow ok={ed.unplaced.length === 0} warn>{ed.unplaced.length ? `${ed.unplaced.length} mesas sin ubicar: sus llamados siguen llegando a la cola` : 'Todas las mesas ubicadas'}</CheckRow>
-              </ul>
-            </section>
-            <section aria-labelledby="c-sum">
-              <h2 id="c-sum" className="mb-2 font-bold">Contenido</h2>
-              <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-sm">
-                {([['Mesas en el plano', count('table')], ['Mesas sin ubicar', ed.unplaced.length], ['Barras', count('bar')], ['Puertas', count('door')], ['Paredes', count('wall')], ['Etiquetas', count('label')]] as const).map(([k, v]) => (
-                  <div key={k} className="contents"><dt className="text-muted">{k}</dt><dd className="text-right font-semibold tabular-nums">{v}</dd></div>
-                ))}
-              </dl>
-            </section>
-            <p className="text-sm text-muted">
-              Al publicar, el tablero del personal muestra este plano{ed.published ? ` y la versión ${ed.published} pasa al archivo` : ''}.
-            </p>
-            <Button size="lg" className="w-full" onClick={ed.requestPublish} disabled={ed.outside.length > 0}><Send aria-hidden className="size-5" />Publicar plano</Button>
+          <aside className="overflow-y-auto border-l border-line bg-surface p-6">
+            <Review ed={ed} />
           </aside>
         </div>
       )}
@@ -429,9 +457,94 @@ export function EditorC() {
   );
 }
 
+/* ─────────────── E — A + C: barra lateral de espacios, paleta visible, «¿Qué falta?» y revisión antes de publicar ─────────────── */
+
+export function EditorE() {
+  const ed = useLayoutEditor();
+  const [review, setReview] = useState(false);
+  const { space, el } = ed;
+
+  return (
+    <div className="grid h-dvh grid-cols-[196px_272px_minmax(0,1fr)_312px] grid-rows-[72px_minmax(0,1fr)] bg-bg text-fg">
+      <nav aria-label="Espacios" className="row-span-2 flex flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-warm">
+        <div className="px-2"><Wordmark dark /></div>
+        <section>
+          <h2 className="mb-1 px-2 text-sm text-warm/60">Espacios de Bar Demo</h2>
+          <ul className="space-y-0.5">
+            {ed.spaces.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button" aria-current={s.id === ed.spaceId ? 'page' : undefined} onClick={() => { ed.selectSpace(s.id); setReview(false); }}
+                  className={cn('flex h-10 w-full items-center rounded-md px-2 text-left text-sm', s.id === ed.spaceId ? 'bg-white/12 font-semibold' : 'text-warm/75 hover:bg-white/6')}
+                >
+                  {s.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" onClick={ed.addSpace} className="mt-1 flex h-9 items-center gap-2 rounded-md px-2 text-sm text-warm/75 hover:bg-white/6">
+            <Plus aria-hidden className="size-4" />Crear zona
+          </button>
+          <p className="mt-3 px-2 text-xs leading-relaxed text-warm/55">Cada zona tiene su propio plano: terraza, segundo piso, salón VIP…</p>
+        </section>
+        <p className="mt-auto px-2 text-xs leading-relaxed text-warm/55">Flechas mueven, R gira y Supr quita del plano.</p>
+      </nav>
+
+      <header className="col-span-3 flex items-center gap-6 border-b border-line bg-surface px-6">
+        <div>
+          <p className="text-sm text-muted">Bar Demo / {space.name}</p>
+          <h1 className="text-2xl font-bold">Diseñar plano</h1>
+        </div>
+        <p className="text-sm" aria-live="polite">
+          <span className={cn('font-semibold', ed.dirty ? 'text-fg' : 'text-muted')}>{ed.status}</span>
+          <span className="block text-muted">{ed.publishedLine}</span>
+        </p>
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={ed.discard} disabled={!ed.dirty || review}>Descartar</Button>
+          <Button variant="secondary" onClick={ed.save} disabled={!ed.dirty || ed.saving}>Guardar borrador</Button>
+          {review
+            ? <Button variant="secondary" onClick={() => setReview(false)}>Volver a editar</Button>
+            : <Button onClick={() => { ed.setSelected(null); setReview(true); }}><Send aria-hidden className="size-4" />Revisar y publicar</Button>}
+        </div>
+      </header>
+
+      <aside aria-label="Paleta" className={cn('space-y-6 overflow-y-auto border-r border-line bg-surface p-5', review && 'pointer-events-none opacity-50')} aria-disabled={review}>
+        <Palette ed={ed} />
+      </aside>
+
+      <main className="flex min-h-0 flex-col bg-sunken">
+        {review && <p className="px-6 pt-4 text-sm text-muted">Vista previa: así verá el personal este plano. Los llamados en vivo se ven en el tablero.</p>}
+        <div className="min-h-0 flex-1 overflow-auto p-6"><PlanCanvas ed={ed} readOnly={review} /></div>
+        <div className="flex h-12 items-center gap-4 border-t border-line bg-surface px-4 text-sm">
+          <Zoom ed={ed} />
+          {!review && <label className="flex items-center gap-2"><input type="checkbox" checked={ed.snap} onChange={(e) => ed.setSnap(e.target.checked)} />Cuadrícula</label>}
+          {!review && <OverlapNote ed={ed} />}
+          <p className="ml-auto truncate text-muted" role="status">{ed.message}</p>
+        </div>
+      </main>
+
+      <aside className="overflow-y-auto border-l border-line bg-surface p-5">
+        {review ? <Review ed={ed} /> : el ? (
+          <section aria-labelledby="e-props">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 id="e-props" className="font-display text-lg font-bold">{nameOf(el)}</h2>
+              <Button size="sm" variant="ghost" onClick={() => ed.setSelected(null)}>Listo</Button>
+            </div>
+            <p className="mb-4 text-sm text-muted">{el.type === 'table' ? 'Mesa real del local' : `${KIND[el.type]}, solo referencia visual`}</p>
+            <Inspector ed={ed} />
+          </section>
+        ) : <Todo ed={ed} />}
+      </aside>
+      <EditorDialogs ed={ed} />
+      <ProtoBar ed={ed} />
+    </div>
+  );
+}
+
 /* ─────────────── Índice para la revisión ─────────────── */
 
 const OPTIONS = [
+  ['/_proto/l05-e', 'E — A + C', 'Barra lateral de espacios de A, paleta visible de mesas y elementos de C, «¿Qué falta?» y revisión antes de publicar.'],
   ['/_proto/l05-a', 'A — Estudio', 'Espacios y herramientas a la izquierda, plano al centro, propiedades y mesas sin ubicar siempre a la derecha.'],
   ['/_proto/l05-b', 'B — Lienzo protagonista', 'Casi todo es plano: herramientas flotantes, mesas sin ubicar en un cajón y propiedades solo al seleccionar.'],
   ['/_proto/l05-c', 'C — Guiada', 'Tres pasos: elegir espacio, distribuir y revisar antes de publicar. Pensada para el primer plano del local.'],

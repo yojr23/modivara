@@ -1,5 +1,5 @@
 import type { RouteObject } from 'react-router';
-import { EditorA, EditorB, EditorC, ProtoIndex } from '@/pages/proto/alternatives';
+import { EditorA, EditorB, EditorC, EditorE, ProtoIndex } from '@/pages/proto/alternatives';
 import Board from '@/pages/proto/Board';
 import Editor from '@/pages/proto/Editor';
 import Tokens from '@/pages/Tokens';
@@ -16,6 +16,7 @@ export const routes: RouteObject[] = [
   { path: '/_proto/l05-a', element: <EditorA /> },
   { path: '/_proto/l05-b', element: <EditorB /> },
   { path: '/_proto/l05-c', element: <EditorC /> },
+  { path: '/_proto/l05-e', element: <EditorE /> },
   { path: '/_proto/editor', element: <Editor /> },
   { path: '/_proto/tablero', element: <Board /> },
   // Login por negocio (ADR-002 D2). OPEN: evoluciona a subdominio; entonces el slug sale del host.
