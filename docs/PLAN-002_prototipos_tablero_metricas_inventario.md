@@ -52,7 +52,7 @@
 | P-04 | Gráficos a mano (`charts.tsx`): barras por período, ranking, mapa de calor, sparkline; tooltip y tabla oculta; paleta validada | validador de paleta de dataviz | hecha (`#00927b`/`#3865e9`: todas las comprobaciones en verde) |
 | P-05 | Tablero A, B, C | typecheck, pruebas, captura de pantalla | hecha (capturas a 1366 px y 390 px) |
 | P-06 | Métricas A, B, C | typecheck, pruebas, captura de pantalla | hecha (capturas de las 6 vistas: 3 alternativas × Llamados/Inventario) |
-| P-07 | Inventario A, B, C | typecheck, pruebas, captura de pantalla | pendiente |
+| P-07 | Inventario A, B, C | typecheck, pruebas, captura de pantalla | hecha (capturas de A, A con panel, B y C) |
 | P-08 | Índice `/_proto` con los enlaces nuevos; revisión de accesibilidad (teclado, foco, contraste, movimiento reducido) | revisión manual + capturas | pendiente |
 | P-09 | Verificación final (`pnpm typecheck`, `pnpm test`, build del portal), commit por pantalla y push de la rama | salida de los comandos | pendiente |
 
@@ -73,4 +73,9 @@
 - **Le falta a la API para C:** tiempos hasta «En atención» por franja horaria (hoy solo hay el total del período).
 - Rangos: «30 días» avisa desde qué fecha hay datos (la demo tiene 14).
 
-(Las notas de inventario se agregan al terminarlo.)
+### Inventario (F4-09)
+- **A · Tabla de saldos:** el catálogo por categoría con búsqueda y el último movimiento de cada producto; tocar una fila abre un panel con saldo grande, el formulario (salida, entrada o ajuste por conteo) y el historial del producto. Pestaña «Historial» con filtros por producto y tipo. Mejor para quien administra.
+- **B · Registro rápido:** pensado para el que está en la barra: elegir tipo, tocar el producto (cada botón muestra su saldo), cantidad con − y +, motivo y registrar; la nota se agrega solo si hace falta. A la derecha, lo registrado hoy (lo nuevo entra con un leve desplazamiento).
+- **C · Conteo de cierre:** hoja con todos los productos y un campo «contado»; la diferencia aparece al escribir y una barra muestra cuántos van. Solo las diferencias se aplican, después de revisarlas, como «Corrección de conteo». Entradas y salidas sueltas en un diálogo aparte. Es la que mejor refleja el ajuste por conteo de DATA-001 §4 aplicado a todo el local.
+- Comunes: errores en palabras del usuario con la regla de la API (cantidad mayor que cero, «No alcanza: hay 2 botellas de Whisky y quieres sacar 3», conteo igual al saldo = nada que ajustar); el botón pasa a «Registrando…» para evitar el doble toque; alta de producto con la unidad fija; sin conexión no se envía y el formulario conserva lo escrito.
+- Decisión abierta: un umbral de «stock bajo» por producto no existe en el modelo; C de métricas lo aproxima con «alcanza para ~N días», que es una estimación.
