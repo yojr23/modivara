@@ -1,6 +1,6 @@
 import { useServiceCallMetrics } from '@modivara/analytics-web';
 import { Check, LogOut, Pencil, Plus, Send, SquareDashed, TriangleAlert, ZoomIn, ZoomOut } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
@@ -234,6 +234,8 @@ export default function Spaces() {
   const locked = mode !== 'design';
   const leaveReview = () => mode === 'review' && setMode('design');
   const { el } = ed;
+  // Tras publicar (sube la versión publicada), se vuelve a diseñar.
+  useEffect(() => setMode((m) => (m === 'review' ? 'design' : m)), [ed.published]);
 
   if (ed.loading || ed.error) {
     return (

@@ -21,6 +21,11 @@ export function fmtSeconds(s: number | null) {
 }
 
 export const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+const dayFmt = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric' });
+const hourFmt = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', hour12: false });
+/** Rótulo de una cubeta de métricas desde su inicio (la API manda `bucket_label` en ISO): «vie 24» o «21 h». */
+export const bucketLabel = (start: string, groupBy: 'hour' | 'day') => (groupBy === 'day' ? dayFmt.format(new Date(start)) : `${hourFmt.format(new Date(start))} h`);
 const timeFmt = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
 const dateFmt = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
 /** «Hoy 21:40», «Ayer 19:05», «lun, 20 oct 18:30». */

@@ -20,7 +20,8 @@ export function Login() {
   const login = useLogin();
   const [error, setError] = useState<string | null>(null);
 
-  if (session.status === 'authenticated') return <Navigate to={`/${slug}/app`} replace />;
+  // Con sesión de este mismo negocio, directo a la app; con sesión de otro, se muestra el login para entrar a este.
+  if (session.status === 'authenticated' && session.me.organization?.slug === slug) return <Navigate to={`/${slug}/app`} replace />;
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

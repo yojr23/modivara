@@ -83,9 +83,10 @@ export async function seedHospitality(app: INestApplicationContext, password: st
   const tableIds: string[] = [];
   for (let n = 1; n <= TABLES_IN_BAR_DEMO; n++) tableIds.push(await ensureTable(demo, tableLabel(n), null));
   await ensureButtons(demo, '', tableIds);
-  // Áreas sobre la cuadrícula de 5 columnas (filas en y = 200, 320, 440): la barra con su fila y dos zonas de salón.
+  // Áreas sobre la cuadrícula de 5 columnas (mesas desde x = 100; filas en y = 200, 320, 440): la barra con su fila y dos zonas
+  // de salón. Empiezan en x = 10 para que el rótulo (arriba a la izquierda) no quede debajo de la primera mesa.
   await ensureLayout(demo, null, tableIds, [
-    planArea('Barra', 60, 20, 680, 270), planArea('Salón', 60, 300, 680, 120), planArea('Ventanal', 60, 425, 680, 120),
+    planArea('Barra', 10, 20, 760, 270), planArea('Salón', 10, 300, 760, 120), planArea('Ventanal', 10, 425, 760, 120),
     planElement('bar', 100, 40, 600, 60), planElement('door', 20, 560, 80, 12),
   ]);
 

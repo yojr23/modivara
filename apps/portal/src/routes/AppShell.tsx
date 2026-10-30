@@ -29,6 +29,8 @@ export function AppShell() {
   const logout = useLogout();
   const [locationId, setLocationId] = useState<string | null>(null);
   if (!me) return null; // RequireSession ya garantiza sesión
+  // La URL de otro negocio no muestra los datos de la sesión con su nombre: vuelve al negocio real (ADR-002 D2).
+  if (me.organization && me.organization.slug !== slug) return <Navigate to={`/${me.organization.slug}/app`} replace />;
   const location = me.locations.find((l) => l.id === locationId) ?? me.locations[0];
   if (!location) {
     return (

@@ -65,7 +65,7 @@ function useBoard() {
   const order = new Map((zones.data ?? []).map((z) => [z.id, z.position]));
   const spaces: Space[] = useMemo(() => (layouts.data ?? [])
     .map((x) => ({ id: spaceIdOf(x.zone_id), zoneId: x.zone_id, name: x.zone_id ? zoneName.get(x.zone_id) ?? 'Espacio' : DEFAULT_SPACE_NAME, width: x.canvas_width, height: x.canvas_height, ...splitAreas(x.elements) }))
-    .sort((a, b) => (a.zoneId === null ? -1 : b.zoneId === null ? 1 : (order.get(a.zoneId) ?? 0) - (order.get(b.zoneId) ?? 0))),
+    .sort((a, b) => (a.zoneId === null ? -1 : b.zoneId === null ? 1 : (order.get(a.zoneId) ?? 0) - (order.get(b.zoneId) ?? 0) || a.name.localeCompare(b.name))),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [layouts.data, zones.data]);
   const tableById = new Map((tables.data ?? []).map((t) => [t.id, t]));
