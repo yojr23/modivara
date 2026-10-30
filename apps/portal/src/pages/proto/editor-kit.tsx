@@ -4,14 +4,19 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEven
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { ElementShape, SPACES, TABLES, tableById, type Space, type Table } from './plan';
+import { AREA_STYLE, ElementShape, SPACES, TABLES, areaAt, tableById, type Area, type Space, type Table } from './plan';
 
 // [DISEÑO] Estado y piezas comunes de las alternativas de L-05. Todo es local: guardar, publicar y el conflicto 409 se simulan.
 
 export const GRID = 20;
 type Sized = Exclude<LayoutElement, { type: 'label' }>;
 export const sized = (el: LayoutElement): el is Sized => el.type !== 'label';
-const clone = (s: Space[]) => s.map((x) => ({ ...x, elements: x.elements.map((e) => ({ ...e })) }));
+const clone = (s: Space[]): Space[] => s.map((x) => ({ ...x, elements: x.elements.map((e) => ({ ...e })), areas: x.areas?.map((a) => ({ ...a })) }));
+
+/** Área inicial de cada mesa (lo publicado), para mostrar en la revisión qué mesas cambian de área. */
+const INITIAL_AREA = new Map(
+  SPACES.flatMap((s) => s.elements.flatMap((e) => (e.type === 'table' ? [[e.table_id, areaAt(s.areas, e)?.name ?? null] as const] : []))),
+);
 export const KIND: Record<LayoutElement['type'], string> = { table: 'Mesa', wall: 'Pared', door: 'Puerta', bar: 'Barra', label: 'Etiqueta' };
 const SHAPES = [['round', 'Redonda'], ['square', 'Cuadrada'], ['rect', 'Rectangular']] as const;
 
@@ -63,6 +68,18 @@ export function useLayoutEditor() {
   const placed = new Set(space.elements.flatMap((e) => (e.type === 'table' ? [e.table_id] : [])));
   const unplaced = tables.filter((t) => t.spaceId === spaceId && !placed.has(t.id));
   const outside = space.elements.filter(sized).filter((e) => e.x + e.width > space.width || e.y + e.height > space.height);
+  const areas = space.areas ?? [];
+  const area = areas.find((a) => a.id === selected);
+  const placedTables = space.elements.filter((e) => e.type === 'table');
+  const areaOf = (e: LayoutElement) => (sized(e) ? areaAt(areas, e) : undefined);
+  const tablesIn = (a: Area | undefined) => placedTables.filter((e) => areaOf(e)?.id === a?.id).map((e) => tableById.get(e.table_id)!.label);
+  const withoutArea = areas.length ? tablesIn(undefined) : [];
+  const areaOverlap = areas.some((a, i) => areas.slice(i + 1).some((b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height));
+  const areaChanges = placedTables.flatMap((e) => {
+    const before = INITIAL_AREA.get(e.table_id) ?? null;
+    const after = areaOf(e)?.name ?? null;
+    return before === after ? [] : [{ label: tableById.get(e.table_id)!.label, before, after }];
+  });
 
   const setElements = (fn: (els: LayoutElement[]) => LayoutElement[]) =>
     setSpaces((all) => all.map((s) => (s.id === spaceId ? { ...s, elements: fn(s.elements) } : s)));
@@ -92,6 +109,20 @@ export function useLayoutEditor() {
 
   function remove(id: string) {
     setElements((els) => els.filter((e) => e.id !== id));
+    setSelected(null);
+  }
+
+  const setAreas = (fn: (a: Area[]) => Area[]) => setSpaces((all) => all.map((s) => (s.id === spaceId ? { ...s, areas: fn(s.areas ?? []) } : s)));
+  const updateArea = (id: string, patch: Partial<Area>) => setAreas((all) => all.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  const moveArea = (a: Area, x: number, y: number) =>
+    updateArea(a.id, { x: Math.min(Math.max(0, x), space.width - a.width), y: Math.min(Math.max(0, y), space.height - a.height) });
+  function addArea(point?: { x: number; y: number }) {
+    const next: Area = { id: crypto.randomUUID(), name: `Área ${areas.length + 1}`, width: 300, height: 200, color: areas.length % AREA_STYLE.length, ...at(300, 200, point) };
+    setAreas((all) => [...all, next]);
+    setSelected(next.id);
+  }
+  function removeArea(id: string) {
+    setAreas((all) => all.filter((a) => a.id !== id));
     setSelected(null);
   }
 
@@ -137,6 +168,7 @@ export function useLayoutEditor() {
   }
 
   function requestPublish() {
+    if (areaOverlap) return setMessage('Hay áreas encimadas: cada mesa debe quedar en una sola área. Sepáralas antes de publicar.');
     const out = outside[0];
     if (out) {
       setSelected(out.id);
@@ -201,13 +233,14 @@ export function useLayoutEditor() {
     pendingSpace, confirmPublish, setConfirmPublish, conflict, simulateConflict, setSimulateConflict,
     update, moveTo, round, add, addTool, place, remove, createTable, renameTable, labelTaken, save, requestPublish, publish, discard,
     selectSpace, resolvePending, resolveConflict, addSpace, renameSpace, clearSpace,
+    areas, area, areaOf, tablesIn, withoutArea, areaOverlap, areaChanges, updateArea, moveArea, addArea, removeArea,
   };
 }
 export type Ed = ReturnType<typeof useLayoutEditor>;
 
 export const nameOf = (e: LayoutElement) => (e.type === 'table' ? tableById.get(e.table_id)?.label ?? 'Mesa' : e.type === 'label' ? `Etiqueta «${e.text}»` : KIND[e.type]);
 
-type Drag = { mode: 'move' | 'resize' | 'rotate'; id: string; dx: number; dy: number };
+type Drag = { mode: 'move' | 'resize' | 'rotate'; id: string; dx: number; dy: number; area: boolean };
 
 /**
  * Lienzo SVG: arrastrar mueve, el tirador de la esquina cambia el tamaño, el de arriba gira; teclado como alternativa.
@@ -219,17 +252,27 @@ export function PlanCanvas({ ed, readOnly = false, className }: { ed: Ed; readOn
   const { space, selected } = ed;
   const toCanvas = (e: { clientX: number; clientY: number }) => new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.current!.getScreenCTM()!.inverse());
 
-  function start(e: PointerEvent, target: LayoutElement, mode: Drag['mode']) {
+  function start(e: PointerEvent, target: { id: string; x: number; y: number }, mode: Drag['mode'], area = false) {
     if (readOnly) return;
     e.stopPropagation();
     ed.setSelected(target.id);
     const p = toCanvas(e);
-    drag.current = { mode, id: target.id, dx: p.x - target.x, dy: p.y - target.y };
+    drag.current = { mode, id: target.id, dx: p.x - target.x, dy: p.y - target.y, area };
     svg.current!.setPointerCapture(e.pointerId);
   }
 
   function onMove(e: PointerEvent) {
     const d = drag.current;
+    if (d?.area) {
+      const a = ed.areas.find((x) => x.id === d.id);
+      if (!a) return;
+      const p = toCanvas(e);
+      if (d.mode === 'move') return ed.moveArea(a, ed.round(p.x - d.dx), ed.round(p.y - d.dy));
+      return ed.updateArea(a.id, {
+        width: Math.max(60, Math.min(ed.round(p.x - a.x), space.width - a.x)),
+        height: Math.max(60, Math.min(ed.round(p.y - a.y), space.height - a.y)),
+      });
+    }
     const t = d && space.elements.find((x) => x.id === d.id);
     if (!d || !t) return;
     const p = toCanvas(e);
@@ -255,8 +298,9 @@ export function PlanCanvas({ ed, readOnly = false, className }: { ed: Ed; readOn
 
   function onDrop(e: DragEvent) {
     const t = ed.tables.find((x) => x.id === e.dataTransfer.getData('text/table-id'));
-    const tool = e.dataTransfer.getData('text/tool') as Exclude<ToolId, 'select' | 'table'> | '';
+    const tool = e.dataTransfer.getData('text/tool') as Exclude<ToolId, 'select' | 'table'> | 'area' | '';
     if (t) ed.place(t, toCanvas(e));
+    else if (tool === 'area') ed.addArea(toCanvas(e));
     else if (tool) ed.addTool(tool, toCanvas(e));
   }
 
@@ -274,6 +318,26 @@ export function PlanCanvas({ ed, readOnly = false, className }: { ed: Ed; readOn
       </defs>
       <rect width={space.width} height={space.height} rx={8} strokeWidth={1.5} className="fill-surface stroke-line" />
       {!readOnly && <rect width={space.width} height={space.height} fill="url(#grid-dots)" />}
+      {ed.areas.map((a) => {
+        const on = a.id === selected && !readOnly;
+        const style = AREA_STYLE[a.color % AREA_STYLE.length]!;
+        return (
+          <g
+            key={a.id} tabIndex={readOnly ? -1 : 0} role="button" aria-pressed={on} aria-label={`Área ${a.name}. Flechas para mover, Suprimir para quitar.`}
+            onPointerDown={(ev) => start(ev, a, 'move', true)} onFocus={() => !readOnly && ed.setSelected(a.id)}
+            onKeyDown={(ev) => {
+              const delta = { ArrowLeft: [-GRID, 0], ArrowRight: [GRID, 0], ArrowUp: [0, -GRID], ArrowDown: [0, GRID] }[ev.key];
+              if (delta) { ev.preventDefault(); ed.moveArea(a, a.x + delta[0]!, a.y + delta[1]!); }
+              else if (ev.key === 'Delete' || ev.key === 'Backspace') ed.removeArea(a.id);
+            }}
+            className={cn('outline-none', !readOnly && 'cursor-grab touch-none')}
+          >
+            <rect x={a.x} y={a.y} width={a.width} height={a.height} rx={14} strokeWidth={on ? 3 : 2} className={cn(style.box, !on && '[stroke-dasharray:10_6]', on && 'stroke-focus')} />
+            <text x={a.x + 14} y={a.y + 26} className={cn('text-[17px] font-bold', style.text)}>{a.name}</text>
+            {on && <rect x={a.x + a.width - 8} y={a.y + a.height - 8} width={16} height={16} rx={3} strokeWidth={2} className="cursor-nwse-resize fill-surface stroke-focus" onPointerDown={(ev) => start(ev, a, 'resize', true)} />}
+          </g>
+        );
+      })}
       {space.elements.length === 0 && (
         <text x={space.width / 2} y={space.height / 2} textAnchor="middle" className="fill-muted text-[22px]">Añade o ubica la primera mesa</text>
       )}
@@ -371,11 +435,48 @@ export function Inspector({ ed, compact = false }: { ed: Ed; compact?: boolean }
           Tiene botón <span className="font-semibold">{table.hasButton ? 'Sí' : 'No'}</span>
         </p>
       )}
+      {table && ed.areas.length > 0 && (
+        <p className="-mt-2 flex items-center justify-between rounded-md bg-sunken px-3 py-2" title="Sale de dónde está la mesa: muévela a otra área para cambiarla.">
+          Área <span className="font-semibold">{ed.areaOf(el)?.name ?? 'Sin área'}</span>
+        </p>
+      )}
       <div>
         <Button size="sm" variant="secondary" className="w-full" onClick={() => ed.remove(el.id)}>
           <Trash aria-hidden className="size-4" />{el.type === 'table' ? 'Quitar del plano' : 'Eliminar'}
         </Button>
         {table && !compact && <p className="mt-1 text-xs text-muted">La mesa sigue existiendo y recibiendo llamados. Desactivarla se hace en Mesas.</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Propiedades de un área: nombre (el que se verá en métricas), tamaño y qué mesas quedan dentro. */
+export function AreaInspector({ ed }: { ed: Ed }) {
+  const { area } = ed;
+  if (!area) return null;
+  const inside = ed.tablesIn(area);
+  return (
+    <div className="space-y-4 text-sm">
+      <label className="block">
+        <span className="mb-1 block font-medium">Nombre del área</span>
+        <input value={area.name} maxLength={60} onChange={(e) => ed.updateArea(area.id, { name: e.target.value })} className={input} />
+        <span className="mt-1 block text-muted">Así aparecerá en las métricas.</span>
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        {(['width', 'height'] as const).map((k) => (
+          <label key={k}>
+            <span className="mb-1 block font-medium">{k === 'width' ? 'Ancho' : 'Alto'}</span>
+            <input type="number" min={60} step={ed.snap ? GRID : 1} value={area[k]} onChange={(e) => ed.updateArea(area.id, { [k]: Math.max(60, Number(e.target.value) || 60) })} className={input} />
+          </label>
+        ))}
+      </div>
+      <div>
+        <p className="mb-1 font-medium">Mesas en esta área ({inside.length})</p>
+        <p className="text-muted">{inside.length ? inside.join(', ') : 'Ninguna. Arrastra mesas dentro del área.'}</p>
+      </div>
+      <div>
+        <Button size="sm" variant="secondary" className="w-full" onClick={() => ed.removeArea(area.id)}><Trash aria-hidden className="size-4" />Eliminar área</Button>
+        <p className="mt-1 text-xs text-muted">Las mesas no se mueven ni se borran; quedan sin área. Las métricas pasadas conservan el área que tenían.</p>
       </div>
     </div>
   );

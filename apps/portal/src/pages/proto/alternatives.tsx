@@ -1,9 +1,10 @@
-import { Check, Plus, Send, TriangleAlert, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, Plus, Send, SquareDashed, TriangleAlert, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { EditorDialogs, Inspector, KIND, PlanCanvas, ProtoBar, TOOLS, UnplacedTables, nameOf, useLayoutEditor, type Ed, type ToolId } from './editor-kit';
+import { AREA_STYLE } from './plan';
+import { AreaInspector, EditorDialogs, Inspector, KIND, PlanCanvas, ProtoBar, TOOLS, UnplacedTables, nameOf, useLayoutEditor, type Ed, type ToolId } from './editor-kit';
 
 // [DISEÑO] L-05: alternativas A (estudio), B (lienzo protagonista) y C (guiada) del handoff de UI/UX. Mismos datos y estado que D.
 
@@ -263,6 +264,16 @@ function Palette({ ed }: { ed: Ed }) {
         <p className="mb-3 text-sm text-muted">{here - ed.unplaced.length} de {here} en el plano. Arrastra o toca Ubicar.</p>
         <UnplacedTables ed={ed} />
       </section>
+      <section aria-labelledby="pal-areas" className="border-t border-line pt-5">
+        <h2 id="pal-areas" className="mb-1 font-display text-lg font-bold">Áreas</h2>
+        <p className="mb-3 text-sm text-muted">Agrupan mesas (barra, ventanal, VIP…). Cada mesa toma el área donde está; así se verán las métricas por área.</p>
+        <button
+          type="button" draggable onDragStart={(e) => e.dataTransfer.setData('text/tool', 'area')} onClick={() => ed.addArea()}
+          className="flex h-12 w-full cursor-grab items-center justify-center gap-2 rounded-md border border-dashed border-line-strong text-sm font-medium hover:bg-sunken"
+        >
+          <SquareDashed aria-hidden className="size-5" />Dibujar área
+        </button>
+      </section>
       <section aria-labelledby="pal-refs" className="border-t border-line pt-5">
         <h2 id="pal-refs" className="mb-1 font-display text-lg font-bold">Elementos del local</h2>
         <p className="mb-3 text-sm text-muted">Toca para añadir al centro o arrastra al plano. No reciben llamados.</p>
@@ -290,6 +301,8 @@ function Todo({ ed }: { ed: Ed }) {
         <CheckRow ok={ed.unplaced.length === 0} warn>{ed.unplaced.length ? `${ed.unplaced.length} mesas sin ubicar` : 'Todas las mesas están en el plano'}</CheckRow>
         <CheckRow ok={ed.outside.length === 0}>{ed.outside.length ? `${ed.outside.length} elementos fuera del lienzo` : 'Todo dentro del lienzo'}</CheckRow>
         <CheckRow ok={ed.hits.size === 0} warn>{ed.hits.size ? 'Hay elementos encimados (no impide publicar)' : 'Nada encimado'}</CheckRow>
+        {ed.areas.length > 0 && <CheckRow ok={!ed.areaOverlap}>{ed.areaOverlap ? 'Hay áreas encimadas: sepáralas' : 'Áreas sin encimarse'}</CheckRow>}
+        {ed.areas.length > 0 && <CheckRow ok={ed.withoutArea.length === 0} warn>{ed.withoutArea.length ? `Sin área: ${ed.withoutArea.join(', ')}` : 'Cada mesa tiene área'}</CheckRow>}
         <CheckRow ok={!ed.dirty} warn>{ed.dirty ? 'Cambios sin guardar' : 'Borrador guardado'}</CheckRow>
       </ul>
       <p className="mt-6 text-sm text-muted">Toca una mesa para cambiar su nombre o su forma. Arrástrala para moverla; el tirador de arriba la gira.</p>
@@ -310,8 +323,21 @@ function Review({ ed }: { ed: Ed }) {
           <CheckRow ok={ed.outside.length === 0}>{ed.outside.length ? 'Hay elementos fuera del lienzo: muévelos dentro' : 'Todo dentro del lienzo'}</CheckRow>
           <CheckRow ok={ed.hits.size === 0} warn>{ed.hits.size ? 'Hay elementos encimados; se puede publicar' : 'Nada encimado'}</CheckRow>
           <CheckRow ok={ed.unplaced.length === 0} warn>{ed.unplaced.length ? `${ed.unplaced.length} mesas sin ubicar: sus llamados siguen llegando a la cola` : 'Todas las mesas ubicadas'}</CheckRow>
+          {ed.areas.length > 0 && <CheckRow ok={!ed.areaOverlap}>{ed.areaOverlap ? 'Hay áreas encimadas: no se puede publicar' : 'Áreas sin encimarse'}</CheckRow>}
+          {ed.areas.length > 0 && <CheckRow ok={ed.withoutArea.length === 0} warn>{ed.withoutArea.length ? `Sin área en métricas: ${ed.withoutArea.join(', ')}` : 'Cada mesa tiene área'}</CheckRow>}
         </ul>
       </section>
+      {ed.areaChanges.length > 0 && (
+        <section aria-labelledby="review-areas">
+          <h3 id="review-areas" className="mb-2 font-bold">Mesas que cambian de área</h3>
+          <ul className="space-y-1 text-sm">
+            {ed.areaChanges.map((c) => (
+              <li key={c.label}><span className="font-semibold">{c.label}</span>: {c.before ?? 'sin área'} a {c.after ?? 'sin área'}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted">Las métricas de antes conservan el área que tenían; las nuevas usan la nueva.</p>
+        </section>
+      )}
       <section aria-labelledby="review-sum">
         <h3 id="review-sum" className="mb-2 font-bold">Contenido</h3>
         <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-sm">
@@ -323,7 +349,7 @@ function Review({ ed }: { ed: Ed }) {
       <p className="text-sm text-muted">
         Al publicar, el tablero del personal muestra este plano{ed.published ? ` y la versión ${ed.published} pasa al archivo` : ''}.
       </p>
-      <Button size="lg" className="w-full" onClick={ed.requestPublish} disabled={ed.outside.length > 0}><Send aria-hidden className="size-5" />Publicar plano</Button>
+      <Button size="lg" className="w-full" onClick={ed.requestPublish} disabled={ed.outside.length > 0 || ed.areaOverlap}><Send aria-hidden className="size-5" />Publicar plano</Button>
     </div>
   );
 }
@@ -485,7 +511,27 @@ export function EditorE() {
           <button type="button" onClick={ed.addSpace} className="mt-1 flex h-9 items-center gap-2 rounded-md px-2 text-sm text-warm/75 hover:bg-white/6">
             <Plus aria-hidden className="size-4" />Crear zona
           </button>
-          <p className="mt-3 px-2 text-xs leading-relaxed text-warm/55">Cada zona tiene su propio plano: terraza, segundo piso, salón VIP…</p>
+        </section>
+        <section className="border-t border-white/10 pt-5">
+          <h2 className="mb-1 px-2 text-sm text-warm/60">Áreas en {space.name}</h2>
+          <ul className="space-y-0.5">
+            {ed.areas.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button" aria-pressed={ed.area?.id === a.id} onClick={() => { ed.setSelected(a.id); setReview(false); }}
+                  className={cn('flex h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm', ed.area?.id === a.id ? 'bg-white/12 font-semibold' : 'text-warm/85 hover:bg-white/6')}
+                >
+                  <span aria-hidden className={cn('size-2.5 shrink-0 rounded-sm', AREA_STYLE[a.color % AREA_STYLE.length]!.swatch)} />
+                  <span className="flex-1 truncate">{a.name}</span>
+                  <span className="text-xs text-warm/60 tabular-nums">{ed.tablesIn(a).length} mesas</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {ed.areas.length > 0 && ed.withoutArea.length > 0 && <p className="px-2 pt-1 text-xs text-amber">Sin área: {ed.withoutArea.length} mesas</p>}
+          <button type="button" onClick={() => ed.addArea()} className="mt-1 flex h-9 items-center gap-2 rounded-md px-2 text-sm text-warm/75 hover:bg-white/6">
+            <Plus aria-hidden className="size-4" />Dibujar área
+          </button>
         </section>
         <p className="mt-auto px-2 text-xs leading-relaxed text-warm/55">Flechas mueven, R gira y Supr quita del plano.</p>
       </nav>
@@ -532,6 +578,14 @@ export function EditorE() {
             </div>
             <p className="mb-4 text-sm text-muted">{el.type === 'table' ? 'Mesa real del local' : `${KIND[el.type]}, solo referencia visual`}</p>
             <Inspector ed={ed} />
+          </section>
+        ) : ed.area ? (
+          <section aria-labelledby="e-area">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="e-area" className="font-display text-lg font-bold">Área</h2>
+              <Button size="sm" variant="ghost" onClick={() => ed.setSelected(null)}>Listo</Button>
+            </div>
+            <AreaInspector ed={ed} />
           </section>
         ) : <Todo ed={ed} />}
       </aside>

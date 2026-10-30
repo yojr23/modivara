@@ -3,7 +3,12 @@ import { cn } from '@/ui/cn';
 
 // [DISEÑO] Prototipo de L-05/L-06 con datos locales: no llama a la API. Formas y tipos = contratos reales (ADR-003 §17).
 
-export type Space = { id: string; name: string; width: number; height: number; elements: LayoutElement[] };
+/**
+ * [DISEÑO] Área dibujada dentro del plano = una zona (`hospitality.zones`). No existe aún en el contrato: es la propuesta
+ * para que cada mesa tenga área según dónde está y las métricas (que ya filtran por `zone_id`) salgan por área.
+ */
+export type Area = { id: string; name: string; x: number; y: number; width: number; height: number; color: number };
+export type Space = { id: string; name: string; width: number; height: number; elements: LayoutElement[]; areas?: Area[] };
 /** `hasButton` = DeviceStatusDto.tables[].has_button; nunca ids ni claves del hardware. */
 export type Table = { id: string; label: string; spaceId: string; hasButton: boolean };
 
@@ -31,13 +36,17 @@ const [t12, t13, t14, t15, t16] = TABLES.slice(12);
 export const SPACES: Space[] = [
   {
     id: SALON, name: 'Salón principal', width: 1000, height: 640,
+    areas: [
+      { id: id(), name: 'Frente a la barra', x: 120, y: 140, width: 560, height: 130, color: 0 },
+      { id: id(), name: 'Centro', x: 120, y: 300, width: 560, height: 310, color: 1 },
+      { id: id(), name: 'Ventanal', x: 760, y: 110, width: 200, height: 380, color: 2 },
+    ],
     elements: [
       box('bar', 140, 40, 500, 56),
       box('wall', 720, 40, 14, 340),
       box('wall', 30, 40, 14, 520),
       box('door', 60, 620, 100, 14),
       text('Entrada', 60, 600),
-      text('Ventanal', 820, 70),
       at(m1!, 'round', 160, 180), at(m2!, 'round', 300, 180), at(m3!, 'round', 440, 180), at(m4!, 'round', 580, 180),
       at(m5!, 'square', 160, 330), at(m6!, 'square', 300, 330), at(m7!, 'rect', 440, 330, 140, 70),
       at(m8!, 'rect', 800, 140, 70, 130), at(m9!, 'rect', 800, 330, 70, 130),
@@ -57,6 +66,22 @@ export const SPACES: Space[] = [
 ];
 
 export const tableById = new Map(TABLES.map((t) => [t.id, t]));
+
+type Box = { x: number; y: number; width: number; height: number };
+/** Área de una mesa = la que contiene su centro (la primera, si se solapan; el editor no deja publicar áreas solapadas). */
+export const areaAt = (areas: Area[] | undefined, el: Box) =>
+  areas?.find((a) => {
+    const cx = el.x + el.width / 2;
+    const cy = el.y + el.height / 2;
+    return cx >= a.x && cx <= a.x + a.width && cy >= a.y && cy <= a.y + a.height;
+  });
+
+// Colores derivados de la marca; el nombre del área siempre va escrito, el color solo ayuda.
+export const AREA_STYLE = [
+  { box: 'fill-connect/8 stroke-connect', text: 'fill-done-fg', swatch: 'bg-connect' },
+  { box: 'fill-interface/8 stroke-interface', text: 'fill-interface', swatch: 'bg-interface' },
+  { box: 'fill-line-strong/10 stroke-line-strong', text: 'fill-muted', swatch: 'bg-line-strong' },
+] as const;
 
 // ponytail: asume etiquetas «Mesa N» (seed); otra etiqueta se muestra completa.
 export const shortLabel = (label: string) => label.replace(/^Mesa\s+/i, '');
