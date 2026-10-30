@@ -64,10 +64,12 @@ function useBoard() {
   const zoneName = new Map((zones.data ?? []).map((z) => [z.id, z.name]));
   const order = new Map((zones.data ?? []).map((z) => [z.id, z.position]));
   const spaces: Space[] = useMemo(() => (layouts.data ?? [])
+    // «Salón principal» (zona null) solo mientras tenga mesas, como en el editor: si todas pasaron a pisos, su plano viejo no se muestra.
+    .filter((x) => x.zone_id !== null || (tables.data ?? []).some((t) => t.zone_id === null))
     .map((x) => ({ id: spaceIdOf(x.zone_id), zoneId: x.zone_id, name: x.zone_id ? zoneName.get(x.zone_id) ?? 'Espacio' : DEFAULT_SPACE_NAME, width: x.canvas_width, height: x.canvas_height, ...splitAreas(x.elements) }))
     .sort((a, b) => (a.zoneId === null ? -1 : b.zoneId === null ? 1 : (order.get(a.zoneId) ?? 0) - (order.get(b.zoneId) ?? 0) || a.name.localeCompare(b.name))),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [layouts.data, zones.data]);
+  [layouts.data, zones.data, tables.data]);
   const tableById = new Map((tables.data ?? []).map((t) => [t.id, t]));
   const placedIn = new Map(spaces.flatMap((s) => s.elements.flatMap((e) => (e.type === 'table' ? [[e.table_id, { s, e }] as const] : []))));
 
@@ -271,7 +273,8 @@ export default function Board() {
               const on = selected === c.table_id;
               return (
                 <li key={c.id} className={cn('anim-rise flex shrink-0 flex-wrap items-center gap-3 p-2.5 pr-3 md:w-64 md:flex-nowrap', card(tone), on && 'ring-2 ring-focus')}>
-                  <button type="button" onClick={() => setSelected(c.table_id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  <button type="button" onClick={() => setSelected(c.table_id)} className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    aria-label={`${b.label(c.table_id)}, ${c.status === 'pending' ? `esperando ${fmt(b.waited(c))}` : b.taker(c).replace(/^L/, 'l')}, ${b.where(c)}`}>
                     <span className="font-display text-3xl leading-none font-extrabold tabular-nums">{shortLabel(b.label(c.table_id))}</span>
                     <span className="min-w-0 text-sm">
                       <span className="block truncate font-semibold tabular-nums">{c.status === 'pending' ? fmt(b.waited(c)) : b.taker(c)}</span>

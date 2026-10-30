@@ -96,7 +96,7 @@ function CallsOnPlan({ range }: { range: RangePreset }) {
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const zoneName = new Map((zones.data ?? []).map((z) => [z.id, z.name]));
-  const spaces: Space[] = (layouts.data ?? []).map((x) => ({ id: spaceIdOf(x.zone_id), zoneId: x.zone_id, name: x.zone_id ? zoneName.get(x.zone_id) ?? 'Espacio' : DEFAULT_SPACE_NAME, width: x.canvas_width, height: x.canvas_height, ...splitAreas(x.elements) }));
+  const spaces: Space[] = (layouts.data ?? []).filter((x) => x.zone_id !== null || (tables.data ?? []).some((t) => t.zone_id === null)).map((x) => ({ id: spaceIdOf(x.zone_id), zoneId: x.zone_id, name: x.zone_id ? zoneName.get(x.zone_id) ?? 'Espacio' : DEFAULT_SPACE_NAME, width: x.canvas_width, height: x.canvas_height, ...splitAreas(x.elements) }));
   const space = spaces.find((s) => s.id === spaceId) ?? spaces[0];
   const tableName = new Map((tables.data ?? []).map((t) => [t.id, t.label]));
   const label = (id: string) => tableName.get(id) ?? 'Mesa';

@@ -171,7 +171,7 @@ export function SeqScale({ max, unit }: { max: number; unit: string }) {
 /** Cifra sobria: rótulo arriba, valor y una línea de contexto. Sin tarjeta pesada; la separación la da el espacio. */
 export function Figure({ label, value, context, className }: { label: string; value: ReactNode; context?: ReactNode; className?: string }) {
   return (
-    <div className={cn('min-w-0', className)}>
+    <div role="group" aria-label={label} className={cn('min-w-0', className)}>
       <p className="text-sm text-muted">{label}</p>
       <p className="mt-1 font-display text-3xl font-bold">{value}</p>
       {context && <p className="mt-1 text-sm text-muted">{context}</p>}
