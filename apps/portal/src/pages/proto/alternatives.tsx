@@ -3,7 +3,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { AREA_STYLE } from './plan';
+import { ACTIVITY, AREA_STYLE, RANGES, tableById } from './plan';
 import { AreaInspector, EditorDialogs, Inspector, KIND, PlanCanvas, ProtoBar, TOOLS, UnplacedTables, nameOf, useLayoutEditor, type Ed, type ToolId } from './editor-kit';
 
 // [DISEÑO] L-05: alternativas A (estudio), B (lienzo protagonista) y C (guiada) del handoff de UI/UX. Mismos datos y estado que D.
@@ -483,24 +483,83 @@ export function EditorC() {
   );
 }
 
+const fmtSeconds = (s: number) => `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, '0')} s`;
+
+/** Movimiento por área del espacio: ranking de llamados, tiempo promedio hasta «En atención» y mesas con más llamados. */
+function Activity({ ed, heat, range, setRange }: { ed: Ed; heat: (id: string) => number; range: string; setRange: (r: (typeof RANGES)[number][0]) => void }) {
+  const tables = ed.space.elements.filter((e) => e.type === 'table');
+  const groups = [...ed.areas, undefined].map((a) => {
+    const inside = tables.filter((e) => ed.areaOf(e)?.id === a?.id);
+    const calls = inside.reduce((s, e) => s + heat(e.table_id), 0);
+    const weighted = inside.reduce((s, e) => s + heat(e.table_id) * (ACTIVITY.get(e.table_id)?.ackSeconds ?? 0), 0);
+    return { name: a?.name ?? 'Sin área', calls, ack: calls ? weighted / calls : 0, tables: inside.length };
+  }).filter((g) => g.tables > 0).sort((a, b) => b.calls - a.calls);
+  const max = Math.max(1, ...groups.map((g) => g.calls));
+  const top = [...tables].sort((a, b) => heat(b.table_id) - heat(a.table_id)).slice(0, 5);
+
+  return (
+    <section aria-labelledby="act" className="space-y-6">
+      <div>
+        <h2 id="act" className="font-display text-lg font-bold">Movimiento por área</h2>
+        <p className="text-sm text-muted">Llamados en {ed.space.name}. Más color en el plano, más llamados.</p>
+      </div>
+      <div role="group" aria-label="Periodo" className="grid grid-cols-3 rounded-md border border-line p-0.5">
+        {RANGES.map(([r, label]) => (
+          <button key={r} type="button" aria-pressed={range === r} onClick={() => setRange(r)} className={cn('h-9 rounded text-sm font-semibold', range === r ? 'bg-ink text-warm' : 'text-muted hover:bg-sunken')}>{label}</button>
+        ))}
+      </div>
+      <ol className="space-y-4">
+        {groups.map((g) => (
+          <li key={g.name}>
+            <p className="flex items-baseline justify-between">
+              <span className="font-semibold">{g.name}</span>
+              <span className="font-display text-xl font-bold tabular-nums">{g.calls}</span>
+            </p>
+            <div aria-hidden className="mt-1 h-2 rounded-full bg-sunken"><div className="h-2 rounded-full bg-interface" style={{ width: `${(g.calls / max) * 100}%` }} /></div>
+            <p className="mt-1 text-xs text-muted">{g.tables} mesas. {g.calls ? `En atención en promedio a los ${fmtSeconds(g.ack)}` : 'Sin llamados'}</p>
+          </li>
+        ))}
+      </ol>
+      <section aria-labelledby="act-top">
+        <h3 id="act-top" className="mb-2 font-bold">Mesas con más llamados</h3>
+        <ol className="space-y-1 text-sm">
+          {top.map((e) => (
+            <li key={e.id} className="flex justify-between gap-2">
+              <span>{tableById.get(e.table_id)?.label} <span className="text-muted">({ed.areaOf(e)?.name ?? 'sin área'})</span></span>
+              <span className="font-semibold tabular-nums">{heat(e.table_id)}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+      <p className="text-xs text-muted">El número en cada mesa es su cantidad de llamados. Cada llamado cuenta en el área que tenía la mesa cuando llamó. Datos de prueba.</p>
+    </section>
+  );
+}
+
 /* ─────────────── E — A + C: barra lateral de espacios, paleta visible, «¿Qué falta?» y revisión antes de publicar ─────────────── */
 
 export function EditorE() {
   const ed = useLayoutEditor();
-  const [review, setReview] = useState(false);
+  const [mode, setMode] = useState<'design' | 'review' | 'activity'>('design');
+  const [range, setRange] = useState<(typeof RANGES)[number][0]>('7d');
+  const review = mode === 'review';
+  const locked = mode !== 'design';
+  const factor = RANGES.find((r) => r[0] === range)![2];
+  const heat = (tableId: string) => Math.round((ACTIVITY.get(tableId)?.calls7d ?? 0) * factor);
+  const leaveReview = () => mode === 'review' && setMode('design');
   const { space, el } = ed;
 
   return (
-    <div className="grid h-dvh grid-cols-[196px_272px_minmax(0,1fr)_312px] grid-rows-[72px_minmax(0,1fr)] bg-bg text-fg">
+    <div className={cn('grid h-dvh grid-rows-[72px_minmax(0,1fr)] bg-bg text-fg', mode === 'activity' ? 'grid-cols-[196px_minmax(0,1fr)_340px]' : 'grid-cols-[196px_272px_minmax(0,1fr)_312px]')}>
       <nav aria-label="Espacios" className="row-span-2 flex flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-warm">
         <div className="px-2"><Wordmark dark /></div>
         <section>
-          <h2 className="mb-1 px-2 text-sm text-warm/60">Espacios de Bar Demo</h2>
+          <h2 className="mb-1 px-2 text-sm text-warm/60">Espacios (pisos o sectores)</h2>
           <ul className="space-y-0.5">
             {ed.spaces.map((s) => (
               <li key={s.id}>
                 <button
-                  type="button" aria-current={s.id === ed.spaceId ? 'page' : undefined} onClick={() => { ed.selectSpace(s.id); setReview(false); }}
+                  type="button" aria-current={s.id === ed.spaceId ? 'page' : undefined} onClick={() => { ed.selectSpace(s.id); leaveReview(); }}
                   className={cn('flex h-10 w-full items-center rounded-md px-2 text-left text-sm', s.id === ed.spaceId ? 'bg-white/12 font-semibold' : 'text-warm/75 hover:bg-white/6')}
                 >
                   {s.name}
@@ -509,7 +568,7 @@ export function EditorE() {
             ))}
           </ul>
           <button type="button" onClick={ed.addSpace} className="mt-1 flex h-9 items-center gap-2 rounded-md px-2 text-sm text-warm/75 hover:bg-white/6">
-            <Plus aria-hidden className="size-4" />Crear zona
+            <Plus aria-hidden className="size-4" />Crear espacio
           </button>
         </section>
         <section className="border-t border-white/10 pt-5">
@@ -518,7 +577,7 @@ export function EditorE() {
             {ed.areas.map((a) => (
               <li key={a.id}>
                 <button
-                  type="button" aria-pressed={ed.area?.id === a.id} onClick={() => { ed.setSelected(a.id); setReview(false); }}
+                  type="button" aria-pressed={ed.area?.id === a.id} onClick={() => { ed.setSelected(a.id); leaveReview(); }}
                   className={cn('flex h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm', ed.area?.id === a.id ? 'bg-white/12 font-semibold' : 'text-warm/85 hover:bg-white/6')}
                 >
                   <span aria-hidden className={cn('size-2.5 shrink-0 rounded-sm', AREA_STYLE[a.color % AREA_STYLE.length]!.swatch)} />
@@ -536,41 +595,56 @@ export function EditorE() {
         <p className="mt-auto px-2 text-xs leading-relaxed text-warm/55">Flechas mueven, R gira y Supr quita del plano.</p>
       </nav>
 
-      <header className="col-span-3 flex items-center gap-6 border-b border-line bg-surface px-6">
+      <header className={cn('flex items-center gap-6 border-b border-line bg-surface px-6', mode === 'activity' ? 'col-span-2' : 'col-span-3')}>
         <div>
-          <p className="text-sm text-muted">Bar Demo / {space.name}</p>
-          <h1 className="text-2xl font-bold">Diseñar plano</h1>
+          <p className="text-sm text-muted">Bar Demo</p>
+          <h1 className="text-2xl font-bold">{space.name}</h1>
+        </div>
+        <div role="group" aria-label="Modo" className="flex rounded-md border border-line p-0.5">
+          {([['design', 'Diseñar'], ['activity', 'Actividad']] as const).map(([m, label]) => (
+            <button
+              key={m} type="button" aria-pressed={m === 'design' ? mode !== 'activity' : mode === 'activity'}
+              onClick={() => { ed.setSelected(null); setMode(m); }}
+              className={cn('h-9 rounded px-4 text-sm font-semibold', (m === 'design') === (mode !== 'activity') ? 'bg-ink text-warm' : 'text-muted hover:bg-sunken')}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <p className="text-sm" aria-live="polite">
           <span className={cn('font-semibold', ed.dirty ? 'text-fg' : 'text-muted')}>{ed.status}</span>
           <span className="block text-muted">{ed.publishedLine}</span>
         </p>
         <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={ed.discard} disabled={!ed.dirty || review}>Descartar</Button>
-          <Button variant="secondary" onClick={ed.save} disabled={!ed.dirty || ed.saving}>Guardar borrador</Button>
-          {review
-            ? <Button variant="secondary" onClick={() => setReview(false)}>Volver a editar</Button>
-            : <Button onClick={() => { ed.setSelected(null); setReview(true); }}><Send aria-hidden className="size-4" />Revisar y publicar</Button>}
+          {mode !== 'activity' && <>
+            <Button size="sm" variant="ghost" onClick={ed.discard} disabled={!ed.dirty || locked}>Descartar</Button>
+            <Button variant="secondary" onClick={ed.save} disabled={!ed.dirty || ed.saving}>Guardar borrador</Button>
+            {review
+              ? <Button variant="secondary" onClick={() => setMode('design')}>Volver a editar</Button>
+              : <Button onClick={() => { ed.setSelected(null); setMode('review'); }}><Send aria-hidden className="size-4" />Revisar y publicar</Button>}
+          </>}
         </div>
       </header>
 
-      <aside aria-label="Paleta" className={cn('space-y-6 overflow-y-auto border-r border-line bg-surface p-5', review && 'pointer-events-none opacity-50')} aria-disabled={review}>
-        <Palette ed={ed} />
-      </aside>
+      {mode !== 'activity' && (
+        <aside aria-label="Paleta" className={cn('space-y-6 overflow-y-auto border-r border-line bg-surface p-5', locked && 'pointer-events-none opacity-50')} aria-disabled={locked}>
+          <Palette ed={ed} />
+        </aside>
+      )}
 
       <main className="flex min-h-0 flex-col bg-sunken">
         {review && <p className="px-6 pt-4 text-sm text-muted">Vista previa: así verá el personal este plano. Los llamados en vivo se ven en el tablero.</p>}
-        <div className="min-h-0 flex-1 overflow-auto p-6"><PlanCanvas ed={ed} readOnly={review} /></div>
+        <div className="min-h-0 flex-1 overflow-auto p-6"><PlanCanvas ed={ed} readOnly={locked} heat={mode === 'activity' ? heat : undefined} /></div>
         <div className="flex h-12 items-center gap-4 border-t border-line bg-surface px-4 text-sm">
           <Zoom ed={ed} />
-          {!review && <label className="flex items-center gap-2"><input type="checkbox" checked={ed.snap} onChange={(e) => ed.setSnap(e.target.checked)} />Cuadrícula</label>}
-          {!review && <OverlapNote ed={ed} />}
+          {!locked && <label className="flex items-center gap-2"><input type="checkbox" checked={ed.snap} onChange={(e) => ed.setSnap(e.target.checked)} />Cuadrícula</label>}
+          {!locked && <OverlapNote ed={ed} />}
           <p className="ml-auto truncate text-muted" role="status">{ed.message}</p>
         </div>
       </main>
 
       <aside className="overflow-y-auto border-l border-line bg-surface p-5">
-        {review ? <Review ed={ed} /> : el ? (
+        {mode === 'activity' ? <Activity ed={ed} heat={heat} range={range} setRange={setRange} /> : review ? <Review ed={ed} /> : el ? (
           <section aria-labelledby="e-props">
             <div className="mb-1 flex items-center justify-between">
               <h2 id="e-props" className="font-display text-lg font-bold">{nameOf(el)}</h2>

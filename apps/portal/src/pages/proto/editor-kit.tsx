@@ -246,10 +246,13 @@ type Drag = { mode: 'move' | 'resize' | 'rotate'; id: string; dx: number; dy: nu
  * Lienzo SVG: arrastrar mueve, el tirador de la esquina cambia el tamaño, el de arriba gira; teclado como alternativa.
  * Ocupa el contenedor (que debe tener alto definido) y encaja el plano completo; el zoom lo agranda dentro de un contenedor con scroll.
  */
-export function PlanCanvas({ ed, readOnly = false, className }: { ed: Ed; readOnly?: boolean; className?: string }) {
+export function PlanCanvas({ ed, readOnly = false, heat, className }: { ed: Ed; readOnly?: boolean; heat?: (tableId: string) => number; className?: string }) {
   const svg = useRef<SVGSVGElement>(null);
   const drag = useRef<Drag | null>(null);
   const { space, selected } = ed;
+  // Con `heat` el plano muestra actividad: cada área se tiñe según sus llamados y cada mesa lleva su número.
+  const areaTotal = (a: Area) => space.elements.reduce((s, e) => (heat && e.type === 'table' && ed.areaOf(e)?.id === a.id ? s + heat(e.table_id) : s), 0);
+  const maxArea = Math.max(1, ...ed.areas.map(areaTotal));
   const toCanvas = (e: { clientX: number; clientY: number }) => new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.current!.getScreenCTM()!.inverse());
 
   function start(e: PointerEvent, target: { id: string; x: number; y: number }, mode: Drag['mode'], area = false) {
@@ -332,8 +335,20 @@ export function PlanCanvas({ ed, readOnly = false, className }: { ed: Ed; readOn
             }}
             className={cn('outline-none', !readOnly && 'cursor-grab touch-none')}
           >
-            <rect x={a.x} y={a.y} width={a.width} height={a.height} rx={14} strokeWidth={on ? 3 : 2} className={cn(style.box, !on && '[stroke-dasharray:10_6]', on && 'stroke-focus')} />
-            <text x={a.x + 14} y={a.y + 26} className={cn('text-[17px] font-bold', style.text)}>{a.name}</text>
+            {heat ? (
+              <>
+                <rect x={a.x} y={a.y} width={a.width} height={a.height} rx={14} strokeWidth={2} className="fill-interface stroke-interface" style={{ fillOpacity: 0.05 + (0.4 * areaTotal(a)) / maxArea }} />
+                <text x={a.x + 14} y={a.y + 26} className="fill-fg text-[17px] font-bold">{a.name}</text>
+                <text x={a.x + a.width - 14} y={a.y + 26} textAnchor="end" className="fill-fg text-[17px] font-bold tabular-nums">
+                  {areaTotal(a)}<title>{`${areaTotal(a)} llamados`}</title>
+                </text>
+              </>
+            ) : (
+              <>
+                <rect x={a.x} y={a.y} width={a.width} height={a.height} rx={14} strokeWidth={on ? 3 : 2} className={cn(style.box, !on && '[stroke-dasharray:10_6]', on && 'stroke-focus')} />
+                <text x={a.x + 14} y={a.y + 26} className={cn('text-[17px] font-bold', style.text)}>{a.name}</text>
+              </>
+            )}
             {on && <rect x={a.x + a.width - 8} y={a.y + a.height - 8} width={16} height={16} rx={3} strokeWidth={2} className="cursor-nwse-resize fill-surface stroke-focus" onPointerDown={(ev) => start(ev, a, 'resize', true)} />}
           </g>
         );
@@ -352,7 +367,7 @@ export function PlanCanvas({ ed, readOnly = false, className }: { ed: Ed; readOn
             onPointerDown={(ev) => start(ev, e, 'move')} onKeyDown={(ev) => onKey(ev, e)} onFocus={() => !readOnly && ed.setSelected(e.id)}
             className={cn('outline-none', !readOnly && 'cursor-grab touch-none')}
           >
-            <ElementShape el={e} warn={!readOnly && ed.hits.has(e.id)} />
+            <ElementShape el={e} warn={!readOnly && ed.hits.has(e.id)} note={heat && e.type === 'table' ? `${heat(e.table_id)}` : undefined} />
             {on && sized(e) && (
               <g transform={`rotate(${e.rotation} ${cx} ${cy})`}>
                 <rect x={e.x - 6} y={e.y - 6} width={e.width + 12} height={e.height + 12} rx={8} fill="none" strokeWidth={2} className="stroke-focus" />

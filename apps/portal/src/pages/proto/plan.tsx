@@ -4,8 +4,9 @@ import { cn } from '@/ui/cn';
 // [DISEÑO] Prototipo de L-05/L-06 con datos locales: no llama a la API. Formas y tipos = contratos reales (ADR-003 §17).
 
 /**
- * [DISEÑO] Área dibujada dentro del plano = una zona (`hospitality.zones`). No existe aún en el contrato: es la propuesta
- * para que cada mesa tenga área según dónde está y las métricas (que ya filtran por `zone_id`) salgan por área.
+ * [DISEÑO] Espacio = piso o sector físico con su propio plano (Primer piso, Segundo piso). Área = zona dentro de ese plano
+ * (`hospitality.zones`: Barra, Zona A, Terraza…). Ni el espacio-piso ni el tipo `area` existen aún en el contrato: es la
+ * propuesta para que cada mesa tenga área según dónde está y las métricas (que ya filtran por `zone_id`) salgan por área.
  */
 export type Area = { id: string; name: string; x: number; y: number; width: number; height: number; color: number };
 export type Space = { id: string; name: string; width: number; height: number; elements: LayoutElement[]; areas?: Area[] };
@@ -35,11 +36,11 @@ const [t12, t13, t14, t15, t16] = TABLES.slice(12);
 // Mesas 11 y 12 quedan fuera a propósito: aparecen en «Mesas sin ubicar».
 export const SPACES: Space[] = [
   {
-    id: SALON, name: 'Salón principal', width: 1000, height: 640,
+    id: SALON, name: 'Primer piso', width: 1000, height: 640,
     areas: [
-      { id: id(), name: 'Frente a la barra', x: 120, y: 140, width: 560, height: 130, color: 0 },
-      { id: id(), name: 'Centro', x: 120, y: 300, width: 560, height: 310, color: 1 },
-      { id: id(), name: 'Ventanal', x: 760, y: 110, width: 200, height: 380, color: 2 },
+      { id: id(), name: 'Barra', x: 120, y: 140, width: 560, height: 130, color: 0 },
+      { id: id(), name: 'Zona A', x: 120, y: 300, width: 560, height: 310, color: 1 },
+      { id: id(), name: 'Zona B', x: 760, y: 110, width: 200, height: 380, color: 2 },
     ],
     elements: [
       box('bar', 140, 40, 500, 56),
@@ -54,10 +55,14 @@ export const SPACES: Space[] = [
     ],
   },
   {
-    id: TERRAZA, name: 'Terraza', width: 800, height: 500,
+    id: TERRAZA, name: 'Segundo piso', width: 800, height: 500,
+    areas: [
+      { id: id(), name: 'Terraza', x: 70, y: 120, width: 460, height: 310, color: 0 },
+      { id: id(), name: 'Zona VIP', x: 560, y: 120, width: 170, height: 170, color: 1 },
+    ],
     elements: [
       box('wall', 40, 40, 720, 14),
-      text('Jardinera', 60, 90),
+      text('Jardinera', 70, 90),
       box('door', 360, 486, 100, 14),
       at(t12!, 'round', 100, 160), at(t13!, 'round', 260, 160), at(t14!, 'round', 420, 160),
       at(t15!, 'square', 580, 160), at(t16!, 'rect', 220, 320, 150, 70),
@@ -66,6 +71,15 @@ export const SPACES: Space[] = [
 ];
 
 export const tableById = new Map(TABLES.map((t) => [t.id, t]));
+
+/**
+ * Actividad inventada para el prototipo (llamados en 7 días y segundos promedio hasta «En atención» por mesa). En la app real sale
+ * de las métricas de analytics por `zone_id`/`table_id` (GET …/metrics/service-calls), con el área que tenía la mesa al llamar.
+ */
+const CALLS_7D = [31, 24, 38, 27, 9, 7, 16, 14, 12, 6, 3, 0, 19, 22, 11, 8, 5];
+const ACK_S = [48, 55, 62, 51, 95, 110, 80, 70, 76, 120, 90, 0, 66, 58, 88, 140, 150];
+export const ACTIVITY = new Map(TABLES.map((t, i) => [t.id, { calls7d: CALLS_7D[i] ?? 0, ackSeconds: ACK_S[i] ?? 0 }]));
+export const RANGES = [['today', 'Hoy', 1 / 7], ['7d', '7 días', 1], ['30d', '30 días', 30 / 7]] as const;
 
 type Box = { x: number; y: number; width: number; height: number };
 /** Área de una mesa = la que contiene su centro (la primera, si se solapan; el editor no deja publicar áreas solapadas). */
