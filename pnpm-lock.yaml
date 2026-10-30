@@ -124,9 +124,15 @@ importers:
       '@fontsource-variable/manrope':
         specifier: 5.3.0
         version: 5.3.0
+      '@modivara/analytics-contracts':
+        specifier: workspace:*
+        version: link:../../domains/analytics/contracts
       '@modivara/analytics-web':
         specifier: workspace:*
         version: link:../../domains/analytics/web
+      '@modivara/commerce-contracts':
+        specifier: workspace:*
+        version: link:../../domains/commerce/contracts
       '@modivara/commerce-web':
         specifier: workspace:*
         version: link:../../domains/commerce/web

@@ -111,3 +111,30 @@
 @media (prefers-reduced-motion: no-preference) {
   .call-pending { animation: call-pulse 1.8s ease-in-out infinite; }
 }
+
+/* [DISEÑO] Prototipos de L-06, F5-12 y F4-09 (PLAN-002). Series de gráficos validadas con el validador de dataviz
+   (tema claro): entradas y salidas de stock; la magnitud usa un solo tono (`interface`). */
+:root {
+  --series-in: #00927b;
+  --series-out: #3865e9;
+}
+@theme inline {
+  --color-series-in: var(--series-in);
+  --color-series-out: var(--series-out);
+}
+
+/* Movimiento que responde a una acción o a un dato nuevo; sin movimiento si el sistema lo pide. */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes slide-in { from { transform: translateX(24px); opacity: 0; } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes ripple { from { r: var(--r0); opacity: 0.55; } to { r: calc(var(--r0) + 46px); opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .anim-rise { animation: rise 220ms ease-out both; }
+  .anim-slide { animation: slide-in 200ms ease-out both; }
+  .anim-ripple { animation: ripple 1.6s ease-out 3; }
+  .skeleton { animation: shimmer 1.4s linear infinite; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--sunken) 30%, color-mix(in srgb, var(--sunken) 40%, var(--surface)) 50%, var(--sunken) 70%);
+  background-size: 200% 100%;
+}
