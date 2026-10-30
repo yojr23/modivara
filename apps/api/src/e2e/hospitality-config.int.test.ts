@@ -92,6 +92,9 @@ describe('configuración de hospitality de punta a punta', () => {
     expect((await as('bar-demo/admin').post(`${plat}/devices`, { code: 'x' })).status).toBe(403);
     expect((await as('bar-demo/barra').post(`/locations/${demoLocation}/tables`, { label: '2' })).status).toBe(403);
     expect((await as('bar-demo/barra').post(`/locations/${demoLocation}/zones`, { name: 'Z' })).status).toBe(403);
+    // …pero sí las lee: el tablero del personal necesita los nombres de mesas y pisos.
+    expect((await as('bar-demo/barra').get(`/locations/${demoLocation}/tables`)).status).toBe(200);
+    expect((await as('bar-demo/barra').get(`/locations/${demoLocation}/zones`)).status).toBe(200);
   });
 
   it('un usuario de bar-demo-pisos no ve ni toca las mesas de bar-demo', async () => {

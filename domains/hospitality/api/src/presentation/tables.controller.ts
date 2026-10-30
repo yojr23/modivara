@@ -21,7 +21,9 @@ export class TablesController {
     @Inject(DeactivateTable) private readonly deactivate: DeactivateTable,
   ) {}
 
+  // Leer mesas también con `calls.read`: el tablero del personal necesita sus nombres. Modificar sigue exigiendo tables.manage.
   @Get(P.tables)
+  @RequirePermission('hospitality.calls.read')
   async index(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string): Promise<TableDto[]> {
     return (await this.list.execute(contextOf(actor, locationId))).map(toDto);
   }

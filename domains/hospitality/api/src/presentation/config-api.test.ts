@@ -46,10 +46,12 @@ describe('F2-05 zonas y mesas', () => {
     expect((await t.as(admin).get(`${base}/zones`)).body).toHaveLength(1);
   });
 
-  it('staff recibe 403, sin sesión 401, módulo deshabilitado 403', async () => {
+  it('staff lee mesas y zonas pero no las modifica (403); módulo deshabilitado 403', async () => {
     expect((await t.as(staff).post(`${base}/zones`, { name: 'X' })).status).toBe(403);
     expect((await t.as(staff).post(`${base}/tables`, { label: '9' })).status).toBe(403);
-    expect((await t.as(staff).get(`${base}/tables`)).status).toBe(403);
+    // El tablero del personal necesita los nombres de mesas y pisos (`hospitality.calls.read`).
+    expect((await t.as(staff).get(`${base}/tables`)).status).toBe(200);
+    expect((await t.as(staff).get(`${base}/zones`)).status).toBe(200);
     expect((await t.as(adminNoModule).post(`${base}/zones`, { name: 'X' })).status).toBe(403);
     expect((await t.as(adminNoModule).get(`${base}/tables`)).body).toMatchObject({ code: 'module_disabled' });
   });

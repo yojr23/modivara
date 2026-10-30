@@ -20,7 +20,9 @@ export class ZonesController {
     @Inject(DeactivateZone) private readonly deactivate: DeactivateZone,
   ) {}
 
+  // Leer zonas también con `calls.read`: el tablero del personal las necesita para nombrar los pisos. Modificar sigue exigiendo tables.manage.
   @Get(P.zones)
+  @RequirePermission('hospitality.calls.read')
   async index(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string): Promise<ZoneDto[]> {
     return (await this.list.execute(contextOf(actor, locationId))).map(toDto);
   }
