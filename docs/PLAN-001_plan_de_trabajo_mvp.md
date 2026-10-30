@@ -65,7 +65,7 @@ Resultado verificable (TECH-001 §12): **aislamiento real en backend**.
 >
 > **27/10/2026 (rama `fase-5/metricas`):** `core-web` ya tiene cliente y hooks de administración de usuarios (`useUsers`, `useCreateUser`, `useResetPassword`, `useDeactivateUser`, `useSetLocationRoles`, `useRevokeUserSessions`): F1-15 solo necesita la pantalla.
 >
-> **Estado 30/10/2026:** F1-14 y F1-15 en versión mínima con el lenguaje del portal: login por negocio en `/<negocio>` (si la sesión es de otro negocio, se muestra el login de este) y shell con barra lateral, navegación por módulo contratado y permiso del local, selector de local y «Salir». Falta la **pantalla de usuarios** (F1-15) y **F1-16** (E2E).
+> **Estado 30/10/2026:** F1-14 y F1-15 en versión mínima con el lenguaje del portal: login por negocio en `/<negocio>` (si la sesión es de otro negocio, se muestra el login de este) y shell con barra lateral, navegación por módulo contratado y permiso del local, selector de local y «Salir». Falta la **pantalla de usuarios** (F1-15). **F1-16 hecha** (30/10, `e2e/auth.spec.ts`): login correcto y erróneo, bloqueo a los 5 fallos, salir y aislamiento entre negocios por UI y API.
 
 | ID | Tarea | Archivos / paquetes | Criterio de aceptación | Dep. | Tam. |
 |---|---|---|---|---|---|
@@ -130,7 +130,7 @@ Resultado (TECH-001 §12): **pulsación trazable de extremo a extremo** (simulad
 > - Hooks `useCallHistory` (paginado) y `useCallDetail`.
 > - F3-14 solo necesita la pantalla.
 >
-> **Estado 30/10/2026:** **F3-13 cubierta por L-06**: tablero real en `/<negocio>/app/tablero` (todos los planos publicados lado a lado y la cola global abajo; reconocer y finalizar según permisos; 409 cuando otra persona ya lo tomó). Tema claro por decisión del responsable (no el oscuro de TECH-001). Sin alerta sonora todavía. Pendientes: **F3-14** (historial), **F3-15** (consola de superadmin, parte 2) y **F3-16** (E2E).
+> **Estado 30/10/2026:** **F3-13 cubierta por L-06**: tablero real en `/<negocio>/app/tablero` (todos los planos publicados lado a lado y la cola global abajo; reconocer y finalizar según permisos; 409 cuando otra persona ya lo tomó). Tema claro por decisión del responsable (no el oscuro de TECH-001). Sin alerta sonora todavía. Pendientes: **F3-14** (historial) y **F3-15** (consola de superadmin, parte 2). **F3-16 hecha** (30/10, `e2e/service-call.spec.ts`): pulsación por HTTP → plano y cola → reconocer → finalizar en dos tableros en vivo → historial por API; debounce y repetición; reconexión tras `docker compose restart api`. El envío por MQTT queda fuera del E2E (credenciales del broker).
 
 | ID | Tarea | Archivos / paquetes | Criterio de aceptación | Dep. | Tam. |
 |---|---|---|---|---|---|
@@ -161,7 +161,7 @@ Resultado (TECH-001 §12): **inventario básico con historial auditable**.
 
 > **Estado 27/10/2026 (rama `fase-4/inventario`, 14 commits sobre `fase-3/tiempo-real`, hechos el 25/10):** backend hecho: F4-01…F4-08 (migración con restricciones, repositorios, libro de stock con saldo bloqueado y ajuste por conteo, concurrencia de saldos con 20 corridas, outbox con eventos validados, API HTTP con `Idempotency-Key` en el header, cliente web) y `seed:commerce`. Transversal en la misma rama: un solo poller de outbox en `core-contracts`, con tope de 10 intentos (`failed_at`) y `pnpm outbox:retry`; outbox de `core` con `core.location.created.v1`, al que se suscriben commerce (motivos y lugar «Principal») y hospitality (`location_settings`). Eso cierra Q-05, F2-08 y el disparador de F4-02. Pendientes: **F4-09 y F4-10 `[DISEÑO]`**, y F4-11 (E2E, depende de F4-09). Donde las tareas dicen «catálogo de otra org», léase «de otro local» (catálogo por local, P0-01 #3).
 >
-> **Estado 30/10/2026:** **F4-09 hecha** (diseño «registro rápido», PLAN-002) en `/<negocio>/app/inventario`: entrada, salida y ajuste por conteo con `Idempotency-Key` por intento, saldo insuficiente explicado, alta de producto, lo registrado hoy e historial reciente con filtros. Pendientes: **F4-10** (lugares de stock y motivos) y **F4-11** (E2E).
+> **Estado 30/10/2026:** **F4-09 hecha** (diseño «registro rápido», PLAN-002) en `/<negocio>/app/inventario`: entrada, salida y ajuste por conteo con `Idempotency-Key` por intento, saldo insuficiente explicado, alta de producto, lo registrado hoy e historial reciente con filtros. Pendiente: **F4-10** (lugares de stock y motivos). **F4-11 hecha** (30/10, `e2e/inventory.spec.ts`).
 
 | ID | Tarea | Archivos / paquetes | Criterio de aceptación | Dep. | Tam. |
 |---|---|---|---|---|---|
@@ -197,7 +197,7 @@ Resultado (TECH-001 §12): **métricas concuerdan con registros fuente**. Analyt
 >
 > Verificado con `docker compose`: 405 llamados en 14 días; `inventario1` recibe 403 en llamados. Pendientes: **F5-12 `[DISEÑO]`** y F5-13 (E2E, depende de F5-12). Los eventos desordenados se **rechazan y se reintentan** (DATA-001 §5), en vez del upsert tolerante que menciona F5-03. **Ajuste 27/10:** `by_period` trae todas las horas o días del rango en 0 hasta la cubeta actual (las futuras no aparecen), para graficar sin rellenar en el front. **Seed (27/10):** el historial cubre también Bar Demo Pisos, con su propio gateway y 6 botones, zonas incluidas: 181 llamados frente a 405 de Bar Demo. Todos los números inventados están en `DEMO_CALL_PROFILE` (hospitality) y `DEMO_STOCK_PROFILE` (`apps/api/src/seed/history.ts`); se reemplazan con las mediciones del piloto (F6-13).
 >
-> **Estado 30/10/2026:** **F5-12 hecha** (diseño «sobre el plano», PLAN-002) en `/<negocio>/app/metricas`: plano publicado teñido por llamados por área, detalle de área o mesa, llamados por día u hora, ranking de mesas e inventario por producto. Gráficos hechos a mano con la paleta validada (sin Recharts). Las cantidades de inventario se muestran por producto porque `total_delta` sin filtro mezcla unidades (decisión abierta). Pendiente: **F5-13** (E2E de concordancia).
+> **Estado 30/10/2026:** **F5-12 hecha** (diseño «sobre el plano», PLAN-002) en `/<negocio>/app/metricas`: plano publicado teñido por llamados por área, detalle de área o mesa, llamados por día u hora, ranking de mesas e inventario por producto. Gráficos hechos a mano con la paleta validada (sin Recharts). Las cantidades de inventario se muestran por producto porque `total_delta` sin filtro mezcla unidades (decisión abierta). **F5-13 hecha** (30/10, `e2e/metrics.spec.ts`): el total de llamados de hoy en pantalla coincide con el historial y el saldo en métricas con el de inventario.
 
 | ID | Tarea | Archivos / paquetes | Criterio de aceptación | Dep. | Tam. |
 |---|---|---|---|---|---|
@@ -271,7 +271,7 @@ Origen: `ADR-003` y sus decisiones del 28/10/2026 (§17). Amplía F2-13, F3-13 y
 
 > **Estado 28/10/2026 (rama `adr-003/planos`, integrada en `main`):** backend hecho: L-01…L-04. Verificado: typecheck, pruebas unitarias, separabilidad, 48 archivos de integración y build. Pendientes: **L-05, L-06 `[DISEÑO]`** y L-07 (E2E).
 >
-> **Estado 30/10/2026 (`main` 8cce82a, PLAN-002):** **L-05 y L-06 hechas** con los diseños aprobados por el responsable (editor «alternativa E»; tablero «todo el local a la vista») y conectadas a la API: `/<negocio>/app/espacios` y `/<negocio>/app/tablero`. Decisión del responsable (30/10, revisable; complementa ADR-003 §17 sin editarlo): **espacio = piso o sector = zona** con su plano y **área = nuevo elemento `area`** dentro del plano (nombre + rectángulo en `elements jsonb`, sin migración); una mesa pertenece al área que contiene su centro y las métricas por área suman sus mesas con la geometría actual. Verificado contra la API real (Docker + `pnpm seed`): pulsación → tablero → «Marcar en atención» → «Finalizar»; guardar borrador, conflicto y publicar un plano con áreas. Pendiente: **L-07** (E2E con Playwright).
+> **Estado 30/10/2026 (`main` 8cce82a, PLAN-002):** **L-05 y L-06 hechas** con los diseños aprobados por el responsable (editor «alternativa E»; tablero «todo el local a la vista») y conectadas a la API: `/<negocio>/app/espacios` y `/<negocio>/app/tablero`. Decisión del responsable (30/10, revisable; complementa ADR-003 §17 sin editarlo): **espacio = piso o sector = zona** con su plano y **área = nuevo elemento `area`** dentro del plano (nombre + rectángulo en `elements jsonb`, sin migración); una mesa pertenece al área que contiene su centro y las métricas por área suman sus mesas con la geometría actual. Verificado contra la API real (Docker + `pnpm seed`): pulsación → tablero → «Marcar en atención» → «Finalizar»; guardar borrador, conflicto y publicar un plano con áreas. **L-07 hecha** (30/10, `e2e/service-call.spec.ts` y `e2e/spaces.spec.ts`: publicar un área mientras otro mira el tablero; conflicto 409 sin pisar el borrador ajeno). Los E2E encontraron que el personal (staff) no podía leer mesas ni zonas y su tablero mostraba «Mesa» sin número: ahora `GET` de mesas y zonas acepta `hospitality.calls.read` (modificar sigue exigiendo `tables.manage`).
 
 | ID | Tarea | Criterio de aceptación | Dep. | Estado |
 |---|---|---|---|---|
@@ -281,7 +281,7 @@ Origen: `ADR-003` y sus decisiones del 28/10/2026 (§17). Amplía F2-13, F3-13 y
 | L-04 | Seed: planos publicados de Bar Demo (espacio único) y de cada zona de Bar Demo Pisos | Idempotente; prueba del seed | L-02 | hecha |
 | L-05 | **`[DISEÑO]`** Editor visual de espacios: lienzo, herramientas, propiedades, «Mesas sin ubicar», guardar y publicar (amplía F2-13) | Revisión de diseño aprobada; ESP-01…ESP-22 | L-03 | hecha (30/10) |
 | L-06 | **`[DISEÑO]`** Tablero operativo sobre el plano publicado, con cola global de llamados siempre visible (amplía F3-13) | Revisión de diseño aprobada; ESP-23…ESP-30, CU-01…CU-13 | L-03, F3-12 | hecha (30/10) |
-| L-07 | E2E: botón → mesa resaltada en el plano → reconocer → finalizar; publicar mientras el staff mira; reconexión (amplía F3-16) | `pnpm test:e2e` en verde | L-05, L-06 | pendiente |
+| L-07 | E2E: botón → mesa resaltada en el plano → reconocer → finalizar; publicar mientras el staff mira; reconexión (amplía F3-16) | `pnpm test:e2e` en verde | L-05, L-06 | hecha (30/10) |
 
 ## 9. Resumen de tareas
 

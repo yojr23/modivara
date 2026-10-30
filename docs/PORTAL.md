@@ -58,7 +58,11 @@ Tema claro (decisión del responsable sobre el oscuro de TECH-001): fondo `bg`, 
 ```bash
 pnpm --filter @modivara/portal test        # rutas por permiso, áreas del plano, contraste
 docker compose up --build -d && pnpm seed  # demo completa en http://localhost/bar-demo
+pnpm seed:planos-demo                      # opcional: los planos diseñados (Primer y Segundo piso con sus áreas)
+pnpm test:e2e                              # Playwright contra el stack: login, tablero en vivo, editor, inventario, métricas
 ```
+
+Los E2E (`e2e/`, detalle en `e2e/README.md`) cubren F1-16, F3-16, F4-11, F5-13 y L-07. Al escribirlos apareció que el personal (staff) no podía leer mesas ni zonas y su tablero mostraba «Mesa» sin número: `GET` de mesas y zonas ahora acepta `hospitality.calls.read` (modificarlas sigue exigiendo `hospitality.tables.manage`).
 
 Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY` del gateway) o `POST /api/v1/device-events` con la cabecera `x-gateway-key` y `{ "device_code": "btn-07" }`.
 
@@ -69,4 +73,4 @@ Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY
 - Métricas de inventario: `total_delta` sin `product_id` mezcla unidades; la UI muestra conteos para todo el local y cantidades por producto. ¿La API agrega `by_product`?
 - Tiempos hasta «En atención» por área: la API no filtra por área (las áreas no son zonas); el detalle de un área muestra solo llamados.
 - Motivo por defecto al registrar: el primero que devuelve la API para esa dirección.
-- Pendientes de pantalla: usuarios (F1-15), historial de llamados (F3-14), consola de superadmin (F2-14, F3-15), lugares y motivos (F4-10), desactivar mesas y zonas, simulador para celular (F2-10), alerta sonora del tablero, E2E con Playwright.
+- Pendientes de pantalla: usuarios (F1-15), historial de llamados (F3-14), consola de superadmin (F2-14, F3-15), lugares y motivos (F4-10), desactivar mesas y zonas, simulador para celular (F2-10), alerta sonora del tablero. E2E pendientes: envío por MQTT y consola de superadmin (F2-15).

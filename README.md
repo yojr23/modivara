@@ -6,7 +6,7 @@ Documentación de arquitectura en `docs/` (ADR-001, ADR-002, ADR-003, TECH-001, 
 
 ## Estado (30/10/2026)
 
-Backend de las fases 1–5 y de ADR-003 completo. En el portal ya funcionan contra la API, con el diseño aprobado: **tablero** en tiempo real sobre los planos (`/<negocio>/app/tablero`), **editor de espacios** con áreas (`/espacios`), **métricas** sobre el plano (`/metricas`) e **inventario** (`/inventario`), más el login por negocio (`/<negocio>`). Faltan las pantallas de usuarios, historial de llamados, consola de superadmin, lugares y motivos, y los E2E con Playwright (detalle en PLAN-001 y `docs/PORTAL.md`).
+Backend de las fases 1–5 y de ADR-003 completo. En el portal ya funcionan contra la API, con el diseño aprobado: **tablero** en tiempo real sobre los planos (`/<negocio>/app/tablero`), **editor de espacios** con áreas (`/espacios`), **métricas** sobre el plano (`/metricas`) e **inventario** (`/inventario`), más el login por negocio (`/<negocio>`). Faltan las pantallas de usuarios, historial de llamados, consola de superadmin y lugares y motivos (detalle en PLAN-001 y `docs/PORTAL.md`). Los flujos hechos tienen E2E con Playwright (`pnpm test:e2e`).
 
 ## Desarrollo
 
@@ -81,6 +81,10 @@ Reconstruir analytics: `pnpm analytics:rebuild` vacía las tablas de analytics y
 Portal en `http://localhost/<negocio>` (p. ej. `http://localhost/bar-demo`, usuario `admin` y la clave de `SEED_PASSWORD`), API en `http://localhost/api/v1/health`, simulador en `http://<ip-del-pc>/sim` desde el celular (misma Wi‑Fi). En desarrollo (`pnpm --filter @modivara/portal dev`) el portal no tiene proxy a la API: para probar con datos, usar el stack de Docker.
 
 El plano de demo de Bar Demo trae las áreas «Barra», «Salón» y «Ventanal» (elemento `area`, ver `docs/PORTAL.md`). El seed no reescribe un plano ya publicado: en una base sembrada antes del 30/10 las áreas no aparecen hasta dibujarlas en el editor o recrear la base (`docker compose down -v`).
+
+Planos diseñados (opcional, después del seed): `pnpm seed:planos-demo` convierte Bar Demo en dos pisos, «Primer piso» (Barra, Zona A, Zona B) y «Segundo piso» (Zona VIP, Terraza), con muros, entrada, escalera y ventanas: la escena diseñada para el editor. Lo hace por la API como un admin (mueve Mesa 1–15 a los pisos y crea Mesa 16 y 17 sin botón). Es idempotente y no cambia el seed base de DATA-001 §7.
+
+Pruebas E2E con Playwright contra este stack: `pnpm test:e2e` (detalle en `e2e/README.md`).
 
 ## Estructura
 

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "typecheck": "pnpm -r --if-present typecheck",
+    "typecheck": "pnpm -r --if-present typecheck && tsc -p e2e",
     "test": "pnpm -r --if-present test && vitest run scripts",
     "check:separability": "node scripts/check-separability.mjs",
     "migration:new": "node scripts/new-migration.mjs",
@@ -18,14 +18,17 @@
     "seed:commerce": "pnpm --filter @modivara/api... build && node --env-file-if-exists=.env apps/api/dist/seed-commerce.js",
     "seed:history": "pnpm --filter @modivara/api... build && node --env-file-if-exists=.env apps/api/dist/seed-history.js",
     "seed": "pnpm seed:core && pnpm seed:hospitality && pnpm seed:commerce && pnpm seed:history",
+    "seed:planos-demo": "node scripts/seed-floor-plans.mjs",
     "analytics:rebuild": "pnpm --filter @modivara/api... build && node --env-file-if-exists=.env apps/api/dist/analytics-rebuild.js",
     "outbox:retry": "pnpm --filter @modivara/api... build && node --env-file-if-exists=.env apps/api/dist/outbox-retry.js",
-    "generate": "pnpm -r --if-present generate"
+    "generate": "pnpm -r --if-present generate",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/node": "24.19.2",
     "typescript": "7.0.2",
-    "vitest": "5.0.5",
-    "vite": "8.3.4"
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
   }
 }
