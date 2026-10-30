@@ -1,5 +1,11 @@
 # PLAN-002 — Prototipos de tablero, métricas e inventario (L-06, F5-12, F4-09)
 
+> **Estado 30/10/2026 (`main` 8cce82a): cerrado.** El responsable eligió una versión por pantalla (abajo) y las cuatro pantallas (tablero, editor de espacios, métricas e inventario) pasaron a ser **pantallas reales conectadas a la API** en `/<negocio>/app/{tablero,espacios,metricas,inventario}`; los prototipos `/_proto/*` y sus datos de demo se borraron (recuperables del commit `9835a72`). Mapa del frontend actual en `docs/PORTAL.md`.
+>
+> Decisiones de la segunda ronda (30/10/2026), todas aceptadas por el responsable: **(1)** espacio = piso o sector = zona; área = nuevo elemento `area` del plano (sin migración), métricas por área sumando mesas con la geometría actual. **(2)** Las pantallas viven en `apps/portal/src/app` usando los hooks de cada `domains/<d>/web` (`OPEN` para la separación de repos). **(3)** Las pantallas reales reemplazan a los prototipos. **(4)** Login (F1-14) y shell (F1-15) con el mismo lenguaje, en versión mínima. **(5)** Avance rápido de `main` tras verificar (typecheck, unitarias, 293 de integración, build, separabilidad y navegador contra la API con Docker + `pnpm seed`).
+>
+> El resto del documento describe la etapa de prototipos (29/10/2026) tal como se presentó.
+
 > **Rama:** `diseno/pantallas-operacion` (desde `main` 695547b). **Fecha:** 29/10/2026.
 > **Qué es:** tres alternativas por pantalla (9 en total) como rutas `/_proto/*` con datos locales, para que el responsable elija.
 > No son pantallas reales: no llaman a la API. Las formas de los datos copian los contratos (`ServiceCallMetrics`, `InventoryMetrics`, `ProductDto`, `BalanceDto`, `MovementDto`, `ServiceCallDto`).

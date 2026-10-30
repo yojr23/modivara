@@ -2,7 +2,11 @@
 
 Monorepo del MVP (pnpm workspaces). Destino: cuatro repositorios (`platform-core`, `hospitality-ops`, `commerce`, `analytics`); ver ADR-002 D1.
 
-Documentación de arquitectura en `docs/` (ADR-001, ADR-002, ADR-003, TECH-001, DATA-001, BRAND-002, más HANDOFF y NOCHE-LOG) y plan de trabajo con el estado por fase en `PLAN-001`.
+Documentación de arquitectura en `docs/` (ADR-001, ADR-002, ADR-003, TECH-001, DATA-001, BRAND-002, más HANDOFF y NOCHE-LOG), plan de trabajo con el estado por fase en `PLAN-001`, diseño y decisiones de las pantallas en `PLAN-002` y el mapa del frontend (rutas, permisos, datos) en `docs/PORTAL.md`.
+
+## Estado (30/10/2026)
+
+Backend de las fases 1–5 y de ADR-003 completo. En el portal ya funcionan contra la API, con el diseño aprobado: **tablero** en tiempo real sobre los planos (`/<negocio>/app/tablero`), **editor de espacios** con áreas (`/espacios`), **métricas** sobre el plano (`/metricas`) e **inventario** (`/inventario`), más el login por negocio (`/<negocio>`). Faltan las pantallas de usuarios, historial de llamados, consola de superadmin, lugares y motivos, y los E2E con Playwright (detalle en PLAN-001 y `docs/PORTAL.md`).
 
 ## Desarrollo
 
@@ -74,18 +78,20 @@ Tiempo real y outbox de hospitality: Socket.IO en `/api/v1/realtime` (misma cook
 
 Reconstruir analytics: `pnpm analytics:rebuild` vacía las tablas de analytics y reproduce en UNA transacción el historial completo (también lo ya despachado o con `failed_at`) que hospitality y commerce exponen por su puerto `EventHistoryReader` (lee su propio `outbox_events` ordenado por `occurred_at, id`, paginado), mezclado en ese mismo orden. Los eventos en vivo esperan al commit y luego se deduplican. Recupera lo despachado antes de que analytics se suscribiera. Un evento inválido aborta, revierte y se informa su `event_id`; imprime cuántos eventos leyó, aplicó, duplicó e ignoró. Corre sin pollers.
 
-Portal en `http://localhost`, API en `http://localhost/api/v1/health`, simulador en `http://<ip-del-pc>/sim` desde el celular (misma Wi‑Fi).
+Portal en `http://localhost/<negocio>` (p. ej. `http://localhost/bar-demo`, usuario `admin` y la clave de `SEED_PASSWORD`), API en `http://localhost/api/v1/health`, simulador en `http://<ip-del-pc>/sim` desde el celular (misma Wi‑Fi). En desarrollo (`pnpm --filter @modivara/portal dev`) el portal no tiene proxy a la API: para probar con datos, usar el stack de Docker.
+
+El plano de demo de Bar Demo trae las áreas «Barra», «Salón» y «Ventanal» (elemento `area`, ver `docs/PORTAL.md`). El seed no reescribe un plano ya publicado: en una base sembrada antes del 30/10 las áreas no aparecen hasta dibujarlas en el editor o recrear la base (`docker compose down -v`).
 
 ## Estructura
 
 ```text
 apps/api          host NestJS: solo compone los módulos de dominio
-apps/portal       SPA React
+apps/portal       SPA React: routes/ (login, sesión, shell por permisos) y app/ (tablero, espacios, métricas, inventario)
 apps/button-sim   simulador de gateway (proceso aparte, HTTP/MQTT)
 domains/<d>/{api,web,contracts}   d ∈ core, hospitality, commerce, analytics
 ```
 
-Dentro de cada `domains/<d>/api/src`: `domain/`, `application/` (casos de uso + `ports/`), `infrastructure/`, `presentation/` (TECH-001 §5 v1.3).
+Dentro de cada `domains/<d>/api/src`: `domain/`, `application/` (casos de uso + `ports/`), `infrastructure/`, `presentation/` (TECH-001 §5 v1.3). Los `domains/<d>/web` exponen el cliente y los hooks (TanStack Query) que usan las pantallas del portal.
 
 ## Convenciones de arquitectura (TECH-001 §5 v1.4)
 
