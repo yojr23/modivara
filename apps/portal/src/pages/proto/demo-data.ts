@@ -247,16 +247,6 @@ export function avgDailyOut(movements: MovementDto[], productId: string) {
   return -outs.reduce((s, m) => s + num(m.delta), 0) / 7;
 }
 
-/** Saldo al cierre de cada uno de los últimos `days` días (para la tendencia). */
-export function balanceTrend(movements: MovementDto[], productId: string, days = DAYS) {
-  const mine = movements.filter((m) => m.product_id === productId).reverse();
-  return Array.from({ length: days }, (_, i) => {
-    const end = addDays(TODAY, i - days + 2).getTime();
-    const last = mine.filter((m) => Date.parse(m.occurred_at) < end).at(-1);
-    return last ? num(last.balance_after) : 0;
-  });
-}
-
 /** `productId` = filtro `product_id` de la API: con él las cantidades son de una sola unidad y se pueden sumar. */
 export function inventoryMetrics(q: Range & { productId?: string }, movements = MOVEMENTS): InventoryMetrics {
   const { from, to } = resolveRange(q);

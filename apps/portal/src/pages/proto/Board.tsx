@@ -1,14 +1,13 @@
-import { BellRing, CheckCheck, HandHelping, Map as MapIcon, Wifi, WifiOff, X } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { BellRing, CheckCheck, HandHelping, Wifi, WifiOff, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { ElementShape, RED_MS, SPACES, TABLES, areaAt, shortLabel, toneOf, type Space, type Tone } from './plan';
-import { Bone, EmptyState, ErrorState, OfflineBanner, ProtoControls, ProtoShell, useAlt, useEscape, useToast, useViewState } from './shell';
+import { Bone, EmptyState, ErrorState, OfflineBanner, ProtoControls, ProtoShell, useToast, useViewState } from './shell';
 
-// [DISEÑO] L-06 — tablero operativo sobre el plano publicado + cola global (ADR-003 ESP-23…ESP-30). Tres alternativas (PLAN-002)
-// con la escena del editor (plan.tsx): pisos, áreas y mesas. Llamados locales; reconocer/finalizar y la pulsación se simulan.
-
-const ALTS = { a: 'Plano y cola', b: 'Cola protagonista', c: 'Todo el local a la vista' };
+// [DISEÑO] L-06 — tablero operativo sobre el plano publicado + cola global (ADR-003 ESP-23…ESP-30). Versión elegida (PLAN-002):
+// «Todo el local a la vista», con la escena del editor (plan.tsx). Llamados locales; reconocer/finalizar y la pulsación se simulan.
+// Las alternativas A y B descartadas se pueden recuperar del commit 9835a72.
 
 type Call = { id: string; tableId: string; status: 'pending' | 'in_progress'; createdAt: number; ackBy?: string };
 
@@ -46,7 +45,7 @@ function Chip({ tone, className }: { tone: Tone; className?: string }) {
   );
 }
 
-/* ---------- Estado compartido de las tres alternativas ---------- */
+/* ---------- Estado del tablero ---------- */
 
 function useBoard() {
   const view = useViewState();
@@ -54,7 +53,6 @@ function useBoard() {
   const [calls, setCalls] = useState(INITIAL);
   const [now, setNow] = useState(Date.now());
   const [buttonsDown, setButtonsDown] = useState(false);
-  const [arrived, setArrived] = useState<Call | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -67,7 +65,7 @@ function useBoard() {
   const offline = view.state === 'offline';
 
   return {
-    view, toast, now, queue, callOf, offline, buttonsDown, arrived, setArrived,
+    view, toast, now, queue, callOf, offline, buttonsDown,
     pending: queue.filter((c) => c.status === 'pending'),
     attending: queue.filter((c) => c.status === 'in_progress'),
     /** El pendiente más antiguo: el único con botón primario (una sola acción llamativa por vista). */
@@ -88,7 +86,6 @@ function useBoard() {
       if (!t) return;
       const c: Call = { id: crypto.randomUUID(), tableId: t.id, status: 'pending', createdAt: Date.now() };
       setCalls((all) => [...all, c]);
-      setArrived(c);
     },
     toggleButtons: () => setButtonsDown((v) => !v),
   };
@@ -120,26 +117,6 @@ function Connection({ b }: { b: Board }) {
       {down ? <WifiOff aria-hidden className="size-4" /> : <Wifi aria-hidden className="size-4" />}
       {text}
     </span>
-  );
-}
-
-/** Pestañas de piso con sus pendientes: ningún llamado queda oculto por estar en otro espacio. */
-function FloorTabs({ b, spaceId, onChange }: { b: Board; spaceId: string; onChange: (id: string) => void }) {
-  return (
-    <div role="group" aria-label="Espacios" className="flex shrink-0 rounded-md border border-line bg-surface p-0.5">
-      {SPACES.map((s) => {
-        const n = b.pendingIn(s.id);
-        return (
-          <button
-            key={s.id} type="button" aria-pressed={s.id === spaceId} aria-label={`${s.name}${n ? `, ${n} pendientes` : ''}`} onClick={() => onChange(s.id)}
-            className={cn('flex h-10 items-center gap-2 rounded px-4 text-sm font-semibold transition-colors', s.id === spaceId ? 'bg-ink text-warm' : 'text-muted hover:bg-sunken')}
-          >
-            {s.name}
-            {n > 0 && <span className="flex items-center gap-1 rounded-full bg-pending px-1.5 text-xs text-pending-fg tabular-nums"><BellRing aria-hidden className="size-3" />{n}</span>}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -227,218 +204,27 @@ const PlanBones = () => (
     </div>
   </div>
 );
-const CardBones = ({ n = 3, tall = false }: { n?: number; tall?: boolean }) => (
-  <>{Array.from({ length: n }, (_, i) => <div key={i} aria-hidden className={cn('rounded-lg border border-line bg-surface p-4', tall ? 'h-52' : 'h-28')}><Bone className="h-8 w-16" /><Bone className="mt-3 w-32" /><Bone className="mt-2 w-24" /></div>)}</>
+const CardBones = ({ n = 3 }: { n?: number }) => (
+  <>{Array.from({ length: n }, (_, i) => <div key={i} aria-hidden className="h-28 rounded-lg border border-line bg-surface p-4"><Bone className="h-8 w-16" /><Bone className="mt-3 w-32" /><Bone className="mt-2 w-24" /></div>)}</>
 );
-
-function Shell({ b, children, actions, title = 'Tablero' }: { b: Board; children: ReactNode; actions?: ReactNode; title?: string }) {
-  return (
-    <ProtoShell module="tablero" rail title={title} actions={<div className="flex flex-wrap items-center gap-3 md:order-last md:ml-auto">{actions}<Connection b={b} /></div>}>
-      {b.view.state === 'offline' && <OfflineBanner />}
-      {children}
-      {b.toast.node}
-      <ProtoControls screen="tablero" alts={ALTS} view={b.view}>
-        <Button size="sm" variant="secondary" onClick={b.simulatePress}>Simular pulsación</Button>
-        <Button size="sm" variant="ghost" aria-pressed={b.buttonsDown} onClick={b.toggleButtons}>{b.buttonsDown ? 'Reconectar botones' : 'Desconectar botones'}</Button>
-      </ProtoControls>
-    </ProtoShell>
-  );
-}
 
 const QueueEmpty = () => <EmptyState Icon={CheckCheck} title="Sin llamados activos" text="Cuando una mesa pulse su botón aparece aquí y se marca en el plano." />;
 
-/* ---------- A · Plano y cola ---------- */
-
-function BoardA() {
-  const b = useBoard();
-  const [spaceId, setSpaceId] = useState(SPACES[0]!.id);
-  const [selected, setSelected] = useState<string | null>(null);
-  const space = spaceOf(spaceId);
-  const loading = b.view.state === 'loading';
-  const elsewhere = b.arrived && tableOf(b.arrived.tableId).spaceId !== spaceId && b.callOf.get(b.arrived.tableId)?.status === 'pending' ? b.arrived : null;
-
-  function go(c: Call) {
-    setSpaceId(tableOf(c.tableId).spaceId);
-    setSelected(c.tableId);
-    b.setArrived(null);
-  }
-
-  return (
-    <Shell b={b} actions={<div className="hidden md:block"><FloorTabs b={b} spaceId={spaceId} onChange={(id) => { setSpaceId(id); setSelected(null); }} /></div>}>
-      <div className="grid md:h-[calc(100dvh-73px)] md:grid-cols-[minmax(0,1fr)_360px]">
-        <section aria-label={`Plano de ${space.name}`} className="relative hidden min-h-0 flex-col gap-3 bg-sunken p-4 md:flex">
-          {elsewhere && (
-            <p role="status" className={cn('anim-rise flex flex-wrap items-center gap-3 px-4 py-2 font-semibold', card('new'))}>
-              <BellRing aria-hidden className="size-5 text-pending" />
-              Nuevo llamado: {tableOf(elsewhere.tableId).label}, {where(elsewhere.tableId)}
-              <Button size="sm" variant="secondary" onClick={() => go(elsewhere)}>Ir a la mesa</Button>
-              <button type="button" aria-label="Cerrar aviso" onClick={() => b.setArrived(null)} className="ml-auto rounded p-1 hover:bg-sunken"><X aria-hidden className="size-4" /></button>
-            </p>
-          )}
-          {loading ? <PlanBones /> : b.view.state === 'error' ? (
-            <div className="grid flex-1 place-items-center rounded-xl bg-surface"><ErrorState what="el plano" onRetry={b.view.retry} /></div>
-          ) : (
-            <>
-              <div className="anim-rise min-h-0 flex-1"><PlanView b={b} space={space} selected={selected} onSelect={setSelected} /></div>
-              <Legend />
-            </>
-          )}
-          {selected && !loading && <TableSheet b={b} tableId={selected} onClose={() => setSelected(null)} className="absolute inset-x-4 bottom-4" />}
-        </section>
-
-        {/* Cola global: siempre visible, aunque el plano falle o no esté publicado (ESP-27, RNF-04). */}
-        <aside aria-labelledby="queue-a" className="flex min-h-0 flex-col border-line bg-surface md:border-l">
-          <h2 id="queue-a" className="flex items-baseline gap-2 px-4 pt-4 pb-3 text-lg font-bold">
-            Llamados activos {!loading && <span className="text-muted tabular-nums">{b.queue.length}</span>}
-          </h2>
-          <ol className="flex-1 space-y-2 overflow-y-auto px-4 pb-4">
-            {loading ? <CardBones /> : b.queue.length === 0 ? <QueueEmpty /> : b.queue.map((c) => {
-              const tone = b.tone(c);
-              const isFocus = c.id === b.focus?.id;
-              return (
-                <li key={c.id} className={cn('anim-rise p-3 transition-shadow', card(tone), selected === c.tableId && 'ring-2 ring-focus')}>
-                  <button type="button" onClick={() => go(c)} className="flex w-full items-start gap-3 text-left">
-                    <span className={cn('font-display leading-none font-extrabold tabular-nums', isFocus ? 'text-5xl' : 'text-3xl')}>{shortLabel(tableOf(c.tableId).label)}</span>
-                    <span className="flex-1 space-y-1 text-sm">
-                      <Chip tone={tone} />
-                      <span className="block text-muted">{where(c.tableId)}</span>
-                      <span className="block tabular-nums text-muted">{c.status === 'pending' ? `Esperando ${fmt(b.now - c.createdAt)}` : taker(c)}</span>
-                    </span>
-                  </button>
-                  <div className="mt-2 flex justify-end"><Action b={b} c={c} primary={isFocus} size={isFocus ? 'lg' : 'md'} className={cn(isFocus && 'w-full')} /></div>
-                </li>
-              );
-            })}
-          </ol>
-        </aside>
-      </div>
-    </Shell>
-  );
-}
-
-/* ---------- B · Cola protagonista ---------- */
-
-const MINI_TONE: Record<Tone, string> = { idle: 'fill-sunken stroke-line', new: 'fill-pending stroke-pending', waiting: 'fill-pending stroke-pending', late: 'fill-danger stroke-danger', attending: 'fill-attending stroke-attending' };
-
-/** Plano en miniatura: solo contornos y la mesa del llamado marcada. Responde «dónde» sin tener que leer el plano grande. */
-function MiniPlan({ tableId, tone }: { tableId: string; tone: Tone }) {
-  const s = spaceOf(tableOf(tableId).spaceId);
-  return (
-    <svg viewBox={`-10 -10 ${s.width + 20} ${s.height + 20}`} role="img" aria-label={`Ubicación de ${tableOf(tableId).label} en ${s.name}`} className="h-full w-full">
-      <rect width={s.width} height={s.height} rx={14} className="fill-bg" />
-      {s.areas?.map((a) => <rect key={a.id} x={a.x} y={a.y} width={a.width} height={a.height} rx={14} fill="none" strokeWidth={4} className="stroke-line [stroke-dasharray:14_10]" />)}
-      {s.elements.map((e) => {
-        if (e.type === 'label') return null;
-        const target = e.type === 'table' && e.table_id === tableId;
-        const cls = e.type === 'table' ? (target ? MINI_TONE[tone] : 'fill-surface stroke-line-strong/60') : e.type === 'wall' ? 'fill-line-strong/50 stroke-none' : 'fill-sunken stroke-line';
-        const cx = e.x + e.width / 2;
-        const cy = e.y + e.height / 2;
-        return (
-          <g key={e.id} transform={`rotate(${e.rotation} ${cx} ${cy})`}>
-            {target && <circle cx={cx} cy={cy} r={Math.max(e.width, e.height) / 2 + 26} strokeWidth={6} className={cn('fill-none', tone === 'late' ? 'stroke-danger/40' : tone === 'attending' ? 'stroke-attending/40' : 'stroke-pending/50')} />}
-            {e.type === 'table' && e.shape === 'round'
-              ? <ellipse cx={cx} cy={cy} rx={e.width / 2} ry={e.height / 2} strokeWidth={target ? 6 : 3} className={cls} />
-              : <rect x={e.x} y={e.y} width={e.width} height={e.height} rx={6} strokeWidth={target ? 6 : 3} className={cls} />}
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-function BoardB() {
-  const b = useBoard();
-  const [planOpen, setPlanOpen] = useState(false);
-  useEscape(() => setPlanOpen(false), planOpen);
-  const [spaceId, setSpaceId] = useState(SPACES[0]!.id);
-  const [selected, setSelected] = useState<string | null>(null);
-  const loading = b.view.state === 'loading';
-
-  function open(c?: Call) {
-    if (c) { setSpaceId(tableOf(c.tableId).spaceId); setSelected(c.tableId); }
-    setPlanOpen(true);
-  }
-
-  return (
-    <Shell b={b} actions={<Button variant="secondary" onClick={() => open()}><MapIcon aria-hidden className="size-4" />Ver plano</Button>}>
-      <div className="space-y-8 p-4 md:p-6">
-        <section aria-labelledby="waiting-b">
-          <h2 id="waiting-b" className="mb-3 flex items-baseline gap-2 text-lg font-bold">
-            Esperando {!loading && <span className="text-muted tabular-nums">{b.pending.length}</span>}
-          </h2>
-          {loading ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><CardBones tall /></div> : b.view.state === 'empty' || b.pending.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-line-strong bg-surface"><QueueEmpty /></div>
-          ) : (
-            <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {b.pending.map((c) => {
-                const tone = b.tone(c);
-                const isFocus = c.id === b.focus?.id;
-                return (
-                  <li key={c.id} className={cn('anim-rise flex flex-col overflow-hidden', card(tone))}>
-                    <div className="flex gap-4 p-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-display text-6xl leading-none font-extrabold tabular-nums">{shortLabel(tableOf(c.tableId).label)}</p>
-                        <p className="mt-2 truncate text-sm text-muted">{where(c.tableId)}</p>
-                        <p className="mt-3 font-display text-2xl font-bold tabular-nums">{fmt(b.now - c.createdAt)}</p>
-                        <Chip tone={tone} className="mt-2" />
-                      </div>
-                      <button type="button" onClick={() => open(c)} aria-label={`Ver ${tableOf(c.tableId).label} en el plano`} className="h-28 w-36 shrink-0 rounded-md border border-line p-1 hover:border-line-strong">
-                        <MiniPlan tableId={c.tableId} tone={tone} />
-                      </button>
-                    </div>
-                    <div className="mt-auto border-t border-line p-3"><Action b={b} c={c} primary={isFocus} size="lg" className="w-full" /></div>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </section>
-
-        {!loading && b.attending.length > 0 && (
-          <section aria-labelledby="attending-b">
-            <h2 id="attending-b" className="mb-3 flex items-baseline gap-2 text-lg font-bold">En atención <span className="text-muted tabular-nums">{b.attending.length}</span></h2>
-            <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {b.attending.map((c) => (
-                <li key={c.id} className={cn('anim-rise flex items-center gap-3 p-3', card('attending'))}>
-                  <span className="font-display text-3xl font-extrabold tabular-nums">{shortLabel(tableOf(c.tableId).label)}</span>
-                  <span className="min-w-0 flex-1 text-sm"><span className="block truncate">{taker(c)}</span><span className="block truncate text-muted">{where(c.tableId)}</span></span>
-                  <Action b={b} c={c} size="sm" />
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </div>
-
-      {planOpen && (
-        <div className="fixed inset-0 z-30 flex justify-end bg-ink/30" onClick={() => setPlanOpen(false)}>
-          <section role="dialog" aria-modal aria-label="Plano del local" onClick={(e) => e.stopPropagation()} className="anim-slide flex h-full w-[min(860px,100vw)] flex-col gap-3 bg-sunken p-4 shadow-2xl">
-            <div className="flex items-center gap-3">
-              <FloorTabs b={b} spaceId={spaceId} onChange={(id) => { setSpaceId(id); setSelected(null); }} />
-              <Button variant="ghost" aria-label="Cerrar plano" className="ml-auto" onClick={() => setPlanOpen(false)}><X aria-hidden className="size-5" /></Button>
-            </div>
-            <div className="relative min-h-0 flex-1">
-              <PlanView b={b} space={spaceOf(spaceId)} selected={selected} onSelect={setSelected} />
-              {selected && <TableSheet b={b} tableId={selected} onClose={() => setSelected(null)} className="absolute inset-x-2 bottom-2" />}
-            </div>
-            <Legend />
-          </section>
-        </div>
-      )}
-    </Shell>
-  );
-}
-
-/* ---------- C · Todo el local a la vista ---------- */
-
-function BoardC() {
+export default function Board() {
   const b = useBoard();
   const [selected, setSelected] = useState<string | null>(null);
   const loading = b.view.state === 'loading';
   const selSpace = selected ? tableOf(selected).spaceId : null;
 
   return (
-    <Shell b={b} actions={!loading && <p className="text-sm text-muted"><span className="font-semibold text-fg tabular-nums">{b.pending.length}</span> esperando, <span className="font-semibold text-fg tabular-nums">{b.attending.length}</span> en atención</p>}>
+    <ProtoShell
+      module="tablero" rail title="Tablero"
+      actions={<div className="flex flex-wrap items-center gap-3 md:order-last md:ml-auto">
+        {!loading && <p className="text-sm text-muted"><span className="font-semibold text-fg tabular-nums">{b.pending.length}</span> esperando, <span className="font-semibold text-fg tabular-nums">{b.attending.length}</span> en atención</p>}
+        <Connection b={b} />
+      </div>}
+    >
+      {b.view.state === 'offline' && <OfflineBanner />}
       <div className="flex flex-col md:h-[calc(100dvh-73px)]">
         <div className="hidden min-h-0 flex-1 gap-3 bg-sunken p-3 md:grid md:grid-cols-[1.25fr_1fr]">
           {SPACES.map((s) => {
@@ -489,11 +275,11 @@ function BoardC() {
           </ol>
         </section>
       </div>
-    </Shell>
+      {b.toast.node}
+      <ProtoControls view={b.view}>
+        <Button size="sm" variant="secondary" onClick={b.simulatePress}>Simular pulsación</Button>
+        <Button size="sm" variant="ghost" aria-pressed={b.buttonsDown} onClick={b.toggleButtons}>{b.buttonsDown ? 'Reconectar botones' : 'Desconectar botones'}</Button>
+      </ProtoControls>
+    </ProtoShell>
   );
-}
-
-export default function Board() {
-  const alt = useAlt();
-  return alt === 'b' ? <BoardB /> : alt === 'c' ? <BoardC /> : <BoardA />;
 }

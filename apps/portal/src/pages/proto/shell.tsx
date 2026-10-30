@@ -1,10 +1,10 @@
 import { ChartColumn, ConciergeBell, Map as MapIcon, Package, RotateCw, WifiOff, type LucideIcon } from 'lucide-react';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 
-// [DISEÑO] Piezas comunes de los prototipos de L-06, F5-12 y F4-09 (PLAN-002): mismo shell que el editor de espacios (L-05).
+// [DISEÑO] Piezas comunes de los prototipos elegidos de L-06, F5-12 y F4-09 (PLAN-002): mismo shell que el editor de espacios (L-05).
 
 // ponytail: copia del Wordmark de Editor.tsx (no exportado; ese archivo es del editor y no se toca). Unificar al pasar a pantallas reales.
 export function Wordmark({ dark = false }: { dark?: boolean }) {
@@ -21,19 +21,12 @@ export function Wordmark({ dark = false }: { dark?: boolean }) {
 }
 
 export type Module = 'tablero' | 'espacios' | 'metricas' | 'inventario';
-const NAV: { id: Module; label: string; Icon: LucideIcon; to: (alt: string) => string }[] = [
-  { id: 'tablero', label: 'Tablero', Icon: ConciergeBell, to: (a) => `/_proto/tablero/${a}` },
-  { id: 'espacios', label: 'Espacios', Icon: MapIcon, to: () => '/_proto/editor' },
-  { id: 'metricas', label: 'Métricas', Icon: ChartColumn, to: (a) => `/_proto/metricas/${a}` },
-  { id: 'inventario', label: 'Inventario', Icon: Package, to: (a) => `/_proto/inventario/${a}` },
+const NAV: { id: Module; label: string; Icon: LucideIcon; to: string }[] = [
+  { id: 'tablero', label: 'Tablero', Icon: ConciergeBell, to: '/_proto/tablero' },
+  { id: 'espacios', label: 'Espacios', Icon: MapIcon, to: '/_proto/editor' },
+  { id: 'metricas', label: 'Métricas', Icon: ChartColumn, to: '/_proto/metricas' },
+  { id: 'inventario', label: 'Inventario', Icon: Package, to: '/_proto/inventario' },
 ];
-
-/** Alternativa activa de la URL (`/_proto/<pantalla>/<a|b|c>`); la navegación conserva la letra al cambiar de módulo. */
-export function useAlt(): Alt {
-  const { alt } = useParams();
-  return alt === 'b' || alt === 'c' ? alt : 'a';
-}
-export type Alt = 'a' | 'b' | 'c';
 
 /**
  * Shell: barra lateral `ink` (como el editor) y header blanco con negocio y título. `rail` la reduce a íconos para dar
@@ -42,7 +35,6 @@ export type Alt = 'a' | 'b' | 'c';
 export function ProtoShell({ module, title, subtitle, actions, rail = false, children, className }: {
   module: Module; title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; rail?: boolean; children: ReactNode; className?: string;
 }) {
-  const alt = useAlt();
   return (
     <div className={cn('grid min-h-dvh grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-bg text-fg', rail ? 'md:grid-cols-[72px_minmax(0,1fr)]' : 'md:grid-cols-[196px_minmax(0,1fr)]')}>
       <nav aria-label="Módulos" className={cn('row-span-2 hidden flex-col gap-6 bg-ink py-5 text-warm md:flex', rail ? 'items-center px-2' : 'px-3')}>
@@ -57,7 +49,7 @@ export function ProtoShell({ module, title, subtitle, actions, rail = false, chi
           {NAV.map(({ id, label, Icon, to }) => (
             <li key={id}>
               <Link
-                to={to(alt)} aria-current={id === module ? 'page' : undefined} title={rail ? label : undefined}
+                to={to} aria-current={id === module ? 'page' : undefined} title={rail ? label : undefined}
                 className={cn(
                   'flex h-10 items-center gap-3 rounded-md text-sm transition-colors',
                   rail ? 'w-12 justify-center' : 'px-2',
@@ -83,7 +75,7 @@ export function ProtoShell({ module, title, subtitle, actions, rail = false, chi
         {actions}
         <nav aria-label="Módulos" className="ml-auto flex gap-1 md:hidden">
           {NAV.map(({ id, label, Icon, to }) => (
-            <Link key={id} to={to(alt)} aria-current={id === module ? 'page' : undefined} aria-label={label} className={cn('grid size-10 place-items-center rounded-md', id === module ? 'bg-ink text-warm' : 'text-muted hover:bg-sunken')}>
+            <Link key={id} to={to} aria-current={id === module ? 'page' : undefined} aria-label={label} className={cn('grid size-10 place-items-center rounded-md', id === module ? 'bg-ink text-warm' : 'text-muted hover:bg-sunken')}>
               <Icon aria-hidden className="size-5" />
             </Link>
           ))}
@@ -184,29 +176,14 @@ export function OfflineBanner({ since = 'hace 40 s' }: { since?: string }) {
 
 /* ---------- Control del prototipo (fuera del diseño evaluado) ---------- */
 
-export function ProtoControls({ screen, alts, view, children }: {
-  screen: 'tablero' | 'metricas' | 'inventario';
-  alts: Record<Alt, string>;
+export function ProtoControls({ view, children }: {
   view: { forced: ViewState; setForced: (s: ViewState) => void };
   children?: ReactNode;
 }) {
-  const alt = useAlt();
   return (
     <details className="fixed right-3 bottom-3 z-40 max-w-[calc(100vw-24px)] rounded-md border border-dashed border-line-strong bg-surface px-3 py-1.5 text-xs text-muted shadow-sm">
-      <summary className="cursor-pointer">Prototipo: alternativa {alt.toUpperCase()}</summary>
+      <summary className="cursor-pointer">Prototipo</summary>
       <div className="mt-2 flex w-64 flex-col gap-3 pb-1">
-        <fieldset>
-          <legend className="mb-1 font-semibold text-fg">Alternativa</legend>
-          <ul className="space-y-1">
-            {(Object.entries(alts) as [Alt, string][]).map(([a, name]) => (
-              <li key={a}>
-                <Link to={`/_proto/${screen}/${a}`} aria-current={a === alt ? 'page' : undefined} className={cn('block rounded px-1.5 py-1 hover:bg-sunken', a === alt && 'bg-sunken font-semibold text-fg')}>
-                  {a.toUpperCase()}. {name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </fieldset>
         <fieldset>
           <legend className="mb-1 font-semibold text-fg">Estado de la vista</legend>
           <div className="flex flex-wrap gap-1">

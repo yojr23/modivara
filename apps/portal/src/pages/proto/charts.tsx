@@ -168,54 +168,6 @@ export function SeqScale({ max, unit }: { max: number; unit: string }) {
   );
 }
 
-/** Mapa de calor filas × columnas (días × horas). Celdas de 2 px de separación; el valor va en el tooltip y en la tabla. */
-export function Heatmap({ rows, cols, value, caption, rowLabel, colLabel, unit }: {
-  rows: string[]; cols: string[]; value: (r: number, c: number) => number; caption: string; rowLabel: (r: number) => string; colLabel: (c: number) => string; unit: [string, string];
-}) {
-  const max = Math.max(1, ...rows.flatMap((_, r) => cols.map((__, c) => value(r, c))));
-  return (
-    <figure className="overflow-x-auto">
-      <div className="grid min-w-[560px] gap-[2px]" style={{ gridTemplateColumns: `5.5rem repeat(${cols.length}, minmax(0, 1fr))` }}>
-        <span />
-        {cols.map((c, i) => <span key={i} aria-hidden className="pb-1 text-center text-xs text-muted">{c}</span>)}
-        {rows.map((r, ri) => (
-          <div key={ri} className="contents">
-            <span className="pr-2 text-right text-xs leading-7 text-muted">{r}</span>
-            {cols.map((_, ci) => {
-              const v = value(ri, ci);
-              return (
-                <span key={ci} tabIndex={0} aria-label={`${rowLabel(ri)}, ${colLabel(ci)}: ${v} ${v === 1 ? unit[0] : unit[1]}`} className="group relative h-7 rounded-[4px] outline-none hover:ring-2 hover:ring-ink focus-visible:ring-2 focus-visible:ring-focus" style={{ background: seq(v / max) }}>
-                  <Tip><span className="font-semibold tabular-nums">{v}</span> {v === 1 ? unit[0] : unit[1]}<span className="block text-warm/70">{rowLabel(ri)}, {colLabel(ci)}</span></Tip>
-                </span>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-      <div className="mt-3"><SeqScale max={max} unit={unit[1]} /></div>
-      <table className="sr-only">
-        <caption>{caption}</caption>
-        <tbody>{rows.map((r, ri) => <tr key={ri}><th>{r}</th>{cols.map((c, ci) => <td key={ci}>{c}: {value(ri, ci)}</td>)}</tr>)}</tbody>
-      </table>
-    </figure>
-  );
-}
-
-/** Tendencia mínima: línea de 2 px y punto final; el último valor lo dice el texto de al lado, no el gráfico. */
-export function Sparkline({ values, className, label }: { values: number[]; className?: string; label: string }) {
-  const w = 96;
-  const h = 28;
-  const max = Math.max(1, ...values);
-  const pts = values.map((v, i) => [(i / Math.max(1, values.length - 1)) * (w - 6) + 3, h - 3 - (v / max) * (h - 6)] as const);
-  const last = pts.at(-1)!;
-  return (
-    <svg role="img" aria-label={label} viewBox={`0 0 ${w} ${h}`} className={cn('h-7 w-24 overflow-visible', className)}>
-      <polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" className="stroke-line-strong" />
-      <circle cx={last[0]} cy={last[1]} r={4} strokeWidth={2} className="fill-interface stroke-surface" />
-    </svg>
-  );
-}
-
 /** Cifra sobria: rótulo arriba, valor y una línea de contexto. Sin tarjeta pesada; la separación la da el espacio. */
 export function Figure({ label, value, context, className }: { label: string; value: ReactNode; context?: ReactNode; className?: string }) {
   return (

@@ -18,6 +18,16 @@
 | Q7 | Movimiento sutil (150–250 ms) y pulso solo en mesas con llamado nuevo; todo se apaga con `prefers-reduced-motion`. |
 | Q8 | Commit por pantalla y push de la rama; `main` no se toca. |
 
+## Decisión del responsable (30/10/2026)
+
+| Pantalla | Versión elegida | Ruta |
+|---|---|---|
+| Tablero (L-06) | **C · Todo el local a la vista** | `/_proto/tablero` |
+| Métricas (F5-12) | **B · Sobre el plano** | `/_proto/metricas` (`?tab=stock` abre Inventario) |
+| Inventario (F4-09) | **B · Registro rápido** | `/_proto/inventario` |
+
+Las alternativas descartadas se borraron del código (igual que A–D del editor); se recuperan del commit `9835a72`. Las notas de abajo describen las nueve tal como se presentaron. Pendiente de la decisión: B de métricas convive con el modo «Actividad» del editor o lo reemplaza; en el tablero C, cómo escala con más de dos pisos.
+
 ## Lenguaje visual (heredado del editor L-05)
 
 - **Color:** `ink` #101E33 (barra lateral), `bg` #F7FAFC, `surface` #FFFFFF, `line` #D3DDE9, `connect` #1BAA95 (único primario), `interface` #3865E9 (En atención), `amber` #E6A03D (Pendiente), `danger` (> 5 min). El color fuerte se reserva al estado; superficies blancas, borde izquierdo y chips pequeños.
@@ -58,7 +68,7 @@
 
 ## Cómo revisarlos
 
-`pnpm --filter @modivara/portal dev` y abrir `/_proto`. Cada pantalla tiene abajo a la derecha el control «Prototipo» para cambiar de alternativa (A, B, C) y forzar estados: cargando (esqueletos), vacío, error y sin conexión; el tablero además simula pulsaciones y botones desconectados. Atajos por URL: `/_proto/metricas/<alt>?tab=stock` abre Inventario en métricas, `/_proto/inventario/<alt>?tab=history` abre el historial y `/_proto/inventario/a?abrir` abre el panel de un producto.
+`pnpm --filter @modivara/portal dev` y abrir `/_proto`. Cada pantalla tiene abajo a la derecha el control «Prototipo» para forzar estados: cargando (esqueletos), vacío, error y sin conexión; el tablero además simula pulsaciones y botones desconectados. Atajos por URL: `/_proto/metricas/<alt>?tab=stock` abre Inventario en métricas, `/_proto/inventario/<alt>?tab=history` abre el historial y `/_proto/inventario/a?abrir` abre el panel de un producto.
 
 Verificado con capturas a 1366 px (las 9 alternativas) y a 390 px (tablero A y C, esqueleto de métricas A e inventario B). El resto del celular está hecho con grillas responsivas pero no se capturó.
 
