@@ -26,6 +26,9 @@ export const layoutElementSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('door'), ...sized }),
   z.object({ type: z.literal('bar'), ...sized }),
   z.object({ type: z.literal('label'), text: z.string().max(LAYOUT_LABEL_MAX), ...placed }),
+  // Área dibujada dentro del plano (Barra, Zona A, VIP…): una mesa pertenece al área que contiene su centro. Solo geometría y nombre:
+  // las métricas por área se calculan sumando sus mesas (PLAN-002, decisión del 30/10/2026; piso = zona).
+  z.object({ type: z.literal('area'), name: z.string().trim().min(1).max(LAYOUT_LABEL_MAX), ...sized }),
 ]);
 export type LayoutElement = z.infer<typeof layoutElementSchema>;
 

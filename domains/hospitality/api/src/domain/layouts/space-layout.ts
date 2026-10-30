@@ -49,6 +49,7 @@ export function validateLayoutContent({ canvasWidth, canvasHeight, elements }: L
       continue;
     }
     if (!finite(el.width, el.height) || el.width <= 0 || el.height <= 0) throw new ValidationError('Element size must be positive');
+    if (el.type === 'area' && (!el.name.trim() || el.name.length > LAYOUT_LABEL_MAX)) throw new ValidationError(`Area name is 1 to ${LAYOUT_LABEL_MAX} characters`);
     if (el.type === 'table') {
       if (tableIds.has(el.table_id)) throw new ValidationError('A table appears twice in the layout');
       tableIds.add(el.table_id);

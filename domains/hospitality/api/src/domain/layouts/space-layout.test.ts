@@ -44,6 +44,14 @@ describe('validateLayoutContent', () => {
     expect(check([table({ y: -0.1 })])).toThrow(ValidationError);
   });
 
+  it('área con nombre de 1 a 60 caracteres y tamaño positivo; puede contener mesas', () => {
+    const area = (name: string, over = {}): LayoutElement => ({ id: uid(), type: 'area', name, ...box, width: 300, height: 200, ...over });
+    expect(check([area('Barra'), table()])).not.toThrow();
+    expect(check([area('  ')])).toThrow(ValidationError);
+    expect(check([area('x'.repeat(61))])).toThrow(ValidationError);
+    expect(check([area('Barra', { width: 0 })])).toThrow(ValidationError);
+  });
+
   it('rótulo de hasta 60 caracteres', () => {
     const label = (text: string): LayoutElement => ({ id: uid(), type: 'label', text, x: 1, y: 1, rotation: 0 });
     expect(check([label('x'.repeat(60))])).not.toThrow();

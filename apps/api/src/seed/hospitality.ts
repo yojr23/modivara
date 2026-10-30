@@ -18,6 +18,7 @@ const tableLabel = (n: number) => `Mesa ${n}`;
 // ADR-003: plano de demo (lienzo 800×600; mesas de 60 en cuadrícula de `PLAN_COLUMNS` columnas, 120 de paso).
 const PLAN_COLUMNS = 5;
 const planElement = (type: 'bar' | 'door', x: number, y: number, width: number, height: number): LayoutElement => ({ id: crypto.randomUUID(), type, x, y, width, height, rotation: 0 });
+const planArea = (name: string, x: number, y: number, width: number, height: number): LayoutElement => ({ id: crypto.randomUUID(), type: 'area', name, x, y, width, height, rotation: 0 });
 
 /**
  * Solo casos de uso públicos de core y hospitality; idempotente (lo que ya existe no se toca ni se duplica).
@@ -82,7 +83,11 @@ export async function seedHospitality(app: INestApplicationContext, password: st
   const tableIds: string[] = [];
   for (let n = 1; n <= TABLES_IN_BAR_DEMO; n++) tableIds.push(await ensureTable(demo, tableLabel(n), null));
   await ensureButtons(demo, '', tableIds);
-  await ensureLayout(demo, null, tableIds, [planElement('bar', 100, 40, 600, 60), planElement('door', 20, 500, 80, 12)]);
+  // Áreas sobre la cuadrícula de 5 columnas (filas en y = 200, 320, 440): la barra con su fila y dos zonas de salón.
+  await ensureLayout(demo, null, tableIds, [
+    planArea('Barra', 60, 20, 680, 270), planArea('Salón', 60, 300, 680, 120), planArea('Ventanal', 60, 425, 680, 120),
+    planElement('bar', 100, 40, 600, 60), planElement('door', 20, 560, 80, 12),
+  ]);
 
   // Bar Demo Pisos: zonas con los mismos números de mesa repetidos en cada una; gateway y botones `p-btn-NN`.
   const pisos = await contextOf('bar-demo-pisos');
