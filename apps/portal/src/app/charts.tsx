@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/ui/cn';
-import { fmtNum } from './demo-data';
+import { fmtNum } from './format';
 
 // [DISEÑO] Gráficos a mano (PLAN-002, Q4): columnas ≤ 24 px con punta redondeada, cuadrícula de 1 px, tooltip al pasar o enfocar,
 // tabla oculta para lectores de pantalla. Magnitud en un solo tono (`interface`); entradas/salidas con la paleta validada.

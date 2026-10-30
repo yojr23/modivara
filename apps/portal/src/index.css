@@ -112,7 +112,7 @@
   .call-pending { animation: call-pulse 1.8s ease-in-out infinite; }
 }
 
-/* [DISEÑO] Prototipos de L-06, F5-12 y F4-09 (PLAN-002). Series de gráficos validadas con el validador de dataviz
+/* Pantallas de tablero, métricas e inventario (PLAN-002). Series de gráficos validadas con el validador de dataviz
    (tema claro): entradas y salidas de stock; la magnitud usa un solo tono (`interface`). */
 :root {
   --series-in: #00927b;

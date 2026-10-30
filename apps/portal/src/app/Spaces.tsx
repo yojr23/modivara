@@ -1,31 +1,22 @@
-import { Check, Plus, Send, SquareDashed, TriangleAlert, ZoomIn, ZoomOut } from 'lucide-react';
+import { useServiceCallMetrics } from '@modivara/analytics-web';
+import { Check, LogOut, Pencil, Plus, Send, SquareDashed, TriangleAlert, ZoomIn, ZoomOut } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { ACTIVITY, AREA_STYLE, RANGES, tableById } from './plan';
-import { AreaInspector, EditorDialogs, Inspector, KIND, PlanCanvas, ProtoBar, TOOLS, UnplacedTables, nameOf, useLayoutEditor, type Ed, type ToolId } from './editor-kit';
+import { AREA_STYLE } from './plan';
+import { AreaInspector, EditorDialogs, Inspector, KIND, PlanCanvas, TOOLS, UnplacedTables, nameOf, useLayoutEditor, type Ed, type ToolId } from './editor-kit';
+import { Bone, ErrorState, Wordmark, useApp } from './ui';
 
-// [DISEÑO] L-05, versión elegida por el responsable (29/10/2026): alternativa E, mezcla de A (barra lateral de espacios) y C (paleta
-// visible, «¿Qué falta?», revisión antes de publicar), con áreas dentro de cada espacio y modo Actividad. Las alternativas A–D descartadas
-// están en la historia de la rama `diseno/l05-mesas` (commit 664f201).
+// L-05, versión elegida por el responsable (29/10/2026): alternativa E, mezcla de A (barra lateral de espacios) y C (paleta visible,
+// «¿Qué falta?», revisión antes de publicar), con áreas dentro de cada espacio y modo Actividad (métricas reales por mesa).
+// Las alternativas A–D descartadas están en la historia (commit 664f201).
 
 type AddTool = Exclude<ToolId, 'select' | 'table'>;
 const REFS = TOOLS.filter((t) => t.id !== 'select' && t.id !== 'table');
-
-/** Isotipo provisional: tres módulos conectados (BRAND-002 §9, sin logotipo aprobado). */
-function Wordmark({ dark = false }: { dark?: boolean }) {
-  return (
-    <span className="flex items-center gap-2">
-      <svg aria-hidden viewBox="0 0 26 10" className="h-2.5 w-7">
-        <rect width="8" height="10" rx="2" className="fill-connect" />
-        <rect x="9" width="8" height="10" rx="2" className="fill-interface" />
-        <rect x="18" width="8" height="10" rx="2" className={dark ? 'fill-warm' : 'fill-ink'} />
-      </svg>
-      <span className="font-display text-lg font-extrabold tracking-tight">Modivara</span>
-    </span>
-  );
-}
+const RANGES = [['today', 'Hoy'], ['last_7_days', '7 días'], ['last_30_days', '30 días']] as const;
+type Range = (typeof RANGES)[number][0];
+const MODES = [['design', 'Diseñar'], ['activity', 'Actividad']] as const;
 
 function Zoom({ ed }: { ed: Ed }) {
   return (
@@ -158,16 +149,12 @@ function Review({ ed }: { ed: Ed }) {
   );
 }
 
-const fmtSeconds = (s: number) => `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, '0')} s`;
-
-/** Movimiento por área del espacio: ranking de llamados, tiempo promedio hasta «En atención» y mesas con más llamados. */
-function Activity({ ed, heat, range, setRange }: { ed: Ed; heat: (id: string) => number; range: string; setRange: (r: (typeof RANGES)[number][0]) => void }) {
+/** Movimiento por área del espacio: ranking de llamados por área (suma de sus mesas) y mesas con más llamados. */
+function Activity({ ed, heat, range, setRange, loading }: { ed: Ed; heat: (id: string) => number; range: Range; setRange: (r: Range) => void; loading: boolean }) {
   const tables = ed.space.elements.filter((e) => e.type === 'table');
   const groups = [...ed.areas, undefined].map((a) => {
     const inside = tables.filter((e) => ed.areaOf(e)?.id === a?.id);
-    const calls = inside.reduce((s, e) => s + heat(e.table_id), 0);
-    const weighted = inside.reduce((s, e) => s + heat(e.table_id) * (ACTIVITY.get(e.table_id)?.ackSeconds ?? 0), 0);
-    return { name: a?.name ?? 'Sin área', calls, ack: calls ? weighted / calls : 0, tables: inside.length };
+    return { name: a?.name ?? 'Sin área', calls: inside.reduce((s, e) => s + heat(e.table_id), 0), tables: inside.length };
   }).filter((g) => g.tables > 0).sort((a, b) => b.calls - a.calls);
   const max = Math.max(1, ...groups.map((g) => g.calls));
   const top = [...tables].sort((a, b) => heat(b.table_id) - heat(a.table_id)).slice(0, 5);
@@ -191,7 +178,7 @@ function Activity({ ed, heat, range, setRange }: { ed: Ed; heat: (id: string) =>
               <span className="font-display text-xl font-bold tabular-nums">{g.calls}</span>
             </p>
             <div aria-hidden className="mt-1 h-2 rounded-full bg-sunken"><div className="h-2 rounded-full bg-interface" style={{ width: `${(g.calls / max) * 100}%` }} /></div>
-            <p className="mt-1 text-xs text-muted">{g.tables} mesas. {g.calls ? `En atención en promedio a los ${fmtSeconds(g.ack)}` : 'Sin llamados'}</p>
+            <p className="mt-1 text-xs text-muted">{g.tables} {g.tables === 1 ? 'mesa' : 'mesas'}{g.calls ? '' : ', sin llamados'}</p>
           </li>
         ))}
       </ol>
@@ -200,34 +187,79 @@ function Activity({ ed, heat, range, setRange }: { ed: Ed; heat: (id: string) =>
         <ol className="space-y-1 text-sm">
           {top.map((e) => (
             <li key={e.id} className="flex justify-between gap-2">
-              <span>{tableById.get(e.table_id)?.label} <span className="text-muted">({ed.areaOf(e)?.name ?? 'sin área'})</span></span>
+              <span>{ed.tableLabel.get(e.table_id)} <span className="text-muted">({ed.areaOf(e)?.name ?? 'sin área'})</span></span>
               <span className="font-semibold tabular-nums">{heat(e.table_id)}</span>
             </li>
           ))}
         </ol>
       </section>
-      <p className="text-xs text-muted">El número en cada mesa es su cantidad de llamados. Cada llamado cuenta en el área que tenía la mesa cuando llamó. Datos de prueba.</p>
+      {loading && <p className="text-xs text-muted" role="status">Cargando llamados…</p>}
+      <p className="text-xs text-muted">El número en cada mesa es su cantidad de llamados. El área se calcula con el plano actual: si mueves una mesa de área, sus llamados pasados cuentan en la nueva.</p>
     </section>
   );
 }
 
 /* ─────────────── Editor: barra lateral de espacios y áreas, paleta, plano, panel derecho ─────────────── */
 
-export default function Editor() {
+/** Título del espacio con lápiz para renombrarlo (nombre de la zona). «Salón principal» no se renombra. */
+function SpaceTitle({ ed }: { ed: Ed }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  if (editing) {
+    return (
+      <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); ed.renameSpace(name); setEditing(false); }}>
+        <input autoFocus aria-label="Nombre del espacio" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} onBlur={() => setEditing(false)} className="h-10 rounded-md border border-line-strong px-2 text-xl font-bold" />
+        <Button size="sm" type="submit" onMouseDown={(e) => e.preventDefault()}>Guardar</Button>
+      </form>
+    );
+  }
+  return (
+    <h1 className="flex items-center gap-2 text-2xl font-bold">
+      {ed.space.name}
+      {ed.zoneId && <Button size="sm" variant="ghost" aria-label="Cambiar el nombre del espacio" onClick={() => { setName(ed.space.name); setEditing(true); }}><Pencil aria-hidden className="size-4" /></Button>}
+    </h1>
+  );
+}
+
+export default function Spaces() {
+  const { me, location, can, nav, logout } = useApp();
   const ed = useLayoutEditor();
   const [mode, setMode] = useState<'design' | 'review' | 'activity'>('design');
-  const [range, setRange] = useState<(typeof RANGES)[number][0]>('7d');
+  const [range, setRange] = useState<Range>('last_7_days');
+  const canActivity = me.modules.includes('analytics') && can('analytics.calls.read');
+  const metrics = useServiceCallMetrics(location.id, { range });
+  const calls = new Map((metrics.data?.by_table ?? []).map((t) => [t.table_id, t.calls]));
+  const heat = (tableId: string) => calls.get(tableId) ?? 0;
   const review = mode === 'review';
   const locked = mode !== 'design';
-  const factor = RANGES.find((r) => r[0] === range)![2];
-  const heat = (tableId: string) => Math.round((ACTIVITY.get(tableId)?.calls7d ?? 0) * factor);
   const leaveReview = () => mode === 'review' && setMode('design');
-  const { space, el } = ed;
+  const { el } = ed;
+
+  if (ed.loading || ed.error) {
+    return (
+      <div className="grid h-dvh grid-cols-[196px_minmax(0,1fr)] bg-bg">
+        <div className="bg-ink" />
+        {ed.error ? <ErrorState what="los espacios" onRetry={ed.retry} /> : (
+          <div aria-busy aria-label="Cargando espacios" className="grid grid-cols-[272px_minmax(0,1fr)] gap-6 p-6"><div className="space-y-3"><Bone className="h-8" /><Bone className="h-16" /><Bone className="h-16" /></div><Bone className="h-full rounded-xl" /></div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={cn('grid h-dvh grid-rows-[72px_minmax(0,1fr)] bg-bg text-fg', mode === 'activity' ? 'grid-cols-[196px_minmax(0,1fr)_340px]' : 'grid-cols-[196px_272px_minmax(0,1fr)_312px]')}>
       <nav aria-label="Espacios" className="row-span-2 flex flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-warm">
         <div className="px-2"><Wordmark dark /></div>
+        {/* Navegación del portal en íconos: el editor ocupa la barra con sus espacios y áreas. */}
+        <ul aria-label="Módulos" className="flex gap-1 px-1">
+          {nav.map(({ id, label, Icon, to }) => (
+            <li key={id}>
+              <Link to={to} title={label} aria-label={label} aria-current={id === 'espacios' ? 'page' : undefined} className={cn('grid size-9 place-items-center rounded-md', id === 'espacios' ? 'bg-white/12' : 'text-warm/70 hover:bg-white/6')}>
+                <Icon aria-hidden className="size-[18px]" />
+              </Link>
+            </li>
+          ))}
+        </ul>
         <section>
           <h2 className="mb-1 px-2 text-sm text-warm/60">Espacios (pisos o sectores)</h2>
           <ul className="space-y-0.5">
@@ -247,7 +279,7 @@ export default function Editor() {
           </button>
         </section>
         <section className="border-t border-white/10 pt-5">
-          <h2 className="mb-1 px-2 text-sm text-warm/60">Áreas en {space.name}</h2>
+          <h2 className="mb-1 px-2 text-sm text-warm/60">Áreas en {ed.space.name}</h2>
           <ul className="space-y-0.5">
             {ed.areas.map((a) => (
               <li key={a.id}>
@@ -267,16 +299,19 @@ export default function Editor() {
             <Plus aria-hidden className="size-4" />Dibujar área
           </button>
         </section>
-        <p className="mt-auto px-2 text-xs leading-relaxed text-warm/55">Flechas mueven, R gira y Supr quita del plano.</p>
+        <div className="mt-auto space-y-2 px-2 text-xs leading-relaxed text-warm/55">
+          <p>Flechas mueven, R gira y Supr quita del plano.</p>
+          <button type="button" onClick={logout} className="flex items-center gap-1.5 text-warm/75 hover:text-warm"><LogOut aria-hidden className="size-4" />Salir</button>
+        </div>
       </nav>
 
       <header className={cn('flex items-center gap-6 border-b border-line bg-surface px-6', mode === 'activity' ? 'col-span-2' : 'col-span-3')}>
         <div>
-          <p className="text-sm text-muted">Bar Demo</p>
-          <h1 className="text-2xl font-bold">{space.name}</h1>
+          <p className="text-sm text-muted">{me.organization?.name}, local {location.name}</p>
+          <SpaceTitle ed={ed} />
         </div>
         <div role="group" aria-label="Modo" className="flex rounded-md border border-line p-0.5">
-          {([['design', 'Diseñar'], ['activity', 'Actividad']] as const).map(([m, label]) => (
+          {(canActivity ? MODES : MODES.slice(0, 1)).map(([m, label]) => (
             <button
               key={m} type="button" aria-pressed={m === 'design' ? mode !== 'activity' : mode === 'activity'}
               onClick={() => { ed.setSelected(null); setMode(m); }}
@@ -319,10 +354,10 @@ export default function Editor() {
       </main>
 
       <aside className="overflow-y-auto border-l border-line bg-surface p-5">
-        {mode === 'activity' ? <Activity ed={ed} heat={heat} range={range} setRange={setRange} /> : review ? <Review ed={ed} /> : el ? (
+        {mode === 'activity' ? <Activity ed={ed} heat={heat} range={range} setRange={setRange} loading={metrics.isPending} /> : review ? <Review ed={ed} /> : el ? (
           <section aria-labelledby="e-props">
             <div className="mb-1 flex items-center justify-between">
-              <h2 id="e-props" className="font-display text-lg font-bold">{nameOf(el)}</h2>
+              <h2 id="e-props" className="font-display text-lg font-bold">{nameOf(ed, el)}</h2>
               <Button size="sm" variant="ghost" onClick={() => ed.setSelected(null)}>Listo</Button>
             </div>
             <p className="mb-4 text-sm text-muted">{el.type === 'table' ? 'Mesa real del local' : `${KIND[el.type]}, solo referencia visual`}</p>
@@ -339,36 +374,6 @@ export default function Editor() {
         ) : <Todo ed={ed} />}
       </aside>
       <EditorDialogs ed={ed} />
-      <ProtoBar ed={ed} />
     </div>
-  );
-}
-
-/* ─────────────── Índice de prototipos ─────────────── */
-
-const PROTOS = [
-  ['/_proto/l05-e', 'Editor de espacios (L-05)', 'Versión elegida: espacios por piso, áreas dentro de cada plano, mesas, elementos, revisión antes de publicar y modo Actividad.'],
-  ['/_proto/tablero', 'Tablero sobre el plano (L-06)', 'Versión elegida: todo el local a la vista, con los pisos lado a lado y la cola de llamados abajo.'],
-  ['/_proto/metricas', 'Métricas (F5-12)', 'Versión elegida: sobre el plano, con áreas teñidas por llamados y detalle de área o mesa; también inventario por producto.'],
-  ['/_proto/inventario', 'Inventario (F4-09)', 'Versión elegida: registro rápido, con producto, cantidad y motivo a la vista y lo registrado hoy al lado.'],
-] as const;
-
-export function ProtoIndex() {
-  return (
-    <main className="mx-auto max-w-2xl px-6 py-12 text-fg">
-      <Wordmark />
-      <h1 className="mt-6 text-3xl font-bold">Prototipos</h1>
-      <p className="mt-2 mb-8 text-muted">Pantallas de diseño con datos de prueba; no llaman a la API.</p>
-      <ul className="divide-y divide-line border-y border-line">
-        {PROTOS.map(([to, title, text]) => (
-          <li key={to}>
-            <Link to={to} className="block py-4 hover:bg-surface">
-              <span className="block font-display text-xl font-bold">{title}</span>
-              <span className="text-muted">{text}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </main>
   );
 }

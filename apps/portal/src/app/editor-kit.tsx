@@ -1,23 +1,24 @@
-import { LAYOUT_LABEL_MAX, type LayoutElement } from '@modivara/hospitality-contracts';
+import { LAYOUT_LABEL_MAX, type LayoutDto } from '@modivara/hospitality-contracts';
+import {
+  layoutErrorState, useCreateTable, useCreateZone, useDeviceStatus, useLayoutDraft, usePublishLayout, useSaveLayoutDraft, useTables, useUpdateTable, useUpdateZone, useZones,
+} from '@modivara/hospitality-web';
 import { Circle, DoorOpen, GlassWater, Minus, MousePointer2, RotateCw, Trash, Type, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
-import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { AREA_STYLE, ElementShape, SPACES, TABLES, areaAt, tableById, type Area, type Space, type Table } from './plan';
+import { AREA_STYLE, DEFAULT_SPACE, DEFAULT_SPACE_NAME, ElementShape, areaAt, joinAreas, spaceIdOf, splitAreas, type Area, type PlanElement, type Space, type Table } from './plan';
+import { useApp } from './ui';
 
-// [DISEÑO] Estado y piezas comunes de las alternativas de L-05. Todo es local: guardar, publicar y el conflicto 409 se simulan.
+// Estado y piezas del editor de espacios (L-05). Espacio = zona (piso o sector) con su plano; «Salón principal» = zona null.
+// Guardar y publicar van a la API con concurrencia optimista (`revision`, 409 con el borrador vigente).
 
 export const GRID = 20;
-type Sized = Exclude<LayoutElement, { type: 'label' }>;
-export const sized = (el: LayoutElement): el is Sized => el.type !== 'label';
-const clone = (s: Space[]): Space[] => s.map((x) => ({ ...x, elements: x.elements.map((e) => ({ ...e })), areas: x.areas?.map((a) => ({ ...a })) }));
+type Sized = Exclude<PlanElement, { type: 'label' }>;
+export const sized = (el: PlanElement): el is Sized => el.type !== 'label';
+const clone = (s: Space): Space => ({ ...s, elements: s.elements.map((e) => ({ ...e })), areas: s.areas.map((a) => ({ ...a })) });
+const same = (a: Space | null, b: Space | null) => JSON.stringify(a) === JSON.stringify(b);
 
-/** Área inicial de cada mesa (lo publicado), para mostrar en la revisión qué mesas cambian de área. */
-const INITIAL_AREA = new Map(
-  SPACES.flatMap((s) => s.elements.flatMap((e) => (e.type === 'table' ? [[e.table_id, areaAt(s.areas, e)?.name ?? null] as const] : []))),
-);
-export const KIND: Record<LayoutElement['type'], string> = { table: 'Mesa', wall: 'Pared', door: 'Puerta', bar: 'Barra', label: 'Etiqueta' };
+export const KIND: Record<PlanElement['type'], string> = { table: 'Mesa', wall: 'Pared', door: 'Puerta', bar: 'Barra', label: 'Etiqueta' };
 const SHAPES = [['round', 'Redonda'], ['square', 'Cuadrada'], ['rect', 'Rectangular']] as const;
 
 export type ToolId = 'select' | 'table' | 'wall' | 'door' | 'bar' | 'label';
@@ -31,7 +32,7 @@ export const TOOLS: { id: ToolId; label: string; Icon: LucideIcon }[] = [
 ];
 
 // ponytail: superposición por cajas sin girar; basta para avisar (E-07 no bloquea). Con giros reales, usar SAT.
-function overlaps(els: LayoutElement[]): Set<string> {
+function overlaps(els: PlanElement[]): Set<string> {
   const boxes = els.filter(sized).filter((e) => e.type !== 'door');
   const hit = new Set<string>();
   for (const [i, a] of boxes.entries())
@@ -43,68 +44,109 @@ function overlaps(els: LayoutElement[]): Set<string> {
   return hit;
 }
 
+/** Lienzo de un espacio sin plano todavía. */
+const NEW_CANVAS = { width: 1000, height: 640 };
+const toSpace = (meta: { id: string; zoneId: string | null; name: string }, layout: LayoutDto | null): Space =>
+  ({ ...meta, width: layout?.canvas_width ?? NEW_CANVAS.width, height: layout?.canvas_height ?? NEW_CANVAS.height, ...splitAreas(layout?.elements ?? []) });
+
 export function useLayoutEditor() {
-  const [spaces, setSpaces] = useState(() => clone(SPACES));
-  const [saved, setSaved] = useState(() => clone(SPACES));
-  const [tables, setTables] = useState<Table[]>(TABLES);
-  const [revision, setRevision] = useState<Record<string, number>>({ salon: 3, terraza: 1 });
-  const [published, setPublished] = useState<Record<string, number>>({ salon: 2, terraza: 1 });
-  const [spaceId, setSpaceId] = useState(SPACES[0]!.id);
+  const { location } = useApp();
+  const l = location.id;
+  const zonesQ = useZones(l);
+  const tablesQ = useTables(l);
+  const devicesQ = useDeviceStatus(l);
+  const createZone = useCreateZone(l);
+  const updateZone = useUpdateZone(l);
+  const createTableM = useCreateTable(l);
+  const updateTableM = useUpdateTable(l);
+  const saveM = useSaveLayoutDraft(l);
+  const publishM = usePublishLayout(l);
+
+  // Espacios: «Salón principal» si el local no tiene zonas o tiene mesas sin zona (E-01), más una entrada por zona.
+  const zones = [...(zonesQ.data ?? [])].sort((a, b) => a.position - b.position);
+  const hasDefault = zones.length === 0 || (tablesQ.data ?? []).some((t) => t.zone_id === null);
+  const spaceList: { id: string; zoneId: string | null; name: string }[] = [
+    ...(hasDefault ? [{ id: DEFAULT_SPACE, zoneId: null, name: DEFAULT_SPACE_NAME }] : []),
+    ...zones.map((z) => ({ id: z.id, zoneId: z.id, name: z.name })),
+  ];
+  const [chosen, setChosen] = useState<string | null>(null);
+  const meta = spaceList.find((s) => s.id === chosen) ?? spaceList[0] ?? { id: DEFAULT_SPACE, zoneId: null, name: DEFAULT_SPACE_NAME };
+  const spaceId = meta.id;
+  const draftQ = useLayoutDraft(l, meta.zoneId);
+
+  const [work, setWork] = useState<Space | null>(null);
+  const [base, setBase] = useState<Space | null>(null);
+  const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [snap, setSnap] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [message, setMessage] = useState('');
-  const [saving, setSaving] = useState(false);
   const [pendingSpace, setPendingSpace] = useState<string | null>(null);
   const [confirmPublish, setConfirmPublish] = useState(false);
-  const [conflict, setConflict] = useState(false);
-  const [simulateConflict, setSimulateConflict] = useState(false);
+  const [conflict, setConflict] = useState<LayoutDto | null | false>(false);
 
-  const space = spaces.find((s) => s.id === spaceId)!;
-  const savedSpace = saved.find((s) => s.id === spaceId)!;
-  const dirty = JSON.stringify(space) !== JSON.stringify(savedSpace);
+  // Al cargar (o recargar) el borrador del espacio, lo guardado pasa a ser la base; lo que se edita solo se reemplaza si no tiene cambios.
+  const loaded = draftQ.data;
+  useEffect(() => {
+    if (!loaded) return;
+    const next = toSpace(meta, loaded.draft ?? loaded.published);
+    setBase(next);
+    setRevision(loaded.draft?.revision ?? 0);
+    setWork((w) => (!w || w.id !== next.id || same(w, base) ? clone(next) : w));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, spaceId, meta.name]);
+
+  const space = work && work.id === spaceId ? work : toSpace(meta, null);
+  const dirty = !!work && !!base && work.id === base.id && !same(work, base);
+  const tables: Table[] = (tablesQ.data ?? []).map((t) => ({
+    id: t.id, label: t.label, spaceId: spaceIdOf(t.zone_id), hasButton: devicesQ.data?.tables.find((x) => x.table_id === t.id)?.has_button ?? false,
+  }));
+  const tableLabel = new Map(tables.map((t) => [t.id, t.label]));
   const el = space.elements.find((e) => e.id === selected);
   const hits = useMemo(() => overlaps(space.elements), [space.elements]);
   const placed = new Set(space.elements.flatMap((e) => (e.type === 'table' ? [e.table_id] : [])));
   const unplaced = tables.filter((t) => t.spaceId === spaceId && !placed.has(t.id));
   const outside = space.elements.filter(sized).filter((e) => e.x + e.width > space.width || e.y + e.height > space.height);
-  const areas = space.areas ?? [];
+  const areas = space.areas;
   const area = areas.find((a) => a.id === selected);
   const placedTables = space.elements.filter((e) => e.type === 'table');
-  const areaOf = (e: LayoutElement) => (sized(e) ? areaAt(areas, e) : undefined);
-  const tablesIn = (a: Area | undefined) => placedTables.filter((e) => areaOf(e)?.id === a?.id).map((e) => tableById.get(e.table_id)!.label);
+  const areaOf = (e: PlanElement) => (sized(e) ? areaAt(areas, e) : undefined);
+  const tablesIn = (a: Area | undefined) => placedTables.filter((e) => areaOf(e)?.id === a?.id).map((e) => tableLabel.get(e.table_id) ?? 'Mesa');
   const withoutArea = areas.length ? tablesIn(undefined) : [];
   const areaOverlap = areas.some((a, i) => areas.slice(i + 1).some((b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height));
-  const areaChanges = placedTables.flatMap((e) => {
-    const before = INITIAL_AREA.get(e.table_id) ?? null;
+  // Área de cada mesa en el plano publicado, para mostrar en la revisión qué mesas cambian de área.
+  const publishedNow = loaded?.published ? splitAreas(loaded.published.elements) : null;
+  const publishedArea = new Map(publishedNow ? publishedNow.elements.flatMap((e) => (e.type === 'table' ? [[e.table_id, areaAt(publishedNow.areas, e)?.name ?? null] as const] : [])) : []);
+  const areaChanges = publishedNow ? placedTables.flatMap((e) => {
+    const before = publishedArea.get(e.table_id) ?? null;
     const after = areaOf(e)?.name ?? null;
-    return before === after ? [] : [{ label: tableById.get(e.table_id)!.label, before, after }];
-  });
+    return before === after ? [] : [{ label: tableLabel.get(e.table_id) ?? 'Mesa', before, after }];
+  }) : [];
 
-  const setElements = (fn: (els: LayoutElement[]) => LayoutElement[]) =>
-    setSpaces((all) => all.map((s) => (s.id === spaceId ? { ...s, elements: fn(s.elements) } : s)));
+  const edit = (fn: (s: Space) => Space) => setWork((w) => fn(w && w.id === spaceId ? w : clone(space)));
+  const setElements = (fn: (els: PlanElement[]) => PlanElement[]) => edit((s) => ({ ...s, elements: fn(s.elements) }));
   const update = (id: string, patch: Record<string, unknown>) =>
-    setElements((els) => els.map((e) => (e.id === id ? ({ ...e, ...patch } as LayoutElement) : e)));
+    setElements((els) => els.map((e) => (e.id === id ? ({ ...e, ...patch } as PlanElement) : e)));
   const round = (v: number) => (snap ? Math.round(v / GRID) * GRID : Math.round(v));
-  const moveTo = (e: LayoutElement, x: number, y: number) =>
+  const moveTo = (e: PlanElement, x: number, y: number) =>
     update(e.id, {
       x: Math.min(Math.max(0, x), space.width - (sized(e) ? e.width : 0)),
       y: Math.min(Math.max(0, y), space.height - (sized(e) ? e.height : 0)),
     });
 
-  function add(next: LayoutElement) {
+  function add(next: PlanElement) {
     setElements((els) => [...els, next]);
     setSelected(next.id);
   }
   const at = (w: number, h: number, point?: { x: number; y: number }) => ({
-    x: round((point?.x ?? space.width / 2) - w / 2), y: round((point?.y ?? space.height / 2) - h / 2), rotation: 0,
+    x: Math.max(0, round((point?.x ?? space.width / 2) - w / 2)), y: Math.max(0, round((point?.y ?? space.height / 2) - h / 2)), rotation: 0,
   });
   function addTool(tool: Exclude<ToolId, 'select' | 'table'>, point?: { x: number; y: number }) {
     if (tool === 'label') return add({ id: crypto.randomUUID(), type: 'label', text: 'Etiqueta', ...at(0, 0, point) });
     const [width, height] = { wall: [200, 14], door: [100, 14], bar: [300, 56] }[tool];
     add({ id: crypto.randomUUID(), type: tool, width: width!, height: height!, ...at(width!, height!, point) });
   }
-  const place = (t: Table, point?: { x: number; y: number }) =>
+  const place = (t: { id: string }, point?: { x: number; y: number }) =>
     add({ id: crypto.randomUUID(), type: 'table', table_id: t.id, shape: 'round', width: 70, height: 70, ...at(70, 70, point) });
 
   function remove(id: string) {
@@ -112,7 +154,7 @@ export function useLayoutEditor() {
     setSelected(null);
   }
 
-  const setAreas = (fn: (a: Area[]) => Area[]) => setSpaces((all) => all.map((s) => (s.id === spaceId ? { ...s, areas: fn(s.areas ?? []) } : s)));
+  const setAreas = (fn: (a: Area[]) => Area[]) => edit((s) => ({ ...s, areas: fn(s.areas) }));
   const updateArea = (id: string, patch: Partial<Area>) => setAreas((all) => all.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   const moveArea = (a: Area, x: number, y: number) =>
     updateArea(a.id, { x: Math.min(Math.max(0, x), space.width - a.width), y: Math.min(Math.max(0, y), space.height - a.height) });
@@ -129,42 +171,42 @@ export function useLayoutEditor() {
   const labelTaken = (label: string, except?: string) =>
     tables.some((t) => t.id !== except && t.spaceId === spaceId && t.label.toLowerCase() === label.trim().toLowerCase());
 
-  function createTable(label: string): boolean {
+  /** POST /tables en la zona del espacio y la ubica en el centro del plano. */
+  async function createTable(label: string): Promise<boolean> {
     if (!label.trim()) return setMessage('Escribe el nombre de la mesa.'), false;
     if (labelTaken(label)) return setMessage(`Ya existe «${label.trim()}» en ${space.name}. Usa otro nombre.`), false;
-    const t: Table = { id: crypto.randomUUID(), label: label.trim(), spaceId, hasButton: false };
-    tableById.set(t.id, t);
-    setTables((all) => [...all, t]);
-    place(t);
-    setMessage(`${t.label} creada y ubicada en el centro del plano.`);
-    return true;
-  }
-
-  /** En la app real es PATCH /tables/:id: cambia el nombre en todo el sistema, no solo en el dibujo. */
-  function renameTable(id: string, label: string) {
-    const t = tables.find((x) => x.id === id)!;
-    const next = { ...t, label };
-    tableById.set(id, next);
-    setTables((all) => all.map((x) => (x.id === id ? next : x)));
-  }
-
-  function commit() {
-    setSaved((all) => all.map((s) => (s.id === spaceId ? clone([space])[0]! : s)));
-    setRevision((r) => ({ ...r, [spaceId]: (r[spaceId] ?? 0) + 1 }));
-  }
-
-  function save() {
-    if (simulateConflict) {
-      setSimulateConflict(false);
-      setRevision((r) => ({ ...r, [spaceId]: (r[spaceId] ?? 0) + 1 })); // otra persona guardó antes
-      return setConflict(true);
+    try {
+      const t = await createTableM.mutateAsync({ label: label.trim(), zone_id: meta.zoneId });
+      place(t);
+      setMessage(`${t.label} creada y ubicada en el centro del plano. Guarda el borrador para conservar dónde está.`);
+      return true;
+    } catch {
+      setMessage('No se pudo crear la mesa. Revisa el nombre y vuelve a intentar.');
+      return false;
     }
-    setSaving(true);
-    setTimeout(() => {
-      commit();
-      setSaving(false);
+  }
+
+  /** PATCH /tables/:id: cambia el nombre en todo el sistema, no solo en el dibujo. */
+  const renameTable = (id: string, label: string) =>
+    updateTableM.mutate({ tableId: id, input: { label } }, {
+      onSuccess: () => setMessage(`Mesa renombrada a ${label}.`),
+      onError: () => setMessage('No se pudo cambiar el nombre (¿ya existe otra mesa así en este espacio?).'),
+    });
+
+  /** Guarda el borrador; devuelve la revisión nueva o null si no se pudo. */
+  async function save(): Promise<number | null> {
+    try {
+      const saved = await saveM.mutateAsync({ zone_id: meta.zoneId, revision, canvas_width: space.width, canvas_height: space.height, elements: joinAreas(space.areas, space.elements) });
+      setRevision(saved.revision);
+      setBase(clone(space));
       setMessage('Borrador guardado. El personal sigue viendo el plano publicado.');
-    }, 500);
+      return saved.revision;
+    } catch (e) {
+      const s = layoutErrorState(e);
+      if (s && 'current' in s) setConflict(s.current ?? null);
+      else setMessage(s?.state === 'validation' ? 'El servidor rechazó el plano: revisa que todo esté dentro del lienzo y que las áreas tengan nombre.' : 'No se pudo guardar. Revisa la conexión y vuelve a intentar.');
+      return null;
+    }
   }
 
   function requestPublish() {
@@ -177,68 +219,92 @@ export function useLayoutEditor() {
     setConfirmPublish(true);
   }
 
-  function publish() {
-    if (dirty) commit();
-    const v = (published[spaceId] ?? 0) + 1;
-    setPublished((p) => ({ ...p, [spaceId]: v }));
+  async function publish() {
     setConfirmPublish(false);
-    setMessage(`Plano publicado: versión ${v} de ${space.name}.`);
+    const rev = dirty || revision === 0 ? await save() : revision;
+    if (!rev) return;
+    try {
+      const p = await publishM.mutateAsync({ zone_id: meta.zoneId, revision: rev });
+      setRevision(0);
+      setMessage(`Plano publicado: versión ${p.version} de ${space.name}.`);
+    } catch (e) {
+      const s = layoutErrorState(e);
+      if (s && 'current' in s) setConflict(s.current ?? null);
+      else setMessage('No se pudo publicar. Revisa que las mesas del plano sigan activas en este espacio.');
+    }
   }
 
   function discard() {
-    setSpaces((all) => all.map((s) => (s.id === spaceId ? clone([savedSpace])[0]! : s)));
+    if (base) setWork(clone(base));
     setSelected(null);
-    setMessage('Cambios descartados. Volviste al último borrador guardado.');
+    setMessage('Cambios descartados. Volviste a lo último guardado.');
   }
 
   function switchTo(id: string) {
-    setSpaceId(id);
+    setChosen(id);
+    setWork(null);
     setSelected(null);
     setPendingSpace(null);
   }
   const selectSpace = (id: string) => (id !== spaceId && dirty ? setPendingSpace(id) : switchTo(id));
 
-  function resolvePending(choice: 'save' | 'discard' | 'stay') {
+  async function resolvePending(choice: 'save' | 'discard' | 'stay') {
     if (choice === 'stay') return setPendingSpace(null);
-    if (choice === 'save') commit();
-    else setSpaces((all) => all.map((s) => (s.id === spaceId ? clone([savedSpace])[0]! : s)));
+    if (choice === 'save' && !(await save())) return setPendingSpace(null);
     switchTo(pendingSpace!);
   }
 
+  /** «Recargar» adopta el borrador vigente; «Conservar» sigue con lo propio y el próximo guardado reemplaza el de la otra persona. */
   function resolveConflict(choice: 'reload' | 'keep') {
+    const current = conflict || null;
     setConflict(false);
     if (choice === 'reload') {
-      setSpaces((all) => all.map((s) => (s.id === spaceId ? clone([savedSpace])[0]! : s)));
+      const next = toSpace(meta, current ?? loaded?.published ?? null);
+      setBase(next);
+      setWork(clone(next));
+      setRevision(current ? current.revision : 0);
       setSelected(null);
       setMessage('Cargaste la versión vigente del borrador.');
-    } else setMessage('Tus cambios siguen en pantalla, sin guardar. Revísalos y vuelve a guardar.');
+    } else {
+      setRevision(current ? current.revision : 0);
+      setMessage('Tus cambios siguen en pantalla. Si guardas, reemplazan el borrador de la otra persona.');
+    }
   }
 
-  function addSpace() {
-    const s: Space = { id: crypto.randomUUID(), name: 'Zona nueva', width: 800, height: 500, elements: [] };
-    setSpaces((all) => [...all, s]);
-    setSaved((all) => [...all, clone([s])[0]!]);
-    setRevision((r) => ({ ...r, [s.id]: 0 }));
-    switchTo(s.id);
+  async function addSpace() {
+    try {
+      const z = await createZone.mutateAsync({ name: `Espacio ${zones.length + 1}` });
+      switchTo(z.id);
+      setMessage(`${z.name} creado. Cámbiale el nombre con el lápiz del título.`);
+    } catch {
+      setMessage('No se pudo crear el espacio.');
+    }
   }
-  const renameSpace = (name: string) => setSpaces((all) => all.map((s) => (s.id === spaceId ? { ...s, name } : s)));
-  const clearSpace = () => (setElements(() => []), setSelected(null));
+  /** Nombre del espacio = nombre de la zona (PATCH /zones/:id). «Salón principal» no es una zona y no se renombra. */
+  function renameSpace(name: string) {
+    if (!meta.zoneId || !name.trim() || name.trim() === meta.name) return;
+    updateZone.mutate({ zoneId: meta.zoneId, input: { name: name.trim() } }, { onError: () => setMessage('No se pudo cambiar el nombre (¿ya hay otro espacio con ese nombre?).') });
+  }
 
-  const status = saving ? 'Guardando…' : dirty ? 'Cambios sin guardar' : revision[spaceId] ? `Borrador guardado (revisión ${revision[spaceId]})` : 'Sin borrador';
-  const publishedLine = published[spaceId] ? `Publicado: versión ${published[spaceId]}` : 'Sin publicar';
+  const saving = saveM.isPending || publishM.isPending;
+  const status = saving ? 'Guardando…' : dirty ? 'Cambios sin guardar' : revision ? `Borrador guardado (revisión ${revision})` : 'Sin borrador';
+  const publishedVersion = loaded?.published?.version ?? 0;
+  const publishedLine = publishedVersion ? `Publicado: versión ${publishedVersion}` : 'Sin publicar';
 
   return {
-    spaces, space, spaceId, tables, el, selected, setSelected, hits, unplaced, outside, dirty, saving, snap, setSnap, zoom, setZoom,
-    message, setMessage, status, publishedLine, revision: revision[spaceId] ?? 0, published: published[spaceId] ?? 0,
-    pendingSpace, confirmPublish, setConfirmPublish, conflict, simulateConflict, setSimulateConflict,
+    spaces: spaceList, space, spaceId, zoneId: meta.zoneId, tables, tableLabel, el, selected, setSelected, hits, unplaced, outside, dirty, saving, snap, setSnap, zoom, setZoom,
+    message, setMessage, status, publishedLine, revision, published: publishedVersion,
+    loading: zonesQ.isPending || tablesQ.isPending || draftQ.isPending, error: zonesQ.isError || tablesQ.isError || draftQ.isError,
+    retry: () => { void zonesQ.refetch(); void tablesQ.refetch(); void draftQ.refetch(); },
+    pendingSpace, confirmPublish, setConfirmPublish, conflict: conflict !== false,
     update, moveTo, round, add, addTool, place, remove, createTable, renameTable, labelTaken, save, requestPublish, publish, discard,
-    selectSpace, resolvePending, resolveConflict, addSpace, renameSpace, clearSpace,
+    selectSpace, resolvePending, resolveConflict, addSpace, renameSpace,
     areas, area, areaOf, tablesIn, withoutArea, areaOverlap, areaChanges, updateArea, moveArea, addArea, removeArea,
   };
 }
 export type Ed = ReturnType<typeof useLayoutEditor>;
 
-export const nameOf = (e: LayoutElement) => (e.type === 'table' ? tableById.get(e.table_id)?.label ?? 'Mesa' : e.type === 'label' ? `Etiqueta «${e.text}»` : KIND[e.type]);
+export const nameOf = (ed: Ed, e: PlanElement) => (e.type === 'table' ? ed.tableLabel.get(e.table_id) ?? 'Mesa' : e.type === 'label' ? `Etiqueta «${e.text}»` : KIND[e.type]);
 
 type Drag = { mode: 'move' | 'resize' | 'rotate'; id: string; dx: number; dy: number; area: boolean };
 
@@ -288,7 +354,7 @@ export function PlanCanvas({ ed, readOnly = false, heat, className }: { ed: Ed; 
     else ed.update(t.id, { rotation: ((Math.round(((Math.atan2(p.y - cy, p.x - cx) * 180) / Math.PI + 90) / 15) * 15) % 360 + 360) % 360 });
   }
 
-  function onKey(e: KeyboardEvent, t: LayoutElement) {
+  function onKey(e: KeyboardEvent, t: PlanElement) {
     const step = e.shiftKey ? 1 : GRID;
     const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
     if (delta) {
@@ -363,11 +429,11 @@ export function PlanCanvas({ ed, readOnly = false, heat, className }: { ed: Ed; 
         return (
           <g
             key={e.id} tabIndex={readOnly ? -1 : 0} role="button" aria-pressed={on}
-            aria-label={`${nameOf(e)}. Flechas para mover, R para girar, Suprimir para quitar.`}
+            aria-label={`${nameOf(ed, e)}. Flechas para mover, R para girar, Suprimir para quitar.`}
             onPointerDown={(ev) => start(ev, e, 'move')} onKeyDown={(ev) => onKey(ev, e)} onFocus={() => !readOnly && ed.setSelected(e.id)}
             className={cn('outline-none', !readOnly && 'cursor-grab touch-none')}
           >
-            <ElementShape el={e} warn={!readOnly && ed.hits.has(e.id)} note={heat && e.type === 'table' ? `${heat(e.table_id)}` : undefined} />
+            <ElementShape el={e} label={e.type === 'table' ? ed.tableLabel.get(e.table_id) : undefined} warn={!readOnly && ed.hits.has(e.id)} note={heat && e.type === 'table' ? `${heat(e.table_id)}` : undefined} />
             {on && sized(e) && (
               <g transform={`rotate(${e.rotation} ${cx} ${cy})`}>
                 <rect x={e.x - 6} y={e.y - 6} width={e.width + 12} height={e.height + 12} rx={8} fill="none" strokeWidth={2} className="stroke-focus" />
@@ -517,7 +583,7 @@ export function UnplacedTables({ ed, autoFocus = false }: { ed: Ed; autoFocus?: 
         ))}
         {ed.unplaced.length === 0 && <li className="text-sm text-muted">Todas las mesas de {ed.space.name} están en el plano.</li>}
       </ul>
-      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (ed.createTable(label)) setLabel(''); }}>
+      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void ed.createTable(label).then((ok) => ok && setLabel('')); }}>
         <label className="sr-only" htmlFor="new-table">Nombre de la mesa nueva</label>
         <input id="new-table" value={label} maxLength={30} placeholder="Mesa 18" onChange={(e) => setLabel(e.target.value)} className="h-9 min-w-0 flex-1 rounded-md border border-line-strong bg-surface px-2 text-sm" />
         <Button size="sm" type="submit">Añadir mesa</Button>
@@ -567,22 +633,9 @@ export function EditorDialogs({ ed }: { ed: Ed }) {
           <Button size="sm" variant="secondary" onClick={() => ed.resolveConflict('keep')}>Conservar mis cambios para revisar</Button>
           <Button size="sm" autoFocus onClick={() => ed.resolveConflict('reload')}>Recargar versión actual</Button>
         </>}>
-          Alguien guardó este plano mientras lo editabas (ahora va en la revisión {ed.revision}). No se sobrescribió nada.
+          Alguien guardó este plano mientras lo editabas. No se sobrescribió nada: carga su versión o conserva la tuya para revisarla.
         </Dialog>
       )}
     </>
-  );
-}
-
-/** Controles del prototipo, fuera del diseño evaluado. */
-export function ProtoBar({ ed }: { ed: Ed }) {
-  return (
-    <details className="fixed right-3 bottom-3 z-40 rounded-md border border-dashed border-line-strong bg-surface px-3 py-1.5 text-xs text-muted shadow-sm">
-      <summary className="cursor-pointer">Prototipo</summary>
-      <div className="mt-2 flex flex-col gap-2">
-        <label className="flex items-center gap-1"><input type="checkbox" checked={ed.simulateConflict} onChange={(e) => ed.setSimulateConflict(e.target.checked)} />Conflicto en el próximo guardado</label>
-        <Link to="/_proto" className="text-link underline">Ver las alternativas</Link>
-      </div>
-    </details>
   );
 }

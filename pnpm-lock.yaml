@@ -136,6 +136,9 @@ importers:
       '@modivara/commerce-web':
         specifier: workspace:*
         version: link:../../domains/commerce/web
+      '@modivara/core-contracts':
+        specifier: workspace:*
+        version: link:../../domains/core/contracts
       '@modivara/core-web':
         specifier: workspace:*
         version: link:../../domains/core/web

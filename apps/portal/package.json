@@ -16,6 +16,7 @@
     "@modivara/analytics-web": "workspace:*",
     "@modivara/commerce-contracts": "workspace:*",
     "@modivara/commerce-web": "workspace:*",
+    "@modivara/core-contracts": "workspace:*",
     "@modivara/core-web": "workspace:*",
     "@modivara/hospitality-contracts": "workspace:*",
     "@modivara/hospitality-web": "workspace:*",
