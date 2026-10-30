@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { ElementShape, RED_MS, SPACES, TABLES, shortLabel, toneOf, type Tone } from './plan';
+import { ElementShape, RED_MS, SPACES, TABLES, areaAt, shortLabel, toneOf, type Tone } from './plan';
 
 // [DISEÑO] L-06 — tablero operativo sobre el plano publicado + cola global (ADR-003 ESP-23…ESP-30). Prototipo con llamados locales.
 
@@ -11,7 +11,8 @@ type Call = { id: string; tableId: string; status: 'pending' | 'in_progress'; cr
 
 const byLabel = new Map(TABLES.map((t) => [t.label, t]));
 const spaceName = new Map(SPACES.map((s) => [s.id, s.name]));
-const placedIds = new Set(SPACES.flatMap((s) => s.elements.flatMap((e) => (e.type === 'table' ? [e.table_id] : []))));
+const tableEls = new Map(SPACES.flatMap((s) => s.elements.flatMap((e) => (e.type === 'table' ? [[e.table_id, e] as const] : []))));
+const placedIds = new Set(tableEls.keys());
 const t0 = Date.now();
 const seed = (label: string, status: Call['status'], agoS: number, ackBy?: string): Call =>
   ({ id: crypto.randomUUID(), tableId: byLabel.get(label)!.id, status, createdAt: t0 - agoS * 1000, ackBy });
@@ -108,7 +109,10 @@ export default function Board() {
 
   const where = (tableId: string) => {
     const t = tableOf(tableId);
-    return placedIds.has(t.id) ? spaceName.get(t.spaceId) : `${spaceName.get(t.spaceId)}, sin ubicar en el plano`;
+    const el = tableEls.get(t.id);
+    if (!el) return `${spaceName.get(t.spaceId)}, sin ubicar en el plano`;
+    const area = areaAt(SPACES.find((s) => s.id === t.spaceId)?.areas, el);
+    return area ? `${spaceName.get(t.spaceId)}, ${area.name}` : spaceName.get(t.spaceId);
   };
 
   const sel = selected ? callOf.get(selected) : undefined;
@@ -178,6 +182,13 @@ export default function Board() {
           {view === 'plan' ? (
             <>
               <svg viewBox={`-20 -20 ${space.width + 40} ${space.height + 40}`} className="block max-h-[70dvh] w-full rounded-lg bg-surface" onClick={() => setSelected(null)}>
+                {/* Áreas discretas: orientan sin competir con los llamados. */}
+                {space.areas?.map((a) => (
+                  <g key={a.id} aria-hidden>
+                    <rect x={a.x} y={a.y} width={a.width} height={a.height} rx={14} fill="none" strokeWidth={1.5} className="stroke-line-strong/60 [stroke-dasharray:8_6]" />
+                    <text x={a.x + 14} y={a.y + 26} className="fill-muted text-[16px] font-semibold">{a.name}</text>
+                  </g>
+                ))}
                 {space.elements.map((e) => {
                   if (e.type !== 'table') return <ElementShape key={e.id} el={e} />;
                   const c = callOf.get(e.table_id);

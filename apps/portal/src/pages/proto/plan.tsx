@@ -28,44 +28,49 @@ const at = (t: Table, shape: 'round' | 'square' | 'rect', x: number, y: number, 
   id: id(), type: 'table', table_id: t.id, shape, x, y, width: w, height: h, rotation,
 });
 const box = (type: 'wall' | 'door' | 'bar', x: number, y: number, width: number, height: number): LayoutElement => ({ id: id(), type, x, y, width, height, rotation: 0 });
-const text = (t: string, x: number, y: number): LayoutElement => ({ id: id(), type: 'label', text: t, x, y, rotation: 0 });
+const text = (t: string, x: number, y: number, rotation = 0): LayoutElement => ({ id: id(), type: 'label', text: t, x, y, rotation });
 
 const [m1, m2, m3, m4, m5, m6, m7, m8, m9, m10] = TABLES;
-const [t12, t13, t14, t15, t16] = TABLES.slice(12);
+const [m13, m14, m15, m16, m17] = TABLES.slice(12);
 
+// Escena coherente: perímetro cerrado con entrada y escalera, cada área dentro del perímetro sin pisar muros,
+// la barra (mostrador) dentro del área «Barra» y los rótulos de área sin encimarse con mesas.
 // Mesas 11 y 12 quedan fuera a propósito: aparecen en «Mesas sin ubicar».
 export const SPACES: Space[] = [
   {
     id: SALON, name: 'Primer piso', width: 1000, height: 640,
     areas: [
-      { id: id(), name: 'Barra', x: 120, y: 140, width: 560, height: 130, color: 0 },
-      { id: id(), name: 'Zona A', x: 120, y: 300, width: 560, height: 310, color: 1 },
-      { id: id(), name: 'Zona B', x: 760, y: 110, width: 200, height: 380, color: 2 },
+      { id: id(), name: 'Barra', x: 50, y: 50, width: 600, height: 220, color: 0 },
+      { id: id(), name: 'Zona A', x: 50, y: 290, width: 600, height: 280, color: 1 },
+      { id: id(), name: 'Zona B', x: 680, y: 120, width: 260, height: 450, color: 2 },
     ],
     elements: [
-      box('bar', 140, 40, 500, 56),
-      box('wall', 720, 40, 14, 340),
-      box('wall', 30, 40, 14, 520),
-      box('door', 60, 620, 100, 14),
-      text('Entrada', 60, 600),
-      at(m1!, 'round', 160, 180), at(m2!, 'round', 300, 180), at(m3!, 'round', 440, 180), at(m4!, 'round', 580, 180),
-      at(m5!, 'square', 160, 330), at(m6!, 'square', 300, 330), at(m7!, 'rect', 440, 330, 140, 70),
-      at(m8!, 'rect', 800, 140, 70, 130), at(m9!, 'rect', 800, 330, 70, 130),
-      at(m10!, 'round', 420, 500, 90),
+      box('wall', 20, 20, 960, 14), box('wall', 20, 20, 14, 600), box('wall', 966, 20, 14, 600),
+      box('wall', 20, 606, 130, 14), box('door', 150, 606, 100, 14), box('wall', 250, 606, 730, 14),
+      text('Entrada', 160, 594),
+      text('Escalera al segundo piso', 700, 80),
+      text('Ventanas', 946, 250, 90),
+      box('bar', 110, 92, 480, 50),
+      at(m1!, 'round', 120, 180), at(m2!, 'round', 260, 180), at(m3!, 'round', 400, 180), at(m4!, 'round', 540, 180),
+      at(m5!, 'square', 120, 340), at(m6!, 'square', 260, 340), at(m7!, 'rect', 400, 340, 140, 70),
+      at(m10!, 'round', 270, 460, 90),
+      at(m8!, 'rect', 770, 170, 70, 130), at(m9!, 'rect', 770, 380, 70, 130),
     ],
   },
   {
     id: TERRAZA, name: 'Segundo piso', width: 800, height: 500,
     areas: [
-      { id: id(), name: 'Terraza', x: 70, y: 120, width: 460, height: 310, color: 0 },
-      { id: id(), name: 'Zona VIP', x: 560, y: 120, width: 170, height: 170, color: 1 },
+      { id: id(), name: 'Zona VIP', x: 50, y: 50, width: 230, height: 390, color: 1 },
+      { id: id(), name: 'Terraza', x: 340, y: 50, width: 410, height: 400, color: 0 },
     ],
     elements: [
-      box('wall', 40, 40, 720, 14),
-      text('Jardinera', 70, 90),
-      box('door', 360, 486, 100, 14),
-      at(t12!, 'round', 100, 160), at(t13!, 'round', 260, 160), at(t14!, 'round', 420, 160),
-      at(t15!, 'square', 580, 160), at(t16!, 'rect', 220, 320, 150, 70),
+      box('wall', 20, 20, 760, 14), box('wall', 20, 20, 14, 460), box('wall', 766, 20, 14, 460),
+      box('wall', 20, 466, 30, 14), box('door', 50, 466, 100, 14), box('wall', 150, 466, 630, 14),
+      box('wall', 300, 20, 14, 170), box('door', 300, 190, 14, 100), box('wall', 300, 290, 14, 190),
+      text('Escalera', 60, 456),
+      text('Jardinera', 600, 430),
+      at(m16!, 'square', 120, 120), at(m17!, 'rect', 90, 280, 150, 70),
+      at(m13!, 'round', 390, 120), at(m14!, 'round', 560, 120), at(m15!, 'round', 470, 290),
     ],
   },
 ];
