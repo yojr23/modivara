@@ -13,7 +13,10 @@ export function niceMax(n: number) {
 }
 
 /** Paso de la escala secuencial (0 = sin datos) como mezcla de `interface` sobre la superficie. */
-export const seq = (t: number) => (t <= 0 ? 'var(--sunken)' : `color-mix(in srgb, var(--interface) ${Math.round(14 + 76 * Math.min(1, t))}%, var(--surface))`);
+export const seq = (t: number) => (t <= 0 ? 'var(--sunken)' : `color-mix(in srgb, var(--color-interface) ${Math.round(14 + 76 * Math.min(1, t))}%, var(--surface))`);
+
+/** Cubeta en curso: trama a 135° del mismo tono (dato incompleto, no una caída). */
+const HATCH = 'repeating-linear-gradient(135deg, var(--color-interface) 0 3px, color-mix(in srgb, var(--color-interface) 40%, var(--surface)) 3px 6px)';
 
 function Tip({ children, className }: { children: ReactNode; className?: string }) {
   return (
@@ -54,8 +57,8 @@ export function Columns({ data, caption, unit, height = 180, labelEvery = 1, cur
             {data.map((d, i) => (
               <div key={i} tabIndex={0} aria-label={`${d.label}: ${d.value} ${d.value === 1 ? unit[0] : unit[1]}`} className="group relative flex h-full min-w-0 flex-1 items-end justify-center outline-none">
                 <div
-                  className={cn('w-full max-w-6 rounded-t-[4px] transition-[height] duration-300 group-hover:brightness-90', i === current ? 'bg-[repeating-linear-gradient(135deg,var(--interface)_0_3px,color-mix(in_srgb,var(--interface)_45%,var(--surface))_3px_6px)]' : 'bg-interface')}
-                  style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value ? 2 : 0 }}
+                  className="w-full max-w-6 rounded-t-[4px] bg-interface transition-[height] duration-300 group-hover:brightness-90"
+                  style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value ? 2 : 0, ...(i === current && { background: HATCH }) }}
                 />
                 <Tip><span className="font-semibold tabular-nums">{d.value}</span> {d.value === 1 ? unit[0] : unit[1]}<span className="block text-warm/70">{d.label}{i === current ? ', en curso' : ''}</span></Tip>
               </div>
@@ -82,7 +85,7 @@ export function RankBars({ rows, caption, max: maxIn, onSelect, selected }: {
       {rows.map((r) => {
         const body = (
           <>
-            <span className="w-28 shrink-0 truncate text-left text-sm">{r.label}</span>
+            <span className="w-36 shrink-0 truncate text-left text-sm">{r.label}</span>
             <span className="relative h-5 flex-1">
               <span className="absolute inset-y-0.5 left-0 rounded-r-[4px] bg-interface transition-[width] duration-300" style={{ width: `${Math.max(1.5, (r.value / max) * 100)}%` }} />
             </span>

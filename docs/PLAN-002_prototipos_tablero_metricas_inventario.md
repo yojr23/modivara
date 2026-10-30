@@ -51,7 +51,7 @@
 | P-03 | Datos de demo deterministas (`demo-data.ts`): 14 días de llamados y movimientos, agregados con la forma de los contratos | prueba Vitest: totales = suma por mesa = suma por período | hecha (`demo-data.test.ts`, valida con los esquemas Zod de los contratos) |
 | P-04 | Gráficos a mano (`charts.tsx`): barras por período, ranking, mapa de calor, sparkline; tooltip y tabla oculta; paleta validada | validador de paleta de dataviz | hecha (`#00927b`/`#3865e9`: todas las comprobaciones en verde) |
 | P-05 | Tablero A, B, C | typecheck, pruebas, captura de pantalla | hecha (capturas a 1366 px y 390 px) |
-| P-06 | Métricas A, B, C | typecheck, pruebas, captura de pantalla | pendiente |
+| P-06 | Métricas A, B, C | typecheck, pruebas, captura de pantalla | hecha (capturas de las 6 vistas: 3 alternativas × Llamados/Inventario) |
 | P-07 | Inventario A, B, C | typecheck, pruebas, captura de pantalla | pendiente |
 | P-08 | Índice `/_proto` con los enlaces nuevos; revisión de accesibilidad (teclado, foco, contraste, movimiento reducido) | revisión manual + capturas | pendiente |
 | P-09 | Verificación final (`pnpm typecheck`, `pnpm test`, build del portal), commit por pantalla y push de la rama | salida de los comandos | pendiente |
@@ -65,4 +65,12 @@
 - Comunes: tema claro; pulso de tres ondas solo cuando llega un llamado; anillo de espera ámbar→rojo (2 y 5 min, ESP-24); en celular solo la cola, con la acción en la fila; sin conexión deshabilita las acciones y lo dice; «Botones desconectados» siempre visible.
 - Sin prototipar: la alerta sonora opcional de F3-13.
 
-(Las notas de métricas e inventario se agregan al terminarlas.)
+### Métricas (F5-12)
+- **A · Informe:** se lee de arriba abajo como un resumen semanal: una cifra protagonista dentro de una frase, tres cifras de contexto, llamados por día (u hora para «Hoy»/«Ayer», con la cubeta en curso rayada para que no parezca una caída), ranking de mesas y de áreas. En Inventario: movimientos por día, salidas por motivo, entradas y salidas de un producto a elegir y tabla de saldos.
+- **B · Sobre el plano:** el mismo plano del editor teñido por área (un solo tono) con el total de cada mesa; tocar un área o una mesa cambia el panel de la derecha. Es la que mejor responde «¿dónde se pide más servicio?» y conecta con el modo Actividad del editor; habría que decidir si las dos conviven o una reemplaza a la otra. En Inventario: ranking de salidas por producto con detalle al lado.
+- **C · Franjas horarias:** mapa de calor día × hora y promedio por hora del día, para decidir turnos. En Inventario: saldos con su tendencia de 14 días ordenados por «alcanza para ~N días» (estimación marcada como tal; borde ámbar si son menos de 3).
+- **Hallazgo del contrato (decisión abierta):** `by_reason.total_delta` y `by_period.in_delta/out_delta` suman cantidades de productos con unidades distintas (botellas + kg) si no se filtra por `product_id`. Los prototipos muestran conteos de movimientos para todo el local y cantidades solo por producto. Opciones: dejarlo así en la UI, o que la API devuelva los deltas agrupados por producto.
+- **Le falta a la API para C:** tiempos hasta «En atención» por franja horaria (hoy solo hay el total del período).
+- Rangos: «30 días» avisa desde qué fecha hay datos (la demo tiene 14).
+
+(Las notas de inventario se agregan al terminarlo.)

@@ -257,10 +257,11 @@ export function balanceTrend(movements: MovementDto[], productId: string, days =
   });
 }
 
-export function inventoryMetrics(q: Range, movements = MOVEMENTS): InventoryMetrics {
+/** `productId` = filtro `product_id` de la API: con él las cantidades son de una sola unidad y se pueden sumar. */
+export function inventoryMetrics(q: Range & { productId?: string }, movements = MOVEMENTS): InventoryMetrics {
   const { from, to } = resolveRange(q);
   const groupBy = defaultGroupBy(q);
-  const rows = movements.filter((m) => { const t = Date.parse(m.occurred_at); return t >= from && t < to; });
+  const rows = movements.filter((m) => { const t = Date.parse(m.occurred_at); return t >= from && t < to && (!q.productId || m.product_id === q.productId); });
   const bs = buckets(from, to, groupBy);
   const per = bs.map(() => ({ n: 0, in: 0, out: 0, adjust: 0 }));
   for (const m of rows) {

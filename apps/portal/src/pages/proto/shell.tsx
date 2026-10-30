@@ -1,5 +1,5 @@
 import { ChartColumn, ConciergeBell, Map as MapIcon, Package, RotateCw, WifiOff, type LucideIcon } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
@@ -147,8 +147,8 @@ export function useViewState(deps: readonly unknown[] = []) {
 }
 
 /** Bloque de esqueleto: forma de lo que viene, sin texto. */
-export function Bone({ className }: { className?: string }) {
-  return <div aria-hidden className={cn('skeleton h-4 rounded-md', className)} />;
+export function Bone({ className, style }: { className?: string; style?: CSSProperties }) {
+  return <div aria-hidden style={style} className={cn('skeleton h-4 rounded-md', className)} />;
 }
 
 export function EmptyState({ title, text, action, Icon }: { title: string; text: string; action?: ReactNode; Icon?: LucideIcon }) {
