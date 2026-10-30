@@ -14,7 +14,7 @@ export const routes: RouteObject[] = [
   { path: '/_proto', element: <ProtoIndex /> },
   { path: '/_proto/l05-e', element: <Editor /> },
   { path: '/_proto/editor', element: <Editor /> },
-  { path: '/_proto/tablero', element: <Board /> },
+  { path: '/_proto/tablero/:alt?', element: <Board /> },
   // Login por negocio (ADR-002 D2). OPEN: evoluciona a subdominio; entonces el slug sale del host.
   { path: '/:slug', element: <Login /> },
   {
