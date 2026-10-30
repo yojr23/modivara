@@ -7,7 +7,7 @@ import { cn } from '@/ui/cn';
 import {
   CATEGORIES, MOVEMENTS, PRODUCTS, REASONS, STOCK_LOCATION, USERS, balancesOf, dec, fmtQty, fmtSigned, fmtWhen, reasonById, userName,
 } from './demo-data';
-import { Bone, EmptyState, ErrorState, OfflineBanner, ProtoControls, ProtoShell, Segmented, useAlt, useToast, useViewState, type ViewState } from './shell';
+import { Bone, EmptyState, ErrorState, OfflineBanner, ProtoControls, ProtoShell, Segmented, useAlt, useEscape, useToast, useViewState, type ViewState } from './shell';
 
 // [DISEÑO] F4-09 — inventario: catálogo y saldos, entrada/salida/ajuste por conteo, historial (PLAN-002). Tres alternativas con datos
 // de demo de la forma de los DTO de commerce. Registrar se simula en memoria con las reglas de la API: cantidad > 0, saldo insuficiente
@@ -260,6 +260,7 @@ function ProductDialog({ inv, onClose }: { inv: Inv; onClose: () => void }) {
   const [unit, setUnit] = useState<Unit>('bottle');
   const [sku, setSku] = useState('');
   const [error, setError] = useState('');
+  useEscape(onClose);
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setError('Escribe el nombre del producto.');
@@ -313,7 +314,7 @@ function Gate({ state, retry, empty, bones, children }: { state: ViewState; retr
 }
 
 const RowBones = ({ n = 8 }: { n?: number }) => (
-  <div aria-hidden className="divide-y divide-line">{Array.from({ length: n }, (_, i) => <div key={i} className="flex items-center gap-6 py-4"><Bone className="w-40" /><Bone className="w-16" /><Bone className="ml-auto w-24" /></div>)}</div>
+  <div aria-hidden className="divide-y divide-line">{Array.from({ length: n }, (_, i) => <div key={i} className="flex items-center gap-6 py-4"><Bone className="w-2/5" /><Bone className="w-1/12" /><Bone className="ml-auto w-1/5" /></div>)}</div>
 );
 const NoProducts = ({ onCreate }: { onCreate: () => void }) => (
   <EmptyState Icon={Package} title="Aún no hay productos" text="Crea los productos que controlas (botellas, insumos) y registra su stock inicial como una entrada." action={<Button onClick={onCreate}><PackagePlus aria-hidden className="size-4" />Crear el primer producto</Button>} />
@@ -327,6 +328,7 @@ function InventoryA() {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(inv.openFirst ? PRODUCTS[2]!.id : null);
   const [creating, setCreating] = useState(false);
+  useEscape(() => setOpen(null), !!open && !creating);
   const q = query.trim().toLowerCase();
   const shown = inv.products.filter((p) => !q || p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q));
   const last = (id: string) => inv.movements.find((m) => m.product_id === id);
@@ -475,6 +477,7 @@ function InventoryC() {
   const [reviewing, setReviewing] = useState(false);
   const [note, setNote] = useState('');
   const [moving, setMoving] = useState(false);
+  useEscape(() => { setReviewing(false); setMoving(false); }, reviewing || moving);
   const [creating, setCreating] = useState(false);
   const counted = inv.products.filter((p) => counts[p.id] !== undefined && counts[p.id] !== '');
   const changes = counted.map((p) => ({ p, diff: Number(counts[p.id]) - inv.balance(p.id) })).filter((x) => x.diff !== 0);

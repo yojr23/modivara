@@ -134,6 +134,10 @@
   .anim-ripple { animation: ripple 1.6s ease-out 3; }
   .skeleton { animation: shimmer 1.4s linear infinite; }
 }
+/* Las transiciones (barras que crecen, cambios de estado) también se apagan. */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { transition-duration: 0.01ms !important; }
+}
 .skeleton {
   background: linear-gradient(90deg, var(--sunken) 30%, color-mix(in srgb, var(--sunken) 40%, var(--surface)) 50%, var(--sunken) 70%);
   background-size: 200% 100%;

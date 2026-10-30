@@ -53,8 +53,14 @@
 | P-05 | Tablero A, B, C | typecheck, pruebas, captura de pantalla | hecha (capturas a 1366 px y 390 px) |
 | P-06 | Métricas A, B, C | typecheck, pruebas, captura de pantalla | hecha (capturas de las 6 vistas: 3 alternativas × Llamados/Inventario) |
 | P-07 | Inventario A, B, C | typecheck, pruebas, captura de pantalla | hecha (capturas de A, A con panel, B y C) |
-| P-08 | Índice `/_proto` con los enlaces nuevos; revisión de accesibilidad (teclado, foco, contraste, movimiento reducido) | revisión manual + capturas | pendiente |
-| P-09 | Verificación final (`pnpm typecheck`, `pnpm test`, build del portal), commit por pantalla y push de la rama | salida de los comandos | pendiente |
+| P-08 | Índice `/_proto` con los enlaces nuevos; revisión de accesibilidad (teclado, foco, contraste, movimiento reducido) | revisión manual + capturas | hecha: Escape cierra paneles y diálogos, transiciones apagadas con movimiento reducido, foco visible en las mesas del SVG, estados con ícono + texto, tablas ocultas en los gráficos. Pendiente para pantallas reales: trampa de foco (usar `<dialog>` nativo). Índice: 3 líneas en `PROTOS` de `Editor.tsx`. |
+| P-09 | Verificación final (`pnpm typecheck`, `pnpm test`, build del portal), commit por pantalla y push de la rama | salida de los comandos | hecha: typecheck del monorepo, 44 pruebas del portal, build del portal y `check:separability` en verde; 5 commits en `diseno/pantallas-operacion`, subidos. |
+
+## Cómo revisarlos
+
+`pnpm --filter @modivara/portal dev` y abrir `/_proto`. Cada pantalla tiene abajo a la derecha el control «Prototipo» para cambiar de alternativa (A, B, C) y forzar estados: cargando (esqueletos), vacío, error y sin conexión; el tablero además simula pulsaciones y botones desconectados. Atajos por URL: `/_proto/metricas/<alt>?tab=stock` abre Inventario en métricas, `/_proto/inventario/<alt>?tab=history` abre el historial y `/_proto/inventario/a?abrir` abre el panel de un producto.
+
+Verificado con capturas a 1366 px (las 9 alternativas) y a 390 px (tablero A y C, esqueleto de métricas A e inventario B). El resto del celular está hecho con grillas responsivas pero no se capturó.
 
 ## Notas para la decisión
 

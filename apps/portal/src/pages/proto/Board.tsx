@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { ElementShape, RED_MS, SPACES, TABLES, areaAt, shortLabel, toneOf, type Space, type Tone } from './plan';
-import { Bone, EmptyState, ErrorState, OfflineBanner, ProtoControls, ProtoShell, useAlt, useToast, useViewState } from './shell';
+import { Bone, EmptyState, ErrorState, OfflineBanner, ProtoControls, ProtoShell, useAlt, useEscape, useToast, useViewState } from './shell';
 
 // [DISEÑO] L-06 — tablero operativo sobre el plano publicado + cola global (ADR-003 ESP-23…ESP-30). Tres alternativas (PLAN-002)
 // con la escena del editor (plan.tsx): pisos, áreas y mesas. Llamados locales; reconocer/finalizar y la pulsación se simulan.
@@ -349,6 +349,7 @@ function MiniPlan({ tableId, tone }: { tableId: string; tone: Tone }) {
 function BoardB() {
   const b = useBoard();
   const [planOpen, setPlanOpen] = useState(false);
+  useEscape(() => setPlanOpen(false), planOpen);
   const [spaceId, setSpaceId] = useState(SPACES[0]!.id);
   const [selected, setSelected] = useState<string | null>(null);
   const loading = b.view.state === 'loading';

@@ -348,7 +348,9 @@ export default function Editor() {
 
 const PROTOS = [
   ['/_proto/l05-e', 'Editor de espacios (L-05)', 'Versión elegida: espacios por piso, áreas dentro de cada plano, mesas, elementos, revisión antes de publicar y modo Actividad.'],
-  ['/_proto/tablero', 'Tablero sobre el plano (L-06)', 'Llamados en vivo sobre el plano publicado, con la cola global siempre visible.'],
+  ['/_proto/tablero/a', 'Tablero sobre el plano (L-06)', 'Tres alternativas: A plano y cola, B cola protagonista, C todo el local a la vista.'],
+  ['/_proto/metricas/a', 'Métricas (F5-12)', 'Tres alternativas: A informe, B sobre el plano, C franjas horarias. Llamados e inventario.'],
+  ['/_proto/inventario/a', 'Inventario (F4-09)', 'Tres alternativas: A tabla de saldos, B registro rápido, C conteo de cierre.'],
 ] as const;
 
 export function ProtoIndex() {

@@ -224,6 +224,16 @@ export function ProtoControls({ screen, alts, view, children }: {
   );
 }
 
+/** Escape cierra el diálogo o panel abierto. ponytail: sin trampa de foco; <dialog> nativo al pasar a pantallas reales. */
+export function useEscape(onClose: () => void, active = true) {
+  useEffect(() => {
+    if (!active) return;
+    const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [active, onClose]);
+}
+
 /** Aviso breve tras una acción (se lee también por lector de pantalla). */
 export function useToast() {
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);
