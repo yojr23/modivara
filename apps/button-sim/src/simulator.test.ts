@@ -146,3 +146,9 @@ describe('MqttTransport con cliente inyectado', () => {
     expect(publishAsync).not.toHaveBeenCalled();
   });
 });
+
+it('la página es apta para celular: viewport y un botón por dispositivo', () => {
+  const html = renderPage(devices, 'http');
+  expect(html).toContain('name="viewport"');
+  expect(html.match(/class="press"/g)).toHaveLength(devices.length);
+});
