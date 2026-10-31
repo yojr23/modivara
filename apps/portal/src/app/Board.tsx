@@ -2,12 +2,13 @@ import type { ServiceCallDto } from '@modivara/hospitality-contracts';
 import {
   callErrorState, useAcknowledgeCall, useActiveCalls, useCompleteCall, useConnectionStatus, useGatewaysStatus, useLayouts, useTables, useZones,
 } from '@modivara/hospitality-web';
-import { BellRing, CheckCheck, HandHelping, Map as MapIcon, Wifi, WifiOff, X } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { BellRing, CheckCheck, HandHelping, Map as MapIcon, Volume2, VolumeX, Wifi, WifiOff, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { DEFAULT_SPACE_NAME, ElementShape, RED_MS, areaAt, shortLabel, spaceIdOf, splitAreas, toneOf, type Space, type Tone } from './plan';
+import { beep, loadSound, newPendingIds, prepareAudio, saveSound } from './sound';
 import { Bone, EmptyState, ErrorState, OfflineBanner, Page, useApp, useToast } from './ui';
 
 // L-06 — tablero operativo (ADR-003 ESP-23…ESP-30), versión «todo el local a la vista» (PLAN-002): todos los planos publicados
@@ -61,6 +62,9 @@ function useBoard() {
     return () => clearInterval(t);
   }, []);
 
+  const [sound, setSound] = useState(loadSound);
+  const seen = useRef<Set<string> | null>(null);
+
   const zoneName = new Map((zones.data ?? []).map((z) => [z.id, z.name]));
   const order = new Map((zones.data ?? []).map((z) => [z.id, z.position]));
   const spaces: Space[] = useMemo(() => (layouts.data ?? [])
@@ -77,13 +81,23 @@ function useBoard() {
   const callOf = new Map(queue.map((c) => [c.table_id, c]));
   const waited = (c: Call) => now - Date.parse(c.created_at);
 
+  // Llega un llamado nuevo (el momento del pulso de ondas): un tono si «Sonido» está encendido. La primera carga solo memoriza.
+  const pendingIds = queue.filter((c) => c.status === 'pending').map((c) => c.id).join();
+  useEffect(() => {
+    if (calls.isPending) return;
+    const ids = pendingIds ? pendingIds.split(',') : [];
+    if (sound && newPendingIds(seen.current, ids).length) beep();
+    seen.current = new Set(ids);
+  }, [pendingIds, calls.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function onError(e: unknown) {
     const s = callErrorState(e);
     toast.show(s && 'current' in s ? 'Otra persona ya lo había actualizado; el tablero quedó al día.' : 'No se pudo guardar. Revisa la conexión y vuelve a intentar.');
   }
 
   return {
-    me, now, toast, spaces, queue, callOf, waited, status, gateways,
+    me, now, toast, spaces, sound,
+    toggleSound() { const on = !sound; if (on) prepareAudio(); saveSound(on); setSound(on); }, queue, callOf, waited, status, gateways,
     loading: layouts.isPending || tables.isPending || calls.isPending,
     layoutsError: layouts.isError, callsError: calls.isError,
     retry: () => { void layouts.refetch(); void calls.refetch(); void tables.refetch(); void zones.refetch(); },
@@ -128,6 +142,15 @@ function Connection({ b }: { b: Board }) {
   if (b.gateways === 'no_gateways') return <Pill icon={<WifiOff aria-hidden className="size-4" />}>Sin botones instalados</Pill>;
   if (b.status === 'connecting') return <Pill icon={<Wifi aria-hidden className="size-4" />}>Conectando…</Pill>;
   return <Pill icon={<Wifi aria-hidden className="size-4" />}>{b.gateways === 'all_connected' ? 'Botones conectados' : 'En línea'}</Pill>;
+}
+function SoundSwitch({ b }: { b: Board }) {
+  const Icon = b.sound ? Volume2 : VolumeX;
+  return (
+    <button type="button" aria-pressed={b.sound} onClick={b.toggleSound}
+      className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-sm font-semibold text-muted transition-colors hover:text-fg aria-pressed:text-fg">
+      <Icon aria-hidden className="size-4" />Sonido
+    </button>
+  );
 }
 const Pill = ({ down = false, icon, children }: { down?: boolean; icon: ReactNode; children: ReactNode }) => (
   <span role="status" className={cn('flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition-colors', down ? 'bg-danger text-danger-fg' : 'text-muted')}>{icon}{children}</span>
@@ -232,6 +255,7 @@ export default function Board() {
       id="tablero" rail title="Tablero"
       actions={<div className="flex flex-wrap items-center gap-3 md:order-last md:ml-auto">
         {!b.loading && <p className="text-sm text-muted"><span className="font-semibold text-fg tabular-nums">{b.pending.length}</span> esperando, <span className="font-semibold text-fg tabular-nums">{b.attending.length}</span> en atención</p>}
+        <SoundSwitch b={b} />
         <Connection b={b} />
       </div>}
     >

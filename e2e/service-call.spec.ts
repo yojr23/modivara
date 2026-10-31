@@ -43,6 +43,19 @@ test('una pulsación aparece en el plano y en la cola; reconocer y finalizar se 
   expect(detail.transitions.map((t: { action: string }) => t.action)).toEqual(['create', 'acknowledge', 'complete']);
 });
 
+test('F3-13: el interruptor «Sonido» arranca apagado y se recuerda al recargar', async ({ browser }) => {
+  const board = new BoardPage(await pageAs(browser, ['bar-demo', 'barra']));
+  const sonido = board.page.getByRole('button', { name: 'Sonido' });
+  await board.goto('bar-demo');
+  await expect(sonido).toHaveAttribute('aria-pressed', 'false');
+  await sonido.click();
+  await expect(sonido).toHaveAttribute('aria-pressed', 'true');
+  await board.page.reload();
+  await expect(sonido).toHaveAttribute('aria-pressed', 'true');
+  await sonido.click(); // deja el dispositivo como estaba
+  await expect(sonido).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('repetir la pulsación no duplica el llamado: la inmediata se descarta y la siguiente suma pulsaciones', async ({ browser }) => {
   const admin = await apiAs(['bar-demo', 'admin']);
   const loc = await locationOf(admin);
