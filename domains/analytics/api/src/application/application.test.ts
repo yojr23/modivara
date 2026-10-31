@@ -222,6 +222,7 @@ describe('proyección e inventario', () => {
     const m = await run();
     expect(m.by_direction.map((d) => [d.direction, d.movement_count, d.total_delta])).toEqual([['in', 1, '10.000'], ['out', 1, '-3.500'], ['adjust', 1, '-0.500']]);
     expect(m.by_reason.map((r) => r.reason_name)).toEqual(['Corrección de conteo', 'Compra', 'Merma']);
+    expect(m.by_product).toEqual([expect.objectContaining({ movement_count: 3, out_count: 1, in_delta: '10.000', out_delta: '-3.500' })]);
     expect(m.balances).toEqual([expect.objectContaining({ product_name: 'Ron', balance: '6.000' })]);
   });
   it('el saldo actual no depende del rango; los movimientos sí', async () => {

@@ -55,6 +55,8 @@ export const inventoryMetricsSchema = z.object({
   by_period: z.array(
     z.object({ ...periodBucket, movement_count: count, in_delta: decimal, out_delta: decimal, adjust_delta: decimal }),
   ),
+  // Deltas por producto: cada uno en la unidad del producto (by_reason/by_period suman unidades distintas sin product_id).
+  by_product: z.array(z.object({ product_id: z.uuid(), movement_count: count, out_count: count, in_delta: decimal, out_delta: decimal })),
   balances: z.array(
     z.object({ stock_location_id: z.uuid(), product_id: z.uuid(), product_name: z.string(), balance: decimal, as_of: instant }),
   ),

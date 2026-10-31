@@ -70,6 +70,7 @@ describe('respuestas', () => {
       group_by: 'day',
       by_direction: [{ direction: 'out', movement_count: 1, total_delta: '-2.500' }],
       by_reason: [],
+      by_product: [],
       by_period: [],
       balances: [{ stock_location_id: uuid(1), product_id: uuid(2), product_name: 'Ron', balance: '7.500', as_of: '2026-10-19T10:00:00.000Z' }],
     };

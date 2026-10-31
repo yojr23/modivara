@@ -38,7 +38,7 @@ Las pantallas usan solo los hooks públicos de cada `domains/<d>/web` (TanStack 
 
 **Editor de espacios** (`app/Spaces.tsx`, `app/editor-kit.tsx`): espacios = zonas (más «Salón principal» si hay mesas sin zona o no hay zonas). Por espacio carga borrador o publicado (`useLayoutDraft`), guarda con `revision` (`useSaveLayoutDraft`; 409 → recargar la versión vigente o conservar la propia y reemplazar) y publica (`usePublishLayout`). Crea espacios (`useCreateZone`) y mesas (`useCreateTable`), renombra (`useUpdateZone`, `useUpdateTable`). Modo «Actividad»: llamados por mesa y área del período (`useServiceCallMetrics`).
 
-**Métricas** (`app/Metrics.tsx`): `useServiceCallMetrics` (todo el local y, al elegir una mesa, con `table_id`) sobre el plano publicado teñido por área; `useInventoryMetrics` por producto (una consulta por producto, `ponytail:`) con `useProducts` para la unidad y `useMovements` para los últimos movimientos.
+**Métricas** (`app/Metrics.tsx`): `useServiceCallMetrics` (todo el local y, al elegir una mesa, con `table_id`) sobre el plano publicado teñido por área; `useInventoryMetrics` (una consulta de todo el local: `by_product` da salidas y cantidades por producto; otra con `product_id` para la serie del producto elegido) con `useProducts` para la unidad y `useMovements` para los últimos movimientos.
 
 **Inventario** (`app/Inventory.tsx`): `useProducts`, `useStockLocations` (lugar por defecto), `useBalances`, `useMovements` (100 más recientes), `useReasons`, `useRegisterMovement`/`useAdjustToCount` con `Idempotency-Key` por intento (se renueva solo tras un éxito) y `useCreateProduct`.
 
@@ -69,7 +69,7 @@ Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY
 ## Decisiones abiertas del portal
 
 - Pantallas en el portal vs. en cada `domains/<d>/web` al separar repos (ver arriba).
-- Métricas de inventario: `total_delta` sin `product_id` mezcla unidades; la UI muestra conteos para todo el local y cantidades por producto. ¿La API agrega `by_product`?
+- Métricas de inventario: `total_delta` sin `product_id` mezcla unidades. Resuelta: la API agrega `by_product` (deltas y conteos por producto) y la UI lo usa.
 - Tiempos hasta «En atención» por área: la API no filtra por área (las áreas no son zonas); el detalle de un área muestra solo llamados.
 - Motivo por defecto al registrar: el primero que devuelve la API para esa dirección.
 - Pendientes de pantalla: usuarios (F1-15), historial de llamados (F3-14), consola de superadmin (F2-14, F3-15), lugares y motivos (F4-10), desactivar mesas y zonas, simulador para celular (F2-10), alerta sonora del tablero. E2E pendientes: envío por MQTT y consola de superadmin (F2-15).

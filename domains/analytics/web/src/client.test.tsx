@@ -15,7 +15,7 @@ const calls = {
   totals: { calls: 0, pending: 0, in_progress: 0, completed: 0, repeated_presses: 0, calls_with_repeated_presses: 0 },
   time_to_acknowledge: stats, time_to_complete: stats, by_table: [], by_zone: [], by_period: [],
 };
-const inventory = { timezone: 'America/Bogota', from: calls.from, to: calls.to, group_by: 'hour', by_direction: [], by_reason: [], by_period: [], balances: [] };
+const inventory = { timezone: 'America/Bogota', from: calls.from, to: calls.to, group_by: 'hour', by_direction: [], by_reason: [], by_period: [], by_product: [], balances: [] };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } });
 const stub = (res: Response) => {
   const f = vi.fn().mockImplementation(async () => res.clone());

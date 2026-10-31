@@ -34,6 +34,7 @@ export function computeInventoryMetrics(
 ): InventoryMetrics {
   const byDirection = new Map<string, { count: number; total: bigint }>(MOVEMENT_DIRECTIONS.map((d) => [d, { count: 0, total: 0n }]));
   const byReason = new Map<string, { sample: StockMovementFact; count: number; total: bigint }>();
+  const byProduct = new Map<string, { count: number; outs: number; in: bigint; out: bigint }>();
   const byPeriod = new Map<string, { start: Date; label: string; count: number; totals: Record<string, bigint> }>();
   // Cubetas vacías con 0 hasta la actual, para que el front grafique sin rellenar.
   for (const b of bucketsBetween(ctx.range.from, ctx.range.to, ctx.groupBy, ctx.timeZone, ctx.now ?? new Date())) {
@@ -54,6 +55,15 @@ export function computeInventoryMetrics(
       r.total += m.deltaMilli;
       if (s.occurredAt > r.sample.snapshot.occurredAt) r.sample = m; // nombre de motivo más reciente
     }
+
+    const pr = byProduct.get(s.productId) ?? { count: 0, outs: 0, in: 0n, out: 0n };
+    pr.count++;
+    if (s.direction === 'in') pr.in += m.deltaMilli;
+    else if (s.direction === 'out') {
+      pr.out += m.deltaMilli;
+      pr.outs++;
+    }
+    byProduct.set(s.productId, pr);
 
     const b = bucketOf(s.occurredAt, ctx.groupBy, ctx.timeZone);
     const p = byPeriod.get(b.label) ?? { start: b.start, label: b.label, count: 0, totals: { in: 0n, out: 0n, adjust: 0n } };
@@ -90,6 +100,13 @@ export function computeInventoryMetrics(
         out_delta: formatMilli(p.totals.out!),
         adjust_delta: formatMilli(p.totals.adjust!),
       })),
+    by_product: [...byProduct].map(([product_id, v]) => ({
+      product_id,
+      movement_count: v.count,
+      out_count: v.outs,
+      in_delta: formatMilli(v.in),
+      out_delta: formatMilli(v.out),
+    })),
     balances: latest
       .map((f) => ({
         stock_location_id: f.snapshot.stockLocationId,

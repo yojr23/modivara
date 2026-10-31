@@ -1,9 +1,8 @@
 import type { RangePreset } from '@modivara/analytics-contracts';
-import { analyticsApi, analyticsKeys, useInventoryMetrics, useServiceCallMetrics } from '@modivara/analytics-web';
+import { useInventoryMetrics, useServiceCallMetrics } from '@modivara/analytics-web';
 import type { Unit } from '@modivara/commerce-contracts';
 import { useMovements, useProducts, useReasons } from '@modivara/commerce-web';
 import { useLayouts, useTables, useZones } from '@modivara/hospitality-web';
-import { useQueries } from '@tanstack/react-query';
 import { ChartColumn, Info } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
@@ -177,11 +176,9 @@ function StockByProduct({ range }: { range: RangePreset }) {
   const products = useProducts(l);
   const reasons = useReasons();
   const list = (all.data?.balances ?? []).map((b) => ({ id: b.product_id, name: b.product_name, balance: Number(b.balance) }));
-  // ponytail: una consulta por producto para contar sus salidas (la API agrupa por motivo, no por producto). Con cientos de productos, agregar `by_product`.
-  const perProduct = useQueries({
-    queries: list.map((p) => ({ queryKey: analyticsKeys.inventory(l, { range, product_id: p.id }), queryFn: () => analyticsApi.inventoryMetrics(l, { range, product_id: p.id }), retry: false })),
-  });
   const [chosen, setChosen] = useState<string | null>(null);
+  const detail = useInventoryMetrics(l, { range, product_id: chosen ?? list[0]?.id });
+  const byProduct = new Map((all.data?.by_product ?? []).map((x) => [x.product_id, x]));
   const productId = chosen ?? list[0]?.id ?? null;
   const recent = useMovements(l, { productId: productId ?? undefined, limit: 5 });
 
@@ -191,10 +188,9 @@ function StockByProduct({ range }: { range: RangePreset }) {
 
   const p = list.find((x) => x.id === productId)!;
   const unit: Unit = products.data?.find((x) => x.id === productId)?.unit ?? 'unit';
-  const d = perProduct[list.indexOf(p)]?.data;
-  const outs = (i: number) => perProduct[i]?.data?.by_direction.find((x) => x.direction === 'out')?.movement_count ?? 0;
+  const d = detail.data;
   const days = d ? d.by_period.length * (d.group_by === 'hour' ? 1 / 24 : 1) : 1;
-  const outQty = -Number(d?.by_direction.find((x) => x.direction === 'out')?.total_delta ?? 0);
+  const outQty = -Number(byProduct.get(productId)?.out_delta ?? 0);
   const reasonName = new Map((reasons.data ?? []).map((r) => [r.id, r.name]));
 
   return (
@@ -203,7 +199,7 @@ function StockByProduct({ range }: { range: RangePreset }) {
         <h2 className="mb-1 text-lg font-bold">Salidas por producto</h2>
         <p className="mb-4 text-sm text-muted">{LEAD[range]}, número de salidas registradas. Elige un producto para ver sus cantidades.</p>
         <RankBars caption="Salidas por producto" selected={productId} onSelect={setChosen}
-          rows={list.map((x, i) => ({ id: x.id, label: x.name, text: x.name, value: outs(i) })).sort((a, b) => b.value - a.value)} />
+          rows={list.map((x) => ({ id: x.id, label: x.name, text: x.name, value: byProduct.get(x.id)?.out_count ?? 0 })).sort((a, b) => b.value - a.value)} />
       </section>
       <aside key={productId} aria-label={`Detalle de ${p.name}`} className="anim-rise space-y-8 border-line bg-surface p-5 lg:min-h-[calc(100dvh-73px)] lg:border-l">
         <h2 className="font-display text-3xl font-bold">{p.name}</h2>

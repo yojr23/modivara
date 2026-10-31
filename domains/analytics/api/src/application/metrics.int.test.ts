@@ -115,6 +115,9 @@ describe('métricas de inventario en PostgreSQL', () => {
     expect(Object.fromEntries(m.by_direction.map((d) => [d.direction, d.total_delta]))).toEqual({ in: '15.000', out: '-5.500', adjust: '-1.000' });
     expect(m.by_period).toHaveLength(1);
     expect(m.by_period[0]).toMatchObject({ movement_count: 5, in_delta: '15.000', out_delta: '-5.500', adjust_delta: '-1.000' });
+    const byProduct = Object.fromEntries(m.by_product.map((x) => [x.product_id, x]));
+    expect(byProduct[p1]).toMatchObject({ movement_count: 4, out_count: 2, in_delta: '10.000', out_delta: '-5.500' });
+    expect(byProduct[p2]).toMatchObject({ movement_count: 1, out_count: 0, in_delta: '5.000', out_delta: '0.000' });
     expect(Object.fromEntries(m.balances.map((b) => [b.product_name, b.balance]))).toEqual({ Ron: '3.500', Cerveza: '4.000' });
 
     const only = await stock.execute({ ...input, query: { ...day, group_by: 'day', product_id: p2 } });
