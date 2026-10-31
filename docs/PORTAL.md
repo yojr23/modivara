@@ -13,6 +13,7 @@
 | `/<negocio>/app/espacios` | Editor de espacios y planos (L-05). | Módulo `hospitality` + `hospitality.tables.manage` |
 | `/<negocio>/app/metricas` | Métricas de llamados e inventario (F5-12). | Módulo `analytics` + `analytics.calls.read` o `analytics.inventory.read` |
 | `/<negocio>/app/inventario` | Registro de stock (F4-09). | Módulo `commerce` + `commerce.stock.read` |
+| `/<negocio>/app/usuarios` | Usuarios del negocio (F1-15). | `core.users.manage` en el local (sin módulo) |
 | `/_tokens` | Muestra interna de la base visual (T6). | Interna |
 
 Si la URL es de otro negocio que el de la sesión, la app redirige al negocio real. La navegación solo oculta; la autorización la decide siempre el backend.
@@ -45,6 +46,8 @@ Las pantallas usan solo los hooks públicos de cada `domains/<d>/web` (TanStack 
 
 **Inventario** (`app/Inventory.tsx`): `useProducts`, `useStockLocations` (lugar por defecto), `useBalances`, `useMovements` (100 más recientes), `useReasons`, `useRegisterMovement`/`useAdjustToCount` con `Idempotency-Key` por intento (se renueva solo tras un éxito) y `useCreateProduct`.
 
+**Usuarios** (`app/Users.tsx`): `useUsers` (lista con búsqueda; tarjetas en celular), `useCreateUser` + `useSetLocationRoles` (crear exige local y roles; si el segundo paso falla se avisa con un aviso fijo), por usuario `useSetLocationRoles`, `useResetPassword` (se pide la clave nueva; la API no devuelve ninguna), `useRevokeUserSessions` y `useDeactivateUser` con `<dialog>` (no a uno mismo). Valida con `usernameSchema`/`passwordSchema` de core-contracts. `GET /users` no trae membresías ni desactivados: no se muestran roles actuales en la lista (`// OPEN:` en `Users.tsx`).
+
 ## Planos: espacios y áreas (decisión del 30/10/2026)
 
 - **Espacio** = piso o sector = zona de hospitality, con su propio plano (`zone_id` null = «Salón principal», E-01).
@@ -75,4 +78,4 @@ Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY
 - Métricas de inventario: `total_delta` sin `product_id` mezcla unidades. Resuelta: la API agrega `by_product` (deltas y conteos por producto) y la UI lo usa.
 - Tiempos hasta «En atención» por área: la API no filtra por área (las áreas no son zonas); el detalle de un área muestra solo llamados.
 - Motivo por defecto al registrar: el primero que devuelve la API para esa dirección.
-- Pendientes de pantalla: usuarios (F1-15), consola de superadmin (F2-14, F3-15), lugares y motivos (F4-10). El simulador de botones ya es apto para celular (F2-10). E2E pendientes: envío por MQTT y consola de superadmin (F2-15).
+- Pendientes de pantalla: consola de superadmin (F2-14, F3-15), lugares y motivos (F4-10). El simulador de botones ya es apto para celular (F2-10). E2E pendientes: envío por MQTT y consola de superadmin (F2-15).
