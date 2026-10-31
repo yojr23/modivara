@@ -1,10 +1,11 @@
 import type { ModuleName } from '@modivara/core-contracts';
 import { useLogout, useSession } from '@modivara/core-web';
 import { RealtimeProvider } from '@modivara/hospitality-web';
-import { ChartColumn, ConciergeBell, Map as MapIcon, Package, type LucideIcon } from 'lucide-react';
+import { ChartColumn, ConciergeBell, History as HistoryIcon, Map as MapIcon, Package, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Navigate, Outlet, useParams } from 'react-router';
 import Board from '@/app/Board';
+import History from '@/app/History';
 import Inventory from '@/app/Inventory';
 import Metrics from '@/app/Metrics';
 import Spaces from '@/app/Spaces';
@@ -17,6 +18,7 @@ import { AppContext, EmptyState, Wordmark, type Permission, useApp } from '@/app
  */
 const SCREENS: { id: string; label: string; Icon: LucideIcon; module: ModuleName; perms: Permission[]; element: ReactNode }[] = [
   { id: 'tablero', label: 'Tablero', Icon: ConciergeBell, module: 'hospitality', perms: ['hospitality.calls.read'], element: <Board /> },
+  { id: 'historial', label: 'Historial', Icon: HistoryIcon, module: 'hospitality', perms: ['hospitality.calls.read'], element: <History /> },
   { id: 'espacios', label: 'Espacios', Icon: MapIcon, module: 'hospitality', perms: ['hospitality.tables.manage'], element: <Spaces /> },
   { id: 'metricas', label: 'Métricas', Icon: ChartColumn, module: 'analytics', perms: ['analytics.calls.read', 'analytics.inventory.read'], element: <Metrics /> },
   { id: 'inventario', label: 'Inventario', Icon: Package, module: 'commerce', perms: ['commerce.stock.read'], element: <Inventory /> },

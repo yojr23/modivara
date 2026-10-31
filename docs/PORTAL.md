@@ -9,6 +9,7 @@
 | `/<negocio>` | Login por negocio (ADR-002 D2). Con sesión de ese negocio redirige a la app; con sesión de otro, muestra el login para entrar a este. | Todos |
 | `/<negocio>/app` | Abre la primera pantalla permitida. | Con sesión |
 | `/<negocio>/app/tablero` | Tablero operativo sobre los planos publicados (L-06). | Módulo `hospitality` + `hospitality.calls.read` |
+| `/<negocio>/app/historial` | Historial de llamados (F3-14). | Módulo `hospitality` + `hospitality.calls.read` |
 | `/<negocio>/app/espacios` | Editor de espacios y planos (L-05). | Módulo `hospitality` + `hospitality.tables.manage` |
 | `/<negocio>/app/metricas` | Métricas de llamados e inventario (F5-12). | Módulo `analytics` + `analytics.calls.read` o `analytics.inventory.read` |
 | `/<negocio>/app/inventario` | Registro de stock (F4-09). | Módulo `commerce` + `commerce.stock.read` |
@@ -35,6 +36,8 @@ Las pantallas usan solo los hooks públicos de cada `domains/<d>/web` (TanStack 
 ## Pantallas y sus datos
 
 **Tablero** (`app/Board.tsx`): `useLayouts` (planos publicados de todos los espacios), `useZones`, `useTables`, `useActiveCalls` (REST + `service_call.changed` por Socket.IO), `useAcknowledgeCall`/`useCompleteCall` (409 si otra persona ya lo tomó: se avisa y el caché queda al día), `useConnectionStatus` y `useGatewaysStatus`. Todos los pisos lado a lado; la cola global abajo, siempre visible, también para mesas sin ubicar en ningún plano. Pulso de tres ondas al llegar un llamado, con tono opcional (interruptor «Sonido», apagado por defecto y recordado por dispositivo; Web Audio, `app/sound.ts`); anillo ámbar → rojo a los 2 y 5 min (ESP-24).
+
+**Historial** (`app/History.tsx`): `useCallHistory` (rango `from` inclusivo / `to` exclusivo sobre días del navegador, mesa con `useTables`, estado; «Cargar más» sigue el cursor) y `useCallDetail` en un panel lateral con la línea de tiempo de transiciones y nombres.
 
 **Editor de espacios** (`app/Spaces.tsx`, `app/editor-kit.tsx`): espacios = zonas (más «Salón principal» si hay mesas sin zona o no hay zonas). Por espacio carga borrador o publicado (`useLayoutDraft`), guarda con `revision` (`useSaveLayoutDraft`; 409 → recargar la versión vigente o conservar la propia y reemplazar) y publica (`usePublishLayout`). Crea espacios (`useCreateZone`) y mesas (`useCreateTable`), renombra (`useUpdateZone`, `useUpdateTable`) y desactiva mesas y espacios (`app/Deactivate.tsx`: `useDeactivateTable`/`useDeactivateZone`, con confirmación; la mesa también se quita del borrador del plano). Modo «Actividad»: llamados por mesa y área del período (`useServiceCallMetrics`).
 
@@ -72,4 +75,4 @@ Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY
 - Métricas de inventario: `total_delta` sin `product_id` mezcla unidades. Resuelta: la API agrega `by_product` (deltas y conteos por producto) y la UI lo usa.
 - Tiempos hasta «En atención» por área: la API no filtra por área (las áreas no son zonas); el detalle de un área muestra solo llamados.
 - Motivo por defecto al registrar: el primero que devuelve la API para esa dirección.
-- Pendientes de pantalla: usuarios (F1-15), historial de llamados (F3-14), consola de superadmin (F2-14, F3-15), lugares y motivos (F4-10), simulador para celular (F2-10). E2E pendientes: envío por MQTT y consola de superadmin (F2-15).
+- Pendientes de pantalla: usuarios (F1-15), consola de superadmin (F2-14, F3-15), lugares y motivos (F4-10), simulador para celular (F2-10). E2E pendientes: envío por MQTT y consola de superadmin (F2-15).

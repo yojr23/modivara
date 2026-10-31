@@ -19,6 +19,7 @@ pnpm test:e2e                  # informe en e2e/report (pnpm exec playwright sho
 | `auth.spec.ts` | F1-16: login correcto y erróneo, bloqueo a los 5 fallos, salir, aislamiento entre negocios (UI y API) |
 | `service-call.spec.ts` | F3-16 / L-07: pulsación → plano y cola → reconocer → finalizar en dos tableros a la vez → historial; pulsación repetida; reconexión tras reiniciar la API; interruptor «Sonido» (F3-13) |
 | `inventory.spec.ts` | F4-11: alta de producto, entrada, salida (y saldo insuficiente), ajuste por conteo, historial y API coherentes; staff sin inventario |
+| `history.spec.ts` | F3-14 / F3-16 «→ historial»: llamado tomado y cerrado por Barra → fila con quién tomó y cerró → detalle con línea de tiempo |
 | `metrics.spec.ts` | F5-13: total de llamados de hoy en pantalla = historial; saldo en métricas = inventario |
 | `mqtt.spec.ts` | Q-01: pulsación publicada por MQTT con el usuario del gateway (`scripts/mqtt-user.sh`, `mosquitto_pub` dentro del contenedor) → tablero → cerrar |
 | `spaces.spec.ts` | L-05 / L-07: publicar un área mientras otro mira el tablero; conflicto de edición (409) sin pisar el borrador ajeno; desactivar una mesa (sale del borrador) y 409 si tiene botón |
