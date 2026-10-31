@@ -5,7 +5,7 @@ import {
   type UnknownDeviceDto,
 } from '@modivara/hospitality-contracts';
 import { AssignDevice, ListDevices, ListUnknownDevices, RegisterDevice, UnassignDevice } from '../application/devices.js';
-import { CreateGateway, GetConnectivity } from '../application/gateways.js';
+import { CreateGateway, DeactivateGateway, GetConnectivity } from '../application/gateways.js';
 import { ValidationError } from '../domain/errors.js';
 import { contextOf, CurrentActor, idOf, RequireModule, RequirePermission } from './decorators.js';
 import { HospitalityConflictFilter } from './conflict.filter.js';
@@ -24,6 +24,7 @@ const DEFAULT_UNKNOWN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export class PlatformController {
   constructor(
     @Inject(CreateGateway) private readonly createGateway: CreateGateway,
+    @Inject(DeactivateGateway) private readonly deactivateGateway: DeactivateGateway,
     @Inject(GetConnectivity) private readonly connectivity: GetConnectivity,
     @Inject(RegisterDevice) private readonly registerDevice: RegisterDevice,
     @Inject(ListDevices) private readonly listDevices: ListDevices,
@@ -45,6 +46,13 @@ export class PlatformController {
   async gateways(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string): Promise<GatewayDto[]> {
     const { gateways } = await this.connectivity.execute(contextOf(actor, locationId));
     return gateways.map((g) => ({ id: g.gatewayId, name: g.name, last_seen_at: g.lastSeenAt?.toISOString() ?? null, connected: g.connected }));
+  }
+
+  @Post(P.platformGatewayDeactivate)
+  @HttpCode(204)
+  @RequirePermission('platform.gateways.manage')
+  async deactivateGatewayRoute(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Param('gatewayId') rawGatewayId: string): Promise<void> {
+    await this.deactivateGateway.execute({ ...contextOf(actor, locationId), gatewayId: idOf(rawGatewayId) });
   }
 
   @Post(P.platformDevices)

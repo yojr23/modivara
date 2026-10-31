@@ -41,6 +41,13 @@ export class TableInUseError extends DomainError {
   }
 }
 
+export class GatewayInUseError extends DomainError {
+  readonly code = 'gateway_in_use';
+  constructor() {
+    super('Gateway is the last active one of a location that still has devices assigned');
+  }
+}
+
 /** Otro usuario o señal cambió la solicitud antes de guardar: el borde responde 409 con el estado actual. */
 export class ConcurrencyConflictError extends DomainError {
   readonly code = 'concurrency_conflict';

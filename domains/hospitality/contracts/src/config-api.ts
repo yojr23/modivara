@@ -15,6 +15,7 @@ export const HOSPITALITY_API_PATHS = {
   deviceStatus: '/locations/:locationId/device-status',
   // Plataforma (solo superadmin, permisos platform.*).
   platformGateways: '/platform/locations/:locationId/gateways',
+  platformGatewayDeactivate: '/platform/locations/:locationId/gateways/:gatewayId/deactivate',
   platformDevices: '/platform/locations/:locationId/devices',
   platformUnknownDevices: '/platform/locations/:locationId/unknown-devices',
   platformAssignDevice: '/platform/locations/:locationId/devices/:deviceId/assign',

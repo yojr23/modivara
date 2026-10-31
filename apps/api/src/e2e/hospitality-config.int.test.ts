@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CoreModule, coreGlobalProviders } from '@modivara/core-api';
 import { HospitalityModule } from '@modivara/hospitality-api';
 import { SESSION_COOKIE, type MeResponse } from '@modivara/core-contracts';
-import type { DeviceStatusDto } from '@modivara/hospitality-contracts';
+import { GATEWAY_KEY_HEADER, type DeviceStatusDto } from '@modivara/hospitality-contracts';
 import { seedCore } from '../seed/core.js';
 import { resetBoth } from '../seed/testing.js';
 
@@ -82,6 +82,35 @@ describe('configuración de hospitality de punta a punta', () => {
     expect((res.body as DeviceStatus).tables).toEqual([{ table_id: table.id, has_button: true }]);
     for (const secret of ['btn-01', gw.key, gw.id]) expect(JSON.stringify(res.body)).not.toContain(secret);
     expect((await status('bar-demo/barra')).status).toBe(200); // staff también lo ve
+  });
+
+  it('desactivar gateway: 409 si es el último con botones asignados; luego sale de la salud y su clave deja de valer', async () => {
+    const demoLocation = await locationOf('bar-demo/admin');
+    const plat = `/platform/locations/${demoLocation}`;
+    const su = as('labs/superadmin');
+    const gws = (await su.get(`${plat}/gateways`)).body as Array<{ id: string }>;
+    const first = gws[0]!;
+    const second = (await su.post(`${plat}/gateways`, { name: 'Terraza' })).body as { id: string; key: string };
+    const ingest = (key: string) => http().post('/api/v1/gateways/heartbeat').set(GATEWAY_KEY_HEADER, key).send({});
+    expect((await ingest(second.key)).status).toBe(204);
+
+    expect((await su.post(`${plat}/gateways/${crypto.randomUUID()}/deactivate`)).status).toBe(404);
+    expect((await as('bar-demo/admin').post(`${plat}/gateways/${second.id}/deactivate`)).status).toBe(403);
+    // Queda otro gateway activo: se puede quitar aunque haya botones asignados.
+    expect((await su.post(`${plat}/gateways/${second.id}/deactivate`)).status).toBe(204);
+    expect((await su.post(`${plat}/gateways/${second.id}/deactivate`)).status).toBe(404);
+    expect(((await su.get(`${plat}/gateways`)).body as Array<{ id: string }>).map((g) => g.id)).not.toContain(second.id);
+    expect((await ingest(second.key)).status).toBe(401);
+
+    // El último, con botones asignados: 409.
+    const blocked = await su.post(`${plat}/gateways/${first.id}/deactivate`);
+    expect(blocked.status).toBe(409);
+    expect(blocked.body).toMatchObject({ code: 'gateway_in_use' });
+
+    const devices = (await su.get(`${plat}/devices`)).body as Array<{ id: string; table_id: string | null }>;
+    for (const d of devices.filter((x) => x.table_id)) expect((await su.post(`${plat}/devices/${d.id}/unassign`)).status).toBe(204);
+    expect((await su.post(`${plat}/gateways/${first.id}/deactivate`)).status).toBe(204);
+    expect(((await as('bar-demo/admin').get(`/locations/${demoLocation}/device-status`)).body as DeviceStatus).connectivity).toBe('no_gateways');
   });
 
   it('un admin recibe 403 en las rutas de plataforma; staff no crea mesas', async () => {

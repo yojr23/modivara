@@ -10,6 +10,8 @@ export const useDevices = (l: string) => useQuery({ queryKey: k.devices(l), quer
 export const useUnknownDevices = (l: string) => useQuery({ queryKey: k.unknownDevices(l), queryFn: () => api.listUnknownDevices(l), retry });
 
 export const useCreateGateway = (l: string) => mutation((v: { name: string }) => api.createGateway(l, v), () => [k.gateways(l)]);
+export const useDeactivateGateway = (l: string) =>
+  mutation((gatewayId: string) => api.deactivateGateway(l, gatewayId), () => [k.gateways(l), k.deviceStatus(l)]);
 export const useCreateDevice = (l: string) =>
   mutation((v: { code: string; model?: string }) => api.createDevice(l, v), () => [k.devices(l), k.unknownDevices(l)]);
 

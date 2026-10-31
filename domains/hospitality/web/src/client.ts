@@ -109,6 +109,8 @@ export const hospitalityApi = {
     listGateways: (l: string): Promise<GatewayDto[]> => request(buildPath(P.platformGateways, { locationId: l }), list(gatewaySchema)),
     createGateway: (l: string, input: { name: string }): Promise<GatewayCreatedDto> =>
       request(buildPath(P.platformGateways, { locationId: l }), gatewayCreatedSchema, send('POST', input)),
+    deactivateGateway: (l: string, gatewayId: string): Promise<void> =>
+      request(buildPath(P.platformGatewayDeactivate, { locationId: l, gatewayId }), null, send('POST')),
     listDevices: (l: string): Promise<DeviceDto[]> => request(buildPath(P.platformDevices, { locationId: l }), list(deviceSchema)),
     createDevice: (l: string, input: { code: string; model?: string }): Promise<DeviceDto> =>
       request(buildPath(P.platformDevices, { locationId: l }), deviceSchema, send('POST', input)),

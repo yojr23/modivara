@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Gateway } from '../domain/devices/gateway.js';
-import { DeviceAlreadyAssignedError, DuplicateError, LocationUnavailableError, NotFoundError, TableInUseError } from '../domain/errors.js';
+import { DeviceAlreadyAssignedError, DuplicateError, GatewayInUseError, LocationUnavailableError, NotFoundError, TableInUseError } from '../domain/errors.js';
 import { buildWorld, seedTableWithButton, type World } from '../testing/world.js';
 
 let w: World;
@@ -165,5 +165,31 @@ describe('gateways', () => {
     const { gateway } = await w.createGateway.execute({ ...w.ctx, name: 'GW' });
     await expect(w.heartbeat.execute({ ...w.ctx, locationId: crypto.randomUUID(), gatewayId: gateway.id })).rejects.toBeInstanceOf(NotFoundError);
     await expect(w.connectivity.execute({ ...w.ctx, locationId: crypto.randomUUID() })).rejects.toBeInstanceOf(LocationUnavailableError);
+  });
+});
+
+describe('desactivar gateway', () => {
+  it('el último gateway con botones asignados -> GatewayInUseError; con otro activo o sin botones, se desactiva', async () => {
+    const { device } = await seedTableWithButton(w);
+    const a = (await w.createGateway.execute({ ...w.ctx, name: 'A' })).gateway;
+    await expect(w.deactivateGateway.execute({ ...w.ctx, gatewayId: a.id })).rejects.toBeInstanceOf(GatewayInUseError);
+    const b = (await w.createGateway.execute({ ...w.ctx, name: 'B' })).gateway;
+    await w.deactivateGateway.execute({ ...w.ctx, gatewayId: a.id });
+    expect((await w.connectivity.execute(w.ctx)).gateways.map((g) => g.gatewayId)).toEqual([b.id]);
+    await expect(w.deactivateGateway.execute({ ...w.ctx, gatewayId: b.id })).rejects.toBeInstanceOf(GatewayInUseError);
+    await w.unassignDevice.execute({ ...w.ctx, deviceId: device.id });
+    await w.deactivateGateway.execute({ ...w.ctx, gatewayId: b.id });
+    expect((await w.connectivity.execute(w.ctx)).status).toBe('no_gateways');
+  });
+
+  it('inexistente, ya desactivado u de otro local -> NotFoundError; otro negocio -> local no disponible', async () => {
+    const { gateway } = await w.createGateway.execute({ ...w.ctx, name: 'A' });
+    await expect(w.deactivateGateway.execute({ ...w.ctx, gatewayId: crypto.randomUUID() })).rejects.toBeInstanceOf(NotFoundError);
+    const otherLocation = { ...w.ctx, locationId: crypto.randomUUID() };
+    w.core.add({ id: otherLocation.locationId, organizationId: w.ctx.organizationId, timezone: 'UTC', active: true });
+    await expect(w.deactivateGateway.execute({ ...otherLocation, gatewayId: gateway.id })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(w.deactivateGateway.execute({ ...w.ctx, organizationId: crypto.randomUUID(), gatewayId: gateway.id })).rejects.toBeInstanceOf(LocationUnavailableError);
+    await w.deactivateGateway.execute({ ...w.ctx, gatewayId: gateway.id });
+    await expect(w.deactivateGateway.execute({ ...w.ctx, gatewayId: gateway.id })).rejects.toBeInstanceOf(NotFoundError);
   });
 });

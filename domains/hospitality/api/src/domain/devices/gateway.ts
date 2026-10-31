@@ -54,6 +54,10 @@ export class Gateway {
   get lastSeenAt() { return this.props.lastSeenAt; }
   get isActive() { return this.props.deactivatedAt === null; }
 
+  deactivate(now: Date): void {
+    if (this.isActive) this.props.deactivatedAt = now;
+  }
+
   recordHeartbeat(now: Date): void {
     this.props.lastSeenAt = now;
   }

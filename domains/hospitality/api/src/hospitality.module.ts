@@ -4,7 +4,7 @@ import {
 } from '@modivara/core-contracts';
 import { HOSPITALITY_EVENT_HISTORY } from '@modivara/hospitality-contracts';
 import {
-  AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, EnsureLocationSettings, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
+  AcknowledgeCall, AssignDevice, CompleteCall, CreateGateway, DeactivateGateway, EnsureLocationSettings, DetectGatewayHealthChanges, CreateTable, CreateZone, DeactivateTable, DeactivateZone, GetConnectivity,
   GetDeviceStatus, GetLayoutDraft, ListActiveCalls, ListPublishedLayouts, PublishLayout, SaveLayoutDraft, ListServiceCalls, GetServiceCall, CallViews, ListDevices, ListTables, ListUnknownDevices, ListZones, UpdateZone, RecordHeartbeat, RegisterButtonPress, RegisterDevice, UpdateTable, UnassignDevice, SeedCallHistory,
 } from './application/index.js';
 import type {
@@ -74,6 +74,7 @@ const useCases = [
   [UnassignDevice, [ASSIGNMENTS]],
   [ListUnknownDevices, [DEVICE_EVENTS, CORE]],
   [CreateGateway, [CORE, GATEWAYS]],
+  [DeactivateGateway, [CORE, GATEWAYS, ASSIGNMENTS]],
   [RecordHeartbeat, [CORE, GATEWAYS]],
   [GetConnectivity, [CORE, GATEWAYS]],
   [GetDeviceStatus, [CORE, TABLES, ASSIGNMENTS, GetConnectivity]],

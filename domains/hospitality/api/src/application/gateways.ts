@@ -1,6 +1,6 @@
 import type { CoreAccessPort } from '@modivara/core-contracts';
 import { Gateway } from '../domain/devices/gateway.js';
-import { NotFoundError } from '../domain/errors.js';
+import { GatewayInUseError, NotFoundError } from '../domain/errors.js';
 import type { DeviceAssignmentRepository, DiningTableRepository, GatewayRepository } from './ports/index.js';
 import { type ActorContext, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
 
@@ -16,6 +16,29 @@ export class CreateGateway {
     const created = Gateway.create({ ...input, createdBy: input.actorUserId, now: new Date() });
     await this.gateways.save(created.gateway);
     return created;
+  }
+}
+
+export class DeactivateGateway {
+  constructor(
+    private readonly core: CoreAccessPort,
+    private readonly gateways: GatewayRepository,
+    private readonly assignments: DeviceAssignmentRepository,
+  ) {}
+
+  /**
+   * Se desactiva, nunca se borra. Los botones no se atan a un gateway concreto (cualquiera del local los recibe), así que
+   * «en uso» = es el último gateway activo del local y quedan botones asignados que dejarían de tener receptor.
+   * OPEN: ¿«en uso» debería ser otra cosa (p. ej. no desactivar nunca si hubo pulsaciones recientes)?
+   */
+  async execute(input: ActorContext & { gatewayId: string }): Promise<void> {
+    await requireActiveLocation(this.core, input);
+    const gateway = owned(await this.gateways.findById({ ...scopeOf(input), id: input.gatewayId }), input, 'gateway');
+    if (!gateway.isActive) throw new NotFoundError('gateway');
+    const others = (await this.gateways.listByLocation(scopeOf(input))).filter((g) => g.isActive && g.id !== gateway.id);
+    if (others.length === 0 && (await this.assignments.listActiveByLocation(scopeOf(input))).length > 0) throw new GatewayInUseError();
+    gateway.deactivate(new Date());
+    await this.gateways.save(gateway);
   }
 }
 

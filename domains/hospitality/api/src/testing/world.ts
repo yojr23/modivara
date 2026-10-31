@@ -3,7 +3,7 @@ import { GetServiceCall } from '../application/get-service-call.js';
 import { AcknowledgeCall } from '../application/acknowledge-call.js';
 import { CompleteCall } from '../application/complete-call.js';
 import { AssignDevice, ListDevices, ListUnknownDevices, RegisterDevice, UnassignDevice } from '../application/devices.js';
-import { CreateGateway, GetConnectivity, GetDeviceStatus, RecordHeartbeat } from '../application/gateways.js';
+import { CreateGateway, DeactivateGateway, GetConnectivity, GetDeviceStatus, RecordHeartbeat } from '../application/gateways.js';
 import { ListActiveCalls } from '../application/list-active-calls.js';
 import type { NormalizedPress } from '../application/ports/index.js';
 import { RegisterButtonPress } from '../application/register-button-press.js';
@@ -76,6 +76,7 @@ export function buildWorld() {
     assignDevice: new AssignDevice(devices, tables, assignments),
     unassignDevice: new UnassignDevice(assignments),
     createGateway: new CreateGateway(core, gateways),
+    deactivateGateway: new DeactivateGateway(core, gateways, assignments),
     heartbeat: new RecordHeartbeat(core, gateways),
     connectivity,
     views,
