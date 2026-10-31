@@ -210,8 +210,7 @@ function MovementList({ inv, movements, dense = false }: { inv: Inv; movements: 
               <span className="block text-muted"><DirTag d={m.direction} reason={inv.reasonName.get(m.reason_id)} /></span>
             </span>
             <span className="text-right font-semibold tabular-nums">{fmtSigned(m.delta, unit)}</span>
-            {/* OPEN: la API de movimientos no trae el nombre de quien registró; se muestra «tú» o nada. */}
-            <span className="truncate text-xs text-muted">{fmtWhen(m.occurred_at)}{m.actor_user_id === inv.me.actor.user_id ? ', tú' : ''}{m.note ? `. ${m.note}` : ''}</span>
+            <span className="truncate text-xs text-muted">{fmtWhen(m.occurred_at)}{m.actor_user_id === inv.me.actor.user_id ? ', tú' : m.actor_name ? `, ${m.actor_name}` : ''}{m.note ? `. ${m.note}` : ''}</span>
             <span className="text-right text-xs text-muted tabular-nums">Saldo {fmtQty(m.balance_after, unit)}</span>
           </li>
         );

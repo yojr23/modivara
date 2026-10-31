@@ -15,7 +15,7 @@ const U = '55555555-5555-4555-8555-555555555555';
 const product = { id: P, name: 'Cerveza', sku: null, category: null, unit: 'bottle', active: true };
 const movement = {
   id: '66666666-6666-4666-8666-666666666666', stock_location_id: S, product_id: P, direction: 'out', reason_id: R, delta: '-1.000',
-  balance_after: '9.000', note: null, actor_user_id: U, occurred_at: '2026-10-25T10:00:00.000Z',
+  balance_after: '9.000', note: null, actor_user_id: U, actor_name: null, occurred_at: '2026-10-25T10:00:00.000Z',
 };
 const out = { stock_location_id: S, product_id: P, reason_id: R, direction: 'out' as const, quantity: '1' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } });

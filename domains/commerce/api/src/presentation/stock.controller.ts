@@ -15,9 +15,10 @@ type StatusRes = { status(code: number): unknown };
 const toBalance = (b: StockBalance): BalanceDto => ({
   stock_location_id: b.stockLocationId, product_id: b.productId, quantity: b.quantity.toString(), updated_at: b.updatedAt.toISOString(),
 });
-const toMovement = (m: StockMovement): MovementDto => ({
+// ponytail: el POST devuelve actor_name null (el cliente refresca el listado); resolverlo allí si una pantalla lo usa.
+const toMovement = (m: StockMovement, actorName: string | null = null): MovementDto => ({
   id: m.id, stock_location_id: m.stockLocationId, product_id: m.productId, direction: m.direction, reason_id: m.reasonId, delta: m.delta.toString(),
-  balance_after: m.balanceAfter.toString(), note: m.note, actor_user_id: m.actorUserId, occurred_at: m.occurredAt.toISOString(),
+  balance_after: m.balanceAfter.toString(), note: m.note, actor_user_id: m.actorUserId, actor_name: actorName, occurred_at: m.occurredAt.toISOString(),
 });
 
 @Controller()
@@ -42,10 +43,10 @@ export class StockController {
   @RequirePermission('commerce.stock.read')
   async movements(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Query() query: unknown): Promise<MovementDto[]> {
     const q = stockQuerySchema.parse(query);
-    const found = await this.listMovements.execute({
+    const found = await this.listMovements.withActorNames({
       ...contextOf(actor, locationId), stockLocationId: q.stock_location_id, productId: q.product_id, limit: q.limit,
     });
-    return found.map(toMovement);
+    return found.map((f) => toMovement(f.movement, f.actorName));
   }
 
   @Post(P.movements)

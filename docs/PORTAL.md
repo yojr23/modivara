@@ -69,7 +69,6 @@ Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY
 ## Decisiones abiertas del portal
 
 - Pantallas en el portal vs. en cada `domains/<d>/web` al separar repos (ver arriba).
-- `GET …/movements` no trae el nombre de quien registró: el inventario muestra «tú» o nada.
 - Métricas de inventario: `total_delta` sin `product_id` mezcla unidades; la UI muestra conteos para todo el local y cantidades por producto. ¿La API agrega `by_product`?
 - Tiempos hasta «En atención» por área: la API no filtra por área (las áreas no son zonas); el detalle de un área muestra solo llamados.
 - Motivo por defecto al registrar: el primero que devuelve la API para esa dirección.

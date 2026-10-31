@@ -68,6 +68,8 @@ export const movementSchema = z.object({
   balance_after: unsignedQuantitySchema,
   note: z.string().nullable(),
   actor_user_id: z.uuid(),
+  /** Nombre visible de quien registró; null si no se resuelve (o en la respuesta del POST). */
+  actor_name: z.string().nullable(),
   occurred_at: iso,
 });
 export type MovementDto = z.infer<typeof movementSchema>;

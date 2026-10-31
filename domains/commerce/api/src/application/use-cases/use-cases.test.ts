@@ -276,6 +276,14 @@ describe('movimientos', () => {
     expect(all.map((m) => m.delta.toString())).toEqual(['-2.000', '-1.000', '10.000']);
     expect(await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC, limit: 1 })).toHaveLength(1);
   });
+
+  it('withActorNames resuelve el nombre de quien registró; null si no se resuelve', async () => {
+    const s = await stocked('3');
+    const q = { organizationId: ORG, locationId: LOC };
+    expect((await s.h.listMovements.withActorNames(q)).map((r) => r.actorName)).toEqual([null]);
+    s.h.core.names.set(s.actor.actorUserId, 'Ana');
+    expect((await s.h.listMovements.withActorNames(q)).map((r) => r.actorName)).toEqual(['Ana']);
+  });
 });
 
 describe('ledger transaccional (withLockedBalance)', () => {

@@ -113,6 +113,11 @@ describe('F4-07 movimientos y saldos', () => {
     expect(balances).toMatchObject([{ product_id: w.product.id, quantity: '5.000' }]);
     const history = (await t.as(inventory).get(`${base}/stock/movements?product_id=${w.product.id}&limit=2`)).body.map((m: unknown) => movementSchema.parse(m));
     expect(history.map((m: { delta: string }) => m.delta)).toEqual(['-2.000', '-3.000']);
+    expect(history.every((m: { actor_name: string | null }) => m.actor_name === null)).toBe(true);
+    t.core.names.set(inventory.actor.actorUserId, 'Ana Inventario');
+    const named = (await t.as(inventory).get(`${base}/stock/movements?product_id=${w.product.id}&limit=1`)).body.map((m: unknown) => movementSchema.parse(m));
+    expect(named[0]).toMatchObject({ actor_user_id: inventory.actor.actorUserId, actor_name: 'Ana Inventario' });
+    t.core.names.clear();
   });
 
   it('saldo insuficiente: 409 con code propio y sin dejar movimiento', async () => {

@@ -15,4 +15,11 @@ export class ListMovements {
     const limit = Math.min(Math.max(Math.trunc(query.limit ?? DEFAULT_LIMIT), 1), MAX_LIMIT);
     return this.queries.listMovements({ ...query, limit });
   }
+
+  /** Igual que `execute`, con el nombre de quien registró (una consulta a core por página); null si no se resuelve. */
+  async withActorNames(query: BalanceQuery & { limit?: number }): Promise<{ movement: StockMovement; actorName: string | null }[]> {
+    const movements = await this.execute(query);
+    const names = await this.core.userDisplayNames({ organizationId: query.organizationId, userIds: [...new Set(movements.map((m) => m.actorUserId))] });
+    return movements.map((movement) => ({ movement, actorName: names.get(movement.actorUserId) ?? null }));
+  }
 }

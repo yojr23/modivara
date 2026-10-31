@@ -4,7 +4,8 @@ export class FakeCoreAccess implements CoreAccessPort {
   async isModuleEnabled() { return true; }
   async authenticateSession() { return null; }
   async permissionsAt() { return null; }
-  async userDisplayNames() { return new Map<string, string>(); }
+  readonly names = new Map<string, string>();
+  async userDisplayNames() { return this.names; }
   private readonly locations = new Map<string, LocationRef>();
   add(location: Partial<LocationRef> & Pick<LocationRef, 'id' | 'organizationId'>): LocationRef {
     const ref: LocationRef = { timezone: 'America/Bogota', active: true, ...location };
