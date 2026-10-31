@@ -9,6 +9,8 @@ export interface OrganizationRepository {
   findById(ref: { id: string }): Promise<Organization | null>;
   /** Excepción: resuelve el tenant a partir del slug del login. */
   findBySlug(ref: { slug: string }): Promise<Organization | null>;
+  /** Negocios de clientes (sin la organización de plataforma) con todos sus locales, por nombre. Solo para la consola de plataforma. */
+  listWithLocations(): Promise<Array<{ organization: Organization; locations: Location[] }>>;
   save(organization: Organization): Promise<void>;
 }
 

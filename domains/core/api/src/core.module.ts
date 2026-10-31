@@ -3,7 +3,7 @@ import {
   CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, type IntegrationEventSubscriber, type OutboxPollerOptions,
 } from '@modivara/core-contracts';
 import {
-  Authorize, AuthenticateSession, BootstrapPlatform, ChangePassword, CoreAccessService, CreateUser, DeactivateUser, GetMe, ListUsers, Login, Logout,
+  Authorize, AuthenticateSession, BootstrapPlatform, ChangePassword, CoreAccessService, CreateUser, DeactivateUser, GetMe, ListOrganizations, ListUsers, Login, Logout,
   ProvisionOrganization, ResetPassword, ResolveLocationAccess, RevokeUserSessions, SelectActingOrganization, SetLocationRoles,
 } from './application/index.js';
 import type { AdminTransactions, AuditLog, EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './application/ports/index.js';
@@ -52,6 +52,7 @@ const useCases = [
   [Authorize, [ResolveLocationAccess, MEMBERSHIPS, ENTITLEMENTS]],
   [GetMe, [USERS, ORGANIZATIONS, LOCATIONS, MEMBERSHIPS, ENTITLEMENTS]],
   [ListUsers, [USERS, MEMBERSHIPS]],
+  [ListOrganizations, [ORGANIZATIONS]],
   [ProvisionOrganization, [ADMIN_TRANSACTIONS]],
   [BootstrapPlatform, [ADMIN_TRANSACTIONS, PASSWORD_HASHER]],
 ] as const;

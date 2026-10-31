@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { newId, meResponseSchema } from '@modivara/core-contracts';
+import { newId, meResponseSchema, platformOrganizationsResponseSchema } from '@modivara/core-contracts';
 import { corePrismaForTests, resetCore } from '../testing/integration.js';
 import { createTestApp, PASSWORD, seedScenario, type TestApp } from '../testing/http.js';
 
@@ -26,6 +26,22 @@ const actAs = (cookie: string, organizationId: string | null) =>
   t.http().put('/api/v1/platform/acting-organization').set('Cookie', cookie).send({ organization_id: organizationId });
 const usernames = async (cookie: string) =>
   ((await t.http().get('/api/v1/users').set('Cookie', cookie)).body.users as Array<{ username: string }>).map((u) => u.username);
+
+describe('GET /platform/organizations', () => {
+  const list = (cookie: string) => t.http().get('/api/v1/platform/organizations').set('Cookie', cookie);
+
+  it('el superadmin ve todos los negocios de clientes con sus locales, por nombre', async () => {
+    const res = await list(root);
+    expect(res.status).toBe(200);
+    const parsed = platformOrganizationsResponseSchema.parse(res.body);
+    expect(parsed.organizations.map((o) => o.slug)).toEqual(['bar-demo', 'bar-demo-pisos']);
+    expect(parsed.organizations[0]).toMatchObject({ active: true, locations: [{ id: s.demo.location.id, active: true }] });
+  });
+
+  it('un admin de negocio recibe 403', async () => {
+    expect((await list(await t.loginAs('bar-demo', 'admin'))).status).toBe(403);
+  });
+});
 
 describe('superadmin: operar sobre el negocio X', () => {
   it('sin acting_organization_id no accede a datos de ningún negocio', async () => {

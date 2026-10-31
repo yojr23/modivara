@@ -21,7 +21,14 @@ export class InMemoryOrganizationRepository implements OrganizationRepository {
   readonly items = new Map<string, Organization>();
   async findById({ id }: { id: string }) { return this.items.get(id) ?? null; }
   async findBySlug({ slug }: { slug: string }) { return [...this.items.values()].find((o) => o.slug === slug) ?? null; }
+  constructor(private readonly locations?: () => Iterable<Location>) {}
   async save(o: Organization) { this.items.set(o.id, o); }
+  async listWithLocations() {
+    const all = [...(this.locations?.() ?? [])];
+    const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+    return [...this.items.values()].filter((o) => !o.isPlatform).sort(byName)
+      .map((organization) => ({ organization, locations: all.filter((l) => l.organizationId === organization.id).sort(byName) }));
+  }
 }
 
 export class InMemoryLocationRepository implements LocationRepository {

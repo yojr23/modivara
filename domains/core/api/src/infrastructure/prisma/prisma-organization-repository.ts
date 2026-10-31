@@ -1,9 +1,12 @@
-import { Organization } from '../../domain/index.js';
+import { Location, Organization } from '../../domain/index.js';
 import type { OrganizationRepository } from '../../application/ports/index.js';
 import { mapConflicts, type Db } from './db.js';
 
 const toDomain = (r: { id: string; slug: string; name: string; isPlatform: boolean; deactivatedAt: Date | null }) =>
   Organization.restore({ id: r.id, slug: r.slug, name: r.name, isPlatform: r.isPlatform, deactivatedAt: r.deactivatedAt });
+
+const toLocation = (r: { id: string; organizationId: string; name: string; timezone: string; deactivatedAt: Date | null }) =>
+  Location.restore({ id: r.id, organizationId: r.organizationId, name: r.name, timezone: r.timezone, deactivatedAt: r.deactivatedAt });
 
 export class PrismaOrganizationRepository implements OrganizationRepository {
   constructor(private readonly db: Db) {}
@@ -16,6 +19,15 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
   async findBySlug({ slug }: { slug: string }) {
     const r = await this.db.organization.findUnique({ where: { slug } });
     return r && toDomain(r);
+  }
+
+  async listWithLocations() {
+    const rows = await this.db.organization.findMany({
+      where: { isPlatform: false },
+      include: { locations: { orderBy: [{ name: 'asc' }, { id: 'asc' }] } },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map((r) => ({ organization: toDomain(r), locations: r.locations.map(toLocation) }));
   }
 
   save(o: Organization) {

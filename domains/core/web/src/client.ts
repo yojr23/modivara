@@ -1,6 +1,6 @@
 import {
-  CORE_API_PATHS, apiErrorSchema, loginResponseSchema, meResponseSchema, membershipResponseSchema, userResponseSchema, usersResponseSchema,
-  type CreateUserRequest, type LoginRequest, type LoginResponse, type MeResponse, type MembershipResponse,
+  CORE_API_PATHS, apiErrorSchema, loginResponseSchema, meResponseSchema, membershipResponseSchema, platformOrganizationsResponseSchema, userResponseSchema, usersResponseSchema,
+  type CreateUserRequest, type LoginRequest, type LoginResponse, type MeResponse, type MembershipResponse, type PlatformOrganizationsResponse,
   type ResetPasswordRequest, type SetLocationRolesRequest, type UserResponse, type UsersResponse,
 } from '@modivara/core-contracts';
 
@@ -80,4 +80,9 @@ export const usersApi = {
     request(path(CORE_API_PATHS.userLocationRoles, { userId, locationId }), membershipResponseSchema, {
       method: 'PUT', body: JSON.stringify(input),
     }),
+};
+
+export const platformApi = {
+  organizations: async (): Promise<PlatformOrganizationsResponse['organizations']> =>
+    (await request<PlatformOrganizationsResponse>(CORE_API_PATHS.platformOrganizations, platformOrganizationsResponseSchema)).organizations,
 };

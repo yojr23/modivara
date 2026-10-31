@@ -6,6 +6,7 @@ export * from './core-access.service.js';
 export * from './create-user.js';
 export * from './deactivate-user.js';
 export * from './get-me.js';
+export * from './list-organizations.js';
 export * from './list-users.js';
 export * from './login.js';
 export * from './logout.js';

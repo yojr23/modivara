@@ -13,6 +13,7 @@ export const CORE_API_PATHS = {
   userRevokeSessions: '/users/:userId/revoke-sessions',
   userLocationRoles: '/users/:userId/locations/:locationId/roles',
   actingOrganization: '/platform/acting-organization',
+  platformOrganizations: '/platform/organizations',
 } as const;
 
 /** Cookie de sesión: HttpOnly, Secure, SameSite=Strict (TECH-001 §16.3). El valor es el token en claro; la base guarda su SHA-256. */
@@ -88,6 +89,20 @@ export type MembershipResponse = z.infer<typeof membershipResponseSchema>;
 /** `PUT /platform/acting-organization`: solo superadmin; `null` vuelve a la organización propia. */
 export const actingOrganizationRequestSchema = z.object({ organization_id: z.uuid().nullable() });
 export type ActingOrganizationRequest = z.infer<typeof actingOrganizationRequestSchema>;
+
+/** `GET /platform/organizations`: negocios de clientes con sus locales (también inactivos), por nombre; solo superadmin. */
+export const platformOrganizationsResponseSchema = z.object({
+  organizations: z.array(
+    z.object({
+      id: z.uuid(),
+      slug: z.string(),
+      name: z.string(),
+      active: z.boolean(),
+      locations: z.array(z.object({ id: z.uuid(), name: z.string(), timezone: z.string(), active: z.boolean() })),
+    }),
+  ),
+});
+export type PlatformOrganizationsResponse = z.infer<typeof platformOrganizationsResponseSchema>;
 
 /** Identificador en una ruta (`:userId`, `:locationId`): un valor mal formado es 400, no un error de la base. */
 export const idParamSchema = z.uuid();

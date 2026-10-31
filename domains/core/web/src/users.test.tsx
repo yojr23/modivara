@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { toErrorState, useCreateUser, useDeactivateUser, useSetLocationRoles, useUsers, usersApi } from './index.js';
+import { toErrorState, useCreateUser, useDeactivateUser, usePlatformOrganizations, useSetLocationRoles, useUsers, usersApi } from './index.js';
 import { LOC, json } from './testing/fixtures.js';
 
 const U = '44444444-4444-4444-8444-444444444444';
@@ -29,6 +29,16 @@ it('useUsers lista usuarios validando contra el contrato', async () => {
   const { result } = renderHook(() => useUsers(), { wrapper });
   await waitFor(() => expect(result.current.data).toEqual([user]));
   expect(f).toHaveBeenCalledWith('/api/v1/users', expect.objectContaining({ credentials: 'include' }));
+});
+
+it('usePlatformOrganizations lista negocios con locales validando el contrato', async () => {
+  const org = { id: U, slug: 'bar', name: 'Bar', active: true, locations: [{ id: LOC, name: 'Centro', timezone: 'America/Bogota', active: true }] };
+  const f = vi.fn().mockResolvedValue(json({ organizations: [org] }));
+  vi.stubGlobal('fetch', f);
+  const { wrapper } = setup();
+  const { result } = renderHook(() => usePlatformOrganizations(), { wrapper });
+  await waitFor(() => expect(result.current.data).toEqual([org]));
+  expect(f).toHaveBeenCalledWith('/api/v1/platform/organizations', expect.objectContaining({ credentials: 'include' }));
 });
 
 it('crear usuario hace POST y refresca la lista', async () => {
