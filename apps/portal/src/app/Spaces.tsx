@@ -6,6 +6,7 @@ import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { AREA_STYLE } from './plan';
 import { AreaInspector, EditorDialogs, Inspector, KIND, PlanCanvas, TOOLS, UnplacedTables, nameOf, useLayoutEditor, type Ed, type ToolId } from './editor-kit';
+import { DeactivatePanel, DeactivateTable } from './Deactivate';
 import { Bone, ErrorState, Wordmark, useApp } from './ui';
 
 // L-05, versión elegida por el responsable (29/10/2026): alternativa E, mezcla de A (barra lateral de espacios) y C (paleta visible,
@@ -364,6 +365,7 @@ export default function Spaces() {
             </div>
             <p className="mb-4 text-sm text-muted">{el.type === 'table' ? 'Mesa real del local' : `${KIND[el.type]}, solo referencia visual`}</p>
             <Inspector ed={ed} />
+            {el.type === 'table' && <DeactivateTable ed={ed} tableId={el.table_id} />}
           </section>
         ) : ed.area ? (
           <section aria-labelledby="e-area">
@@ -373,7 +375,7 @@ export default function Spaces() {
             </div>
             <AreaInspector ed={ed} />
           </section>
-        ) : <Todo ed={ed} />}
+        ) : <><Todo ed={ed} /><DeactivatePanel ed={ed} /></>}
       </aside>
       <EditorDialogs ed={ed} />
     </div>

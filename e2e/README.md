@@ -21,6 +21,6 @@ pnpm test:e2e                  # informe en e2e/report (pnpm exec playwright sho
 | `inventory.spec.ts` | F4-11: alta de producto, entrada, salida (y saldo insuficiente), ajuste por conteo, historial y API coherentes; staff sin inventario |
 | `metrics.spec.ts` | F5-13: total de llamados de hoy en pantalla = historial; saldo en métricas = inventario |
 | `mqtt.spec.ts` | Q-01: pulsación publicada por MQTT con el usuario del gateway (`scripts/mqtt-user.sh`, `mosquitto_pub` dentro del contenedor) → tablero → cerrar |
-| `spaces.spec.ts` | L-05 / L-07: publicar un área mientras otro mira el tablero; conflicto de edición (409) sin pisar el borrador ajeno |
+| `spaces.spec.ts` | L-05 / L-07: publicar un área mientras otro mira el tablero; conflicto de edición (409) sin pisar el borrador ajeno; desactivar una mesa (sale del borrador) y 409 si tiene botón |
 
 Fuera por ahora: la consola de superadmin (F2-15, sin pantalla) y el historial de llamados en pantalla (F3-14).

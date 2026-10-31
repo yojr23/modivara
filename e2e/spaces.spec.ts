@@ -51,3 +51,50 @@ test('un conflicto de edición no pisa el borrador de otra persona', async ({ br
   // Sin dejar borradores colgando: publicar lo vigente.
   await republish(api, loc, zone.id, (els) => els);
 });
+
+// S4: desactivar mesas. La mesa de prueba se crea por API, se ubica y guarda en el borrador desde la UI y se desactiva: desaparece del
+// plano y del borrador (si no, el plano ya no se podría guardar ni publicar). El 409 usa una mesa del seed con botón y no la desactiva.
+
+test('desactivar una mesa la quita del editor y del borrador del plano', async ({ browser }) => {
+  const api = await apiAs(['bar-demo-pisos', 'admin']);
+  const loc = await locationOf(api);
+  const zone = (await json<any[]>(api, 'GET', `/locations/${loc}/zones`)).find((z) => z.name === 'Terraza');
+  const label = `Prueba ${Date.now() % 1e6}`;
+  await json(api, 'POST', `/locations/${loc}/tables`, { label, zone_id: zone.id });
+
+  const editor = new SpacesPage(await pageAs(browser, ['bar-demo-pisos', 'admin']));
+  await editor.goto('bar-demo-pisos');
+  await editor.openSpace('Terraza');
+  const palette = editor.page.getByRole('complementary', { name: 'Paleta' });
+  await palette.getByRole('listitem').filter({ hasText: label }).getByRole('button', { name: 'Ubicar' }).click();
+  await editor.page.getByRole('button', { name: 'Guardar borrador' }).click();
+  await expect(editor.page.getByRole('button', { name: 'Guardar borrador' })).toBeDisabled();
+
+  // Ubicar deja la mesa seleccionada: su panel tiene el botón junto a las propiedades.
+  await editor.page.getByRole('button', { name: 'Desactivar mesa' }).click();
+  const dialog = editor.page.getByRole('dialog', { name: `Desactivar ${label}` });
+  await dialog.getByRole('button', { name: 'Desactivar' }).click();
+
+  await expect(editor.page.getByText(label)).toHaveCount(0);
+  await expect(editor.page.getByRole('button', { name: 'Guardar borrador' })).toBeDisabled(); // sin cambios pendientes ni error
+  // El borrador quedó limpio: publicar no da 400. Esto también deja el plano de la Terraza como estaba.
+  await republish(api, loc, zone.id, (els) => els);
+});
+
+test('desactivar una mesa con botón explica por qué no se puede', async ({ browser }) => {
+  const api = await apiAs(['bar-demo-pisos', 'admin']);
+  const loc = await locationOf(api);
+  const withButton = (await json(api, 'GET', `/locations/${loc}/device-status`)).tables.find((t: any) => t.has_button);
+  const table = (await json<any[]>(api, 'GET', `/locations/${loc}/tables`)).find((t) => t.id === withButton.table_id && t.zone_name);
+
+  const editor = new SpacesPage(await pageAs(browser, ['bar-demo-pisos', 'admin']));
+  await editor.goto('bar-demo-pisos');
+  await editor.openSpace(table.zone_name);
+  await editor.page.getByText('Desactivar mesas o este espacio').click();
+  await editor.page.getByRole('button', { name: `Desactivar ${table.label}`, exact: true }).click();
+  const dialog = editor.page.getByRole('dialog', { name: `Desactivar ${table.label}` });
+  await dialog.getByRole('button', { name: 'Desactivar' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText(`La mesa «${table.label}» tiene botones asignados o un llamado activo; libérala antes de desactivarla.`);
+  await dialog.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(dialog).toBeHidden();
+});
