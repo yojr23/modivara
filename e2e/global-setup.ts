@@ -16,9 +16,9 @@ async function login(slug: string, username: string) {
 async function ensureGateway(slug: string) {
   const file = gatewayFile(slug);
   if (existsSync(file)) {
-    const { key } = JSON.parse(readFileSync(file, 'utf8'));
+    const { key, id } = JSON.parse(readFileSync(file, 'utf8'));
     const hb = await (await request.newContext()).post(`${API}/gateways/heartbeat`, { headers: { 'x-gateway-key': key }, data: {} });
-    if (hb.ok()) return;
+    if (hb.ok() && id) return; // sin id (archivo de una corrida anterior) se recrea: mqtt.spec lo necesita, es el usuario del broker
   }
   const admin = await login(slug, 'admin');
   const me = await (await admin.get(`${API}/me`)).json();
@@ -26,7 +26,7 @@ async function ensureGateway(slug: string) {
   await root.put(`${API}/platform/acting-organization`, { data: { organization_id: me.organization.id } });
   const gw = await root.post(`${API}/platform/locations/${me.locations[0].id}/gateways`, { data: { name: 'Gateway E2E' } });
   if (!gw.ok()) throw new Error(`No se pudo crear el gateway de prueba: ${gw.status()}`);
-  writeFileSync(file, JSON.stringify({ key: (await gw.json()).key }));
+  writeFileSync(file, JSON.stringify(await gw.json()));
   await root.put(`${API}/platform/acting-organization`, { data: { organization_id: null } });
 }
 
