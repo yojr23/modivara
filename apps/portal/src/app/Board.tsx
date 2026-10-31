@@ -64,6 +64,12 @@ function useBoard() {
 
   const [sound, setSound] = useState(loadSound);
   const seen = useRef<Set<string> | null>(null);
+  // Encendido desde una visita anterior: el navegador solo deja crear el audio tras un gesto, así que se prepara al primer toque.
+  useEffect(() => {
+    if (!sound) return;
+    window.addEventListener('pointerdown', prepareAudio, { once: true });
+    return () => window.removeEventListener('pointerdown', prepareAudio);
+  }, [sound]);
 
   const zoneName = new Map((zones.data ?? []).map((z) => [z.id, z.name]));
   const order = new Map((zones.data ?? []).map((z) => [z.id, z.position]));
