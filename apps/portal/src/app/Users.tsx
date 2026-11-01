@@ -3,9 +3,9 @@ import {
   ApiRequestError, useCreateUser, useDeactivateUser, useResetPassword, useRevokeUserSessions, useSetLocationRoles, useUsers,
 } from '@modivara/core-web';
 import { ChevronDown, Users as UsersIcon } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Button } from '@/ui/Button';
-import { Bone, EmptyState, ErrorState, Page, useApp, useToast } from './ui';
+import { Bone, EmptyState, ErrorState, Modal, Page, useApp, useToast } from './ui';
 
 // F1-15 — usuarios del negocio. Permiso: `core.users.manage` en el local (sin módulo: es de core).
 // El listado trae los roles por local (solo de los locales que el actor gestiona); se fijan con «Guardar roles».
@@ -40,17 +40,6 @@ function Roles({ value, onChange }: { value: LocationRole[]; onChange: (r: Locat
         ))}
       </div>
     </fieldset>
-  );
-}
-
-/** `<dialog>` nativo: Escape y foco los maneja el navegador. */
-function Modal({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => ref.current?.showModal(), []);
-  return (
-    <dialog ref={ref} aria-label={label} onClose={onClose} className="m-auto w-full max-w-md rounded-lg border border-line bg-surface p-6 text-fg shadow-xl backdrop:bg-ink/40">
-      {children}
-    </dialog>
   );
 }
 

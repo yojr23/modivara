@@ -1,6 +1,6 @@
 import type { MeResponse } from '@modivara/core-contracts';
 import { LogOut, RotateCw, WifiOff, type LucideIcon } from 'lucide-react';
-import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
@@ -55,8 +55,8 @@ export function Page({ id, title, subtitle, actions, rail = false, children, cla
         <div className={cn(!rail && 'px-2')}><Wordmark dark compact={rail} /></div>
         {!rail && (
           <div className="px-2 text-sm leading-snug">
-            <span className="block font-semibold">{me.organization?.name}</span>
-            {me.locations.length > 1 ? (
+            <span className="block font-semibold">{me.organization?.name ?? 'Plataforma'}</span>
+            {!me.organization ? null : me.locations.length > 1 ? (
               <select aria-label="Local" value={location.id} onChange={(e) => setLocationId(e.target.value)} className="mt-1 w-full rounded bg-white/8 px-1 py-1 text-warm">
                 {me.locations.map((l) => <option key={l.id} value={l.id} className="text-fg">{l.name}</option>)}
               </select>
@@ -183,4 +183,15 @@ export function useToast() {
     </div>
   );
   return { show: (text: string) => setMsg({ text, key: Date.now() }), node };
+}
+
+/** `<dialog>` nativo: Escape y foco los maneja el navegador. */
+export function Modal({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => ref.current?.showModal(), []);
+  return (
+    <dialog ref={ref} aria-label={label} onClose={onClose} className="m-auto w-full max-w-md rounded-lg border border-line bg-surface p-6 text-fg shadow-xl backdrop:bg-ink/40">
+      {children}
+    </dialog>
+  );
 }

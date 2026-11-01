@@ -85,4 +85,6 @@ export const usersApi = {
 export const platformApi = {
   organizations: async (): Promise<PlatformOrganizationsResponse['organizations']> =>
     (await request<PlatformOrganizationsResponse>(CORE_API_PATHS.platformOrganizations, platformOrganizationsResponseSchema)).organizations,
+  /** Fija el negocio sobre el que opera el superadmin; `null` vuelve a la organización propia. */
+  setActing: (organizationId: string | null): Promise<void> => request(CORE_API_PATHS.actingOrganization, null, { method: 'PUT', body: JSON.stringify({ organization_id: organizationId }) }),
 };

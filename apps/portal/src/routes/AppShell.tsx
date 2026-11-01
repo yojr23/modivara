@@ -1,16 +1,17 @@
-import type { ModuleName } from '@modivara/core-contracts';
+import { PERMISSIONS, type ModuleName } from '@modivara/core-contracts';
 import { useLogout, useSession } from '@modivara/core-web';
 import { RealtimeProvider } from '@modivara/hospitality-web';
-import { ChartColumn, ConciergeBell, History as HistoryIcon, Map as MapIcon, Package, Users as UsersIcon, type LucideIcon } from 'lucide-react';
+import { ChartColumn, ConciergeBell, Cable, History as HistoryIcon, Map as MapIcon, Package, Users as UsersIcon, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Navigate, Outlet, useParams } from 'react-router';
 import Board from '@/app/Board';
+import Console from '@/app/Console';
 import History from '@/app/History';
 import Inventory from '@/app/Inventory';
 import Metrics from '@/app/Metrics';
 import Spaces from '@/app/Spaces';
 import Users from '@/app/Users';
-import { AppContext, EmptyState, Wordmark, type Permission, useApp } from '@/app/ui';
+import { AppContext, EmptyState, Wordmark, type Location, type Permission, useApp } from '@/app/ui';
 
 /**
  * Pantallas del portal: cada una exige su módulo contratado y alguno de sus permisos en el local activo (la UI solo oculta;
@@ -24,6 +25,8 @@ const SCREENS: { id: string; label: string; Icon: LucideIcon; module?: ModuleNam
   { id: 'metricas', label: 'Métricas', Icon: ChartColumn, module: 'analytics', perms: ['analytics.calls.read', 'analytics.inventory.read'], element: <Metrics /> },
   { id: 'inventario', label: 'Inventario', Icon: Package, module: 'commerce', perms: ['commerce.stock.read'], element: <Inventory /> },
   // Usuarios es de core: sin módulo, solo el permiso en el local activo.
+  // Consola de plataforma: sin módulo, solo con permisos `platform.*` (únicamente el superadmin los tiene).
+  { id: 'consola', label: 'Consola', Icon: Cable, perms: ['platform.gateways.manage'], element: <Console /> },
   { id: 'usuarios', label: 'Usuarios', Icon: UsersIcon, perms: ['core.users.manage'], element: <Users /> },
 ];
 
@@ -35,8 +38,11 @@ export function AppShell() {
   const [locationId, setLocationId] = useState<string | null>(null);
   if (!me) return null; // RequireSession ya garantiza sesión
   // La URL de otro negocio no muestra los datos de la sesión con su nombre: vuelve al negocio real (ADR-002 D2).
-  if (me.organization && me.organization.slug !== slug) return <Navigate to={`/${me.organization.slug}/app`} replace />;
-  const location = me.locations.find((l) => l.id === locationId) ?? me.locations[0];
+  // El superadmin entra por `/labs` y opera sobre otros negocios: su URL no cambia con el negocio activo.
+  if (me.organization && !me.actor.is_platform && me.organization.slug !== slug) return <Navigate to={`/${me.organization.slug}/app`} replace />;
+  // Superadmin sin negocio elegido: no hay locales; solo sus permisos de plataforma (la consola).
+  const platformOnly: Location = { id: '', name: 'Plataforma', timezone: 'UTC', permissions: PERMISSIONS.filter((p) => p.startsWith('platform.')) };
+  const location = me.locations.find((l) => l.id === locationId) ?? me.locations[0] ?? (me.actor.is_platform ? platformOnly : undefined);
   if (!location) {
     return (
       <main className="grid min-h-dvh place-items-center bg-bg">

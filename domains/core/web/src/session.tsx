@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import type { LoginRequest, MeResponse } from '@modivara/core-contracts';
 import { ApiRequestError, coreApi } from './client.js';
 
-const ME_KEY = ['core', 'me'] as const;
+export const ME_KEY = ['core', 'me'] as const;
 
 export type Session =
   | { status: 'loading'; me: null }
@@ -13,8 +13,8 @@ export type Session =
 const SessionContext = createContext<Session | null>(null);
 
 /** Descarta todo el caché salvo `/me` (datos de un usuario no deben sobrevivir al cambio de sesión). */
-function dropOtherQueries(qc: QueryClient) {
-  const predicate = (q: { queryKey: readonly unknown[] }) => !(q.queryKey[0] === ME_KEY[0] && q.queryKey[1] === ME_KEY[1]);
+export function dropOtherQueries(qc: QueryClient, keep: readonly (readonly unknown[])[] = []) {
+  const predicate = (q: { queryKey: readonly unknown[] }) => !(q.queryKey[0] === ME_KEY[0] && q.queryKey[1] === ME_KEY[1]) && !keep.some((k) => k.every((x, i) => q.queryKey[i] === x));
   // Cancelar antes de borrar: una respuesta en vuelo del usuario anterior no debe volver a escribirse en el caché.
   void qc.cancelQueries({ predicate });
   qc.removeQueries({ predicate });

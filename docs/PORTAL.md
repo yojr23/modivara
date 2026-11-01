@@ -14,6 +14,7 @@
 | `/<negocio>/app/metricas` | Métricas de llamados e inventario (F5-12). | Módulo `analytics` + `analytics.calls.read` o `analytics.inventory.read` |
 | `/<negocio>/app/inventario` | Registro de stock (F4-09). | Módulo `commerce` + `commerce.stock.read` |
 | `/<negocio>/app/usuarios` | Usuarios del negocio (F1-15). | `core.users.manage` en el local (sin módulo) |
+| `/labs/app/consola` | Consola de superadmin (F2-14, F3-15): gateways, botones y detectados sin asignar. | Permisos `platform.*` (solo superadmin; sin módulo) |
 | `/_tokens` | Muestra interna de la base visual (T6). | Interna |
 
 Si la URL es de otro negocio que el de la sesión, la app redirige al negocio real. La navegación solo oculta; la autorización la decide siempre el backend.
@@ -72,10 +73,12 @@ Los E2E (`e2e/`, detalle en `e2e/README.md`) cubren F1-16, F3-16, F4-11, F5-13 y
 
 Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY` del gateway) o `POST /api/v1/device-events` con la cabecera `x-gateway-key` y `{ "device_code": "btn-07" }`.
 
+**Consola** (`app/Console.tsx`): `usePlatformOrganizations` → negocio y local; elegir negocio hace `PUT /platform/acting-organization` (`useSetActingOrganization`: descarta cachés e invalida `/me`) y solo entonces carga las pestañas; «Dejar de actuar» o salir de la consola lo limpia (`null`). La URL sigue en `/labs` (el superadmin no es redirigido al negocio activo). Sin negocio elegido `/me` no trae locales: el shell usa un local «Plataforma» solo con permisos `platform.*`. Gateways (`useGateways`, `useCreateGateway` con la clave mostrada una vez y botón copiar, `useDeactivateGateway` con `<dialog>`; 409 `gateway_in_use` explicado), Botones (`useDevices`, `useCreateDevice`, `useAssignDevice`/`useUnassignDevice`; las mesas salen de `useTables`, que con acting-organization sirve las del negocio elegido) y Detectados (`useUnknownDevices`, ventana por defecto de la API; «Registrar y asignar» = crear + asignar).
+
 ## Decisiones abiertas del portal
 
 - Pantallas en el portal vs. en cada `domains/<d>/web` al separar repos (ver arriba).
 - Métricas de inventario: `total_delta` sin `product_id` mezcla unidades. Resuelta: la API agrega `by_product` (deltas y conteos por producto) y la UI lo usa.
 - Tiempos hasta «En atención» por área: la API no filtra por área (las áreas no son zonas); el detalle de un área muestra solo llamados.
 - Motivo por defecto al registrar: el primero que devuelve la API para esa dirección.
-- Pendientes de pantalla: consola de superadmin (F2-14, F3-15). El simulador de botones ya es apto para celular (F2-10). E2E pendientes: envío por MQTT y consola de superadmin (F2-15).
+- El simulador de botones ya es apto para celular (F2-10). Consola: la API no borra botones ni gateways (solo desactiva gateways); el negocio activo vive en la sesión del superadmin, así que dos pestañas suyas comparten negocio.
