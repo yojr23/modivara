@@ -9,7 +9,7 @@ export { effectiveOrganizationId };
 const MANAGE = 'core.users.manage' satisfies Permission;
 
 /** Locales activos donde el actor (no dueño ni superadmin) tiene `core.users.manage`. */
-async function manageLocationIds(actor: ActorContext, memberships: MembershipRepository): Promise<Set<string>> {
+export async function manageLocationIds(actor: ActorContext, memberships: MembershipRepository): Promise<Set<string>> {
   const own = await memberships.listActiveByUser({ organizationId: actor.organizationId, userId: actor.actorUserId });
   return new Set(own.filter((m) => permissionsFor(m.roles, actor).has(MANAGE)).map((m) => m.locationId));
 }

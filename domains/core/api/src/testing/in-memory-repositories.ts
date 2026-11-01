@@ -110,6 +110,9 @@ export class InMemoryMembershipRepository implements MembershipRepository {
   async listActiveByUser({ organizationId, userId }: { organizationId: string; userId: string }) {
     return [...this.items.values()].filter((m) => m.organizationId === organizationId && m.userId === userId && m.isActive);
   }
+  async listActiveByUsers({ organizationId, userIds }: { organizationId: string; userIds: string[] }) {
+    return [...this.items.values()].filter((m) => m.organizationId === organizationId && userIds.includes(m.userId) && m.isActive);
+  }
   async save(m: LocationMembership) { this.items.set(m.id, m); }
 }
 

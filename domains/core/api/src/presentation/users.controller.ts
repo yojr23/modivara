@@ -6,11 +6,14 @@ import {
 import {
   CreateUser, DeactivateUser, ListUsers, ResetPassword, RevokeUserSessions, SetLocationRoles, type ActorContext,
 } from '../application/index.js';
-import type { AppUser } from '../domain/index.js';
+import type { AppUser, LocationMembership } from '../domain/index.js';
 import { CurrentActor, RequirePermission } from './guards/decorators.js';
 import { parseWith } from './http.js';
 
-const toUser = (u: AppUser): UserResponse => ({ id: u.id, username: u.username, display_name: u.displayName, is_owner: u.isOwner, active: u.isActive });
+const toUser = (u: AppUser, memberships: LocationMembership[] = []): UserResponse => ({
+  id: u.id, username: u.username, display_name: u.displayName, is_owner: u.isOwner, active: u.isActive,
+  locations: memberships.map((m) => ({ location_id: m.locationId, roles: [...m.roles] })),
+});
 
 /** Administración de usuarios del negocio (F1-09). La regla de fondo vive en los casos de uso; aquí solo borde HTTP. */
 @Controller()
@@ -27,7 +30,7 @@ export class UsersController {
 
   @Get(CORE_API_PATHS.users)
   async list(@CurrentActor() actor: ActorContext): Promise<UsersResponse> {
-    return { users: (await this.listUsers.execute({ actor })).map(toUser) };
+    return { users: (await this.listUsers.execute({ actor })).map((r) => toUser(r.user, r.memberships)) };
   }
 
   @Post(CORE_API_PATHS.users)

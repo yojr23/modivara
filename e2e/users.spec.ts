@@ -26,9 +26,11 @@ test('crear, cambiar rol y desactivar un usuario', async ({ page }) => {
 
     await page.getByRole('searchbox', { name: 'Buscar' }).fill(username);
     await expect(page.getByText(display)).toBeVisible();
+    await expect(page.getByRole('listitem').filter({ hasText: display })).toContainText(': personal');
     await page.getByRole('button', { name: `Gestionar ${display}` }).click();
 
     const roles = page.getByRole('region', { name: 'Roles' });
+    await expect(roles.getByRole('checkbox', { name: 'Personal' })).toBeChecked(); // el panel arranca con los roles actuales
     await roles.getByRole('checkbox', { name: 'Inventario' }).check();
     await roles.getByRole('button', { name: 'Guardar roles' }).click();
     await expect(page.getByText('Roles guardados.')).toBeVisible();

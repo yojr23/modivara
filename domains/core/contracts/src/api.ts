@@ -57,6 +57,8 @@ export const userResponseSchema = z.object({
   display_name: z.string(),
   is_owner: z.boolean(),
   active: z.boolean(),
+  /** Membresías activas en los locales que el actor puede ver/gestionar. */
+  locations: z.array(z.object({ location_id: z.uuid(), roles: z.array(z.enum(LOCATION_ROLES)) })),
 });
 export type UserResponse = z.infer<typeof userResponseSchema>;
 

@@ -217,10 +217,22 @@ describe('administración de usuarios', () => {
 
     it('el listado solo muestra a quienes el admin alcanza', async () => {
       const list = new ListUsers(w.users, w.memberships);
-      const names = async (actor: ActorContext) => (await list.execute({ actor })).map((u) => u.username);
+      const names = async (actor: ActorContext) => (await list.execute({ actor })).map((r) => r.user.username);
       expect(await names(ctxA)).toEqual(['ambos', 'jefe', 'mesero']);
       expect(await names(ctxB)).toEqual(['ambos', 'jefeb', 'meserob']);
       expect((await names(ownerCtx)).length).toBe(6);
+    });
+
+    it('el listado trae las membresías, solo en locales que el actor gestiona', async () => {
+      const list = new ListUsers(w.users, w.memberships);
+      const rolesOf = async (actor: ActorContext) =>
+        Object.fromEntries((await list.execute({ actor })).map((r) => [r.user.username, r.memberships.map((m) => [m.locationId, [...m.roles]])]));
+      const a = await rolesOf(ctxA);
+      expect(a.mesero).toEqual([[w.solCenter.id, ['staff']]]);
+      expect(a.ambos).toEqual([[w.solCenter.id, ['admin']]]); // su membresía en Terraza no se ve desde A
+      const all = await rolesOf(ownerCtx);
+      expect(all.ambos).toHaveLength(2);
+      expect(all.duena).toEqual([]);
     });
   });
 

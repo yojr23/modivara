@@ -57,7 +57,7 @@ describe('seed:core', () => {
       const demo = (await db.organization.findFirstOrThrow({ where: { slug: 'bar-demo' } })).id;
       const actor: ActorContext = { ...root, actingOrganizationId: demo };
       const users = await app.get(ListUsers).execute({ actor });
-      const id = (name: string) => users.find((u) => u.username === name)!.id;
+      const id = (name: string) => users.find((u) => u.user.username === name)!.user.id;
       const location = (await db.location.findFirstOrThrow({ where: { organizationId: demo } })).id;
 
       await app.get(DeactivateUser).execute({ actor, userId: id('barra') });

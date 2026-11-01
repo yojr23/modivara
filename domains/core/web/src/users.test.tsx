@@ -6,7 +6,7 @@ import { toErrorState, useCreateUser, useDeactivateUser, usePlatformOrganization
 import { LOC, json } from './testing/fixtures.js';
 
 const U = '44444444-4444-4444-8444-444444444444';
-const user = { id: U, username: 'ana', display_name: 'Ana', is_owner: false, active: true };
+const user = { id: U, username: 'ana', display_name: 'Ana', is_owner: false, active: true, locations: [{ location_id: U, roles: ['staff'] }] };
 /** Respuestas en orden; después, la lista de usuarios (los refetch). */
 const stub = (...res: Response[]) => {
   const f = vi.fn();

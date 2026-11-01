@@ -74,7 +74,9 @@ describe('aislamiento entre negocios', () => {
   it('el admin de A lista solo los usuarios de A', async () => {
     const res = await t.http().get('/api/v1/users').set('Cookie', admin);
     expect(res.status).toBe(200);
-    expect(usersResponseSchema.parse(res.body).users.map((u) => u.username)).toEqual(['admin', 'mesero']);
+    const users = usersResponseSchema.parse(res.body).users;
+    expect(users.map((u) => u.username)).toEqual(['admin', 'mesero']);
+    expect(users.find((u) => u.username === 'mesero')?.locations).toEqual([{ location_id: s.demo.location.id, roles: expect.arrayContaining(['staff']) }]);
   });
 
   it('staff no lista usuarios', async () => {

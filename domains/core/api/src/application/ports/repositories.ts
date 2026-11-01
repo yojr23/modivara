@@ -66,6 +66,8 @@ export interface MembershipRepository {
   /** Solo membresías activas. */
   findActive(ref: { organizationId: string; userId: string; locationId: string }): Promise<LocationMembership | null>;
   listActiveByUser(ref: { organizationId: string; userId: string }): Promise<LocationMembership[]>;
+  /** Una sola consulta para varios usuarios (listado de usuarios, sin N+1). */
+  listActiveByUsers(ref: { organizationId: string; userIds: string[] }): Promise<LocationMembership[]>;
   save(membership: LocationMembership): Promise<void>;
 }
 

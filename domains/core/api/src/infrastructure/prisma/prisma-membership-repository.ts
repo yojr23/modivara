@@ -20,6 +20,11 @@ export class PrismaMembershipRepository implements MembershipRepository {
     return rows.map(toDomain);
   }
 
+  async listActiveByUsers({ organizationId, userIds }: { organizationId: string; userIds: string[] }) {
+    const rows = await this.db.locationMembership.findMany({ where: { organizationId, userId: { in: userIds }, deactivatedAt: null }, orderBy: { id: 'asc' } });
+    return rows.map(toDomain);
+  }
+
   save(m: LocationMembership) {
     const data = { roles: [...m.roles], deactivatedAt: m.deactivatedAt };
     return mapConflicts(

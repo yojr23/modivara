@@ -53,7 +53,7 @@ export async function seedCore(app: INestApplicationContext, password: string): 
     const actor: ActorContext = { ...root, actingOrganizationId: organization.id };
     const existing = await listUsers.execute({ actor, includeInactive: true });
     for (const u of b.users) {
-      if (existing.some((e) => e.username === u.username)) continue;
+      if (existing.some((e) => e.user.username === u.username)) continue;
       const user = await createUser.execute({ actor, username: u.username, displayName: u.displayName, password });
       await setRoles.execute({ actor, userId: user.id, locationId: locations[0]!.id, roles: [u.role] });
     }

@@ -8,10 +8,10 @@ import { Button } from '@/ui/Button';
 import { Bone, EmptyState, ErrorState, Page, useApp, useToast } from './ui';
 
 // F1-15 — usuarios del negocio. Permiso: `core.users.manage` en el local (sin módulo: es de core).
-// La API no devuelve las membresías en el listado: los roles se ven al elegir un local y se fijan con «Guardar roles».
-// OPEN: ¿exponer roles por local en `GET /users` para mostrarlos en la lista?
+// El listado trae los roles por local (solo de los locales que el actor gestiona); se fijan con «Guardar roles».
 
 const ROLE_LABEL: Record<LocationRole, string> = { admin: 'Administrador', staff: 'Personal', inventory: 'Inventario' };
+const rolesIn = (u: UserResponse, locationId: string) => (u.locations.find((l) => l.location_id === locationId)?.roles ?? []) as LocationRole[];
 const PASSWORD_RULES = `Entre 8 y 128 caracteres, con al menos una mayúscula y un número.`;
 const USERNAME_RULES = `De ${USERNAME_MIN} a ${USERNAME_MAX} caracteres: minúsculas, números, punto, guion y guion bajo.`;
 const field = 'mt-1 block h-10 w-full rounded-md border border-line-strong bg-surface px-2 text-sm text-fg';
@@ -152,7 +152,7 @@ function UserPanel({ user, self, onMsg }: { user: UserResponse; self: boolean; o
   const reset = useResetPassword();
   const revoke = useRevokeUserSessions();
   const [locationId, setLocationId] = useState(places[0]?.id ?? '');
-  const [roles, setR] = useState<LocationRole[]>([]);
+  const [roles, setR] = useState<LocationRole[]>(() => rolesIn(user, locationId));
   const [newPass, setNewPass] = useState('');
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState(false);
@@ -178,7 +178,7 @@ function UserPanel({ user, self, onMsg }: { user: UserResponse; self: boolean; o
       <section aria-label="Roles" className="space-y-3">
         <h3 className="font-semibold">Roles por local</h3>
         <label className="block max-w-xs text-muted">Local
-          <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className={field}>
+          <select value={locationId} onChange={(e) => { setLocationId(e.target.value); setR(rolesIn(user, e.target.value)); }} className={field}>
             {places.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </label>
@@ -202,8 +202,13 @@ function UserPanel({ user, self, onMsg }: { user: UserResponse; self: boolean; o
   );
 }
 
+/** «Principal: barra, caja · Terraza: personal». */
+const summary = (u: UserResponse, names: Map<string, string>) =>
+  u.locations.map((l) => `${names.get(l.location_id) ?? 'Local'}: ${l.roles.map((r) => ROLE_LABEL[r].toLowerCase()).join(', ')}`).join(' · ');
+
 export default function Users() {
   const { me } = useApp();
+  const names = new Map(me.locations.map((l) => [l.id, l.name]));
   const q = useUsers();
   const toast = useToast();
   const [search, setSearch] = useState('');
@@ -230,7 +235,7 @@ export default function Users() {
                 return (
                   <li key={u.id} className="rounded-lg border border-line bg-surface">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-sm">
-                      <span className="min-w-0 flex-1 basis-48"><b className="block truncate font-semibold">{u.display_name}</b><span className="text-muted">{u.username}</span></span>
+                      <span className="min-w-0 flex-1 basis-48"><b className="block truncate font-semibold">{u.display_name}</b><span className="text-muted">{u.username}</span>{u.locations.length > 0 && <span className="block truncate text-xs text-muted">{summary(u, names)}</span>}</span>
                       <span className="text-muted">{u.is_owner ? 'Dueño' : 'Usuario'}</span>
                       <span className={u.active ? 'font-semibold' : 'font-semibold text-muted'}>{u.active ? 'Activo' : 'Desactivado'}</span>
                       <Button size="sm" variant="secondary" aria-expanded={expanded} aria-label={`Gestionar ${u.display_name}`} onClick={() => setOpen(expanded ? null : u.id)}>
