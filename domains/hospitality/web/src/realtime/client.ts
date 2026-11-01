@@ -27,7 +27,6 @@ export class RealtimeClient {
   private listeners = new Set<() => void>();
   private socket: RealtimeSocket;
   private closed = false;
-  private subscribedBefore = false;
 
   constructor(private readonly locationId: string, private readonly qc: QueryClient, factory: SocketFactory = defaultSocketFactory) {
     const s = (this.socket = factory());
@@ -57,12 +56,10 @@ export class RealtimeClient {
       // OPEN: ack `ok:false` (p. ej. sin permiso) se muestra como desconectado y no se reintenta solo.
       if (!a.success || !a.data.ok) return this.set({ status: 'disconnected' });
       this.set({ status: 'connected' });
-      // Los eventos se pierden mientras no hay suscripción: tras re-suscribir se relee el estado autoritativo.
-      if (this.subscribedBefore) {
-        void this.qc.invalidateQueries({ queryKey: callsKeys.all(this.locationId) });
-        void this.qc.invalidateQueries({ queryKey: layoutKeys.published(this.locationId) });
-      }
-      this.subscribedBefore = true;
+      // Los eventos se pierden mientras no hay suscripción (también entre la primera carga por REST y este ack):
+      // al suscribir se relee siempre el estado autoritativo.
+      void this.qc.invalidateQueries({ queryKey: callsKeys.all(this.locationId) });
+      void this.qc.invalidateQueries({ queryKey: layoutKeys.published(this.locationId) });
     });
   }
 

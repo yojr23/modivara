@@ -56,19 +56,21 @@ it('tras cortar y restaurar la conexión relee por REST y la lista converge; el 
   const { result } = renderHook(() => ({ calls: useActiveCalls(L), status: useConnectionStatus() }), { wrapper });
   expect(result.current.status).toBe('connecting');
   await waitFor(() => expect(result.current.calls.data).toHaveLength(1));
+  server = [call(1), call(3)]; // llegó entre la carga por REST y la suscripción: su evento se perdió
   sock.fire('connect');
   expect(result.current.status).toBe('connected');
   expect(sock.emitted[0]).toEqual(['location.subscribe', { location_id: L }, expect.any(Function)]);
-  expect(rest).toHaveBeenCalledTimes(1); // primera conexión: sin relectura extra
+  await waitFor(() => expect(result.current.calls.data).toHaveLength(2)); // la primera suscripción también relee
+  expect(rest).toHaveBeenCalledTimes(2);
 
   sock.fire('disconnect');
   expect(result.current.status).toBe('disconnected');
   server = [call(1, { status: 'in_progress' }), call(2)]; // cambió mientras estaba caído
   sock.fire('connect');
   expect(sock.emitted).toHaveLength(2); // re-suscripción
-  await waitFor(() => expect(result.current.calls.data).toHaveLength(2));
-  expect(rest).toHaveBeenCalledTimes(2);
-  expect(result.current.calls.data?.[0]?.status).toBe('in_progress');
+  await waitFor(() => expect(result.current.calls.data?.[0]?.status).toBe('in_progress'));
+  expect(rest).toHaveBeenCalledTimes(3);
+  expect(result.current.calls.data).toHaveLength(2);
 });
 
 it('service_call.changed agrega, actualiza y quita completados; inválidos se ignoran', async () => {
