@@ -44,7 +44,7 @@ Las pantallas usan solo los hooks públicos de cada `domains/<d>/web` (TanStack 
 
 **Métricas** (`app/Metrics.tsx`): `useServiceCallMetrics` (todo el local y, al elegir una mesa, con `table_id`) sobre el plano publicado teñido por área; `useInventoryMetrics` (una consulta de todo el local: `by_product` da salidas y cantidades por producto; otra con `product_id` para la serie del producto elegido) con `useProducts` para la unidad y `useMovements` para los últimos movimientos.
 
-**Inventario** (`app/Inventory.tsx`): `useProducts`, `useStockLocations` (lugar por defecto), `useBalances`, `useMovements` (100 más recientes), `useReasons`, `useRegisterMovement`/`useAdjustToCount` con `Idempotency-Key` por intento (se renueva solo tras un éxito) y `useCreateProduct`.
+**Inventario** (`app/Inventory.tsx`): `useProducts`, `useStockLocations` (lugar por defecto), `useBalances`, `useMovements` (100 más recientes), `useReasons`, `useRegisterMovement`/`useAdjustToCount` con `Idempotency-Key` por intento (se renueva solo tras un éxito) y `useCreateProduct`. Vista «Lugares y motivos» (`app/InventorySettings.tsx`, con `commerce.reasons.manage` o `commerce.catalog.manage`): `useStockLocations`/`useCreateStockLocation` (alta; sin renombrar ni desactivar), `useReasons`/`useCreateReason`/`useDeactivateReason` (agrupados por dirección, desactivar con confirmación; el registro rápido solo ofrece los activos) (F4-10).
 
 **Usuarios** (`app/Users.tsx`): `useUsers` (lista con búsqueda; tarjetas en celular), `useCreateUser` + `useSetLocationRoles` (crear exige local y roles; si el segundo paso falla se avisa con un aviso fijo), por usuario `useSetLocationRoles`, `useResetPassword` (se pide la clave nueva; la API no devuelve ninguna), `useRevokeUserSessions` y `useDeactivateUser` con `<dialog>` (no a uno mismo). Valida con `usernameSchema`/`passwordSchema` de core-contracts. `GET /users` no trae membresías ni desactivados: no se muestran roles actuales en la lista (`// OPEN:` en `Users.tsx`).
 
@@ -78,4 +78,4 @@ Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY
 - Métricas de inventario: `total_delta` sin `product_id` mezcla unidades. Resuelta: la API agrega `by_product` (deltas y conteos por producto) y la UI lo usa.
 - Tiempos hasta «En atención» por área: la API no filtra por área (las áreas no son zonas); el detalle de un área muestra solo llamados.
 - Motivo por defecto al registrar: el primero que devuelve la API para esa dirección.
-- Pendientes de pantalla: consola de superadmin (F2-14, F3-15), lugares y motivos (F4-10). El simulador de botones ya es apto para celular (F2-10). E2E pendientes: envío por MQTT y consola de superadmin (F2-15).
+- Pendientes de pantalla: consola de superadmin (F2-14, F3-15). El simulador de botones ya es apto para celular (F2-10). E2E pendientes: envío por MQTT y consola de superadmin (F2-15).

@@ -19,6 +19,7 @@ pnpm test:e2e                  # informe en e2e/report (pnpm exec playwright sho
 | `auth.spec.ts` | F1-16: login correcto y erróneo, bloqueo a los 5 fallos, salir, aislamiento entre negocios (UI y API) |
 | `service-call.spec.ts` | F3-16 / L-07: pulsación → plano y cola → reconocer → finalizar en dos tableros a la vez → historial; pulsación repetida; reconexión tras reiniciar la API; interruptor «Sonido» (F3-13) |
 | `inventory.spec.ts` | F4-11: alta de producto, entrada, salida (y saldo insuficiente), ajuste por conteo, historial y API coherentes; staff sin inventario |
+| `inventory-settings.spec.ts` | F4-10: crear lugar y motivo «E2E …», verlo en el registro rápido, desactivarlo y comprobar que ya no se ofrece (el lugar no se puede borrar y queda en la demo) |
 | `history.spec.ts` | F3-14 / F3-16 «→ historial»: llamado tomado y cerrado por Barra → fila con quién tomó y cerró → detalle con línea de tiempo |
 | `users.spec.ts` | F1-15: admin crea un usuario «E2E …» con local y rol, lo ve en la lista, le cambia el rol y lo desactiva (sin iniciar sesión con él) |
 | `metrics.spec.ts` | F5-13: total de llamados de hoy en pantalla = historial; saldo en métricas = inventario |

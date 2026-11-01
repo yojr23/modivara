@@ -7,6 +7,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { dec, fmtQty, fmtSigned, fmtWhen, startOfDay } from './format';
+import InventorySettings from './InventorySettings';
 import { Bone, EmptyState, ErrorState, Page, Segmented, useApp, useEscape, useToast } from './ui';
 
 // F4-09 — inventario, versión «registro rápido» (PLAN-002): tipo, producto, cantidad y motivo a la vista; lo registrado hoy al lado.
@@ -296,12 +297,17 @@ export default function Inventory() {
   const [chosen, setChosen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [all, setAll] = useState(false);
+  const [view, setView] = useState<'registro' | 'ajustes'>('registro');
+  const { can } = useApp();
+  const canSettings = can('commerce.reasons.manage') || can('commerce.catalog.manage');
   const product = inv.product(chosen ?? '') ?? inv.products[0];
   const todayStart = startOfDay(new Date()).getTime();
   const today = inv.movements.filter((m) => Date.parse(m.occurred_at) >= todayStart);
 
   let body: ReactNode;
-  if (inv.loading) {
+  if (view === 'ajustes') {
+    body = <InventorySettings />;
+  } else if (inv.loading) {
     body = <div aria-busy aria-label="Cargando inventario" className="grid gap-6 p-4 md:p-8 lg:grid-cols-[minmax(0,1fr)_400px]"><div className="space-y-4"><Bone className="h-10 w-80" /><div className="grid grid-cols-3 gap-2">{Array.from({ length: 9 }, (_, i) => <Bone key={i} className="h-16" />)}</div><Bone className="h-12" /></div><RowBones n={6} /></div>;
   } else if (inv.error) {
     body = <ErrorState what="el inventario" onRetry={inv.retry} />;
@@ -359,7 +365,12 @@ export default function Inventory() {
 
   return (
     <Page id="inventario" title="Inventario" subtitle={inv.place ? `Lugar de stock ${inv.place.name}` : undefined}
-      actions={inv.canCatalog && <div className="md:ml-auto"><Button variant="ghost" onClick={() => setCreating(true)}><PackagePlus aria-hidden className="size-4" />Nuevo producto</Button></div>}>
+      actions={(canSettings || inv.canCatalog) && (
+        <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+          {canSettings && <Segmented label="Vista" options={[['registro', 'Registro'], ['ajustes', 'Lugares y motivos']] as const} value={view} onChange={setView} />}
+          {inv.canCatalog && view === 'registro' && <Button variant="ghost" onClick={() => setCreating(true)}><PackagePlus aria-hidden className="size-4" />Nuevo producto</Button>}
+        </div>
+      )}>
       {body}
       {creating && <ProductDialog inv={inv} onClose={() => setCreating(false)} onCreated={(p) => { setChosen(p.id); setDirection('in'); }} />}
       {inv.toast.node}
