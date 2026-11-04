@@ -155,7 +155,8 @@ describe('OutboxPoller', () => {
   it('tras maxAttempts fallos queda con failed_at y el poller ya no lo toma; retryFailed lo libera y se entrega', async () => {
     await publishCall();
     const handle = vi.fn<(e: IntegrationEvent) => Promise<void>>().mockRejectedValue(new Error('siempre falla'));
-    const poller = new OutboxPoller(db, [{ name: 'roto', handles: () => true, handle }], { ...FAST, baseBackoffMs: 1, maxBackoffMs: 1 });
+    const logger = { warn: vi.fn(), error: vi.fn() };
+    const poller = new OutboxPoller(db, [{ name: 'roto', handles: () => true, handle }], { ...FAST, baseBackoffMs: 1, maxBackoffMs: 1 }, logger);
     for (let i = 0; i < 10; i++) {
       await poller.tick();
       await new Promise((r) => setTimeout(r, 5));
@@ -163,6 +164,9 @@ describe('OutboxPoller', () => {
     expect(handle).toHaveBeenCalledTimes(10);
     expect(await row()).toMatchObject({ attempts: 10, lastError: 'siempre falla', dispatchedAt: null });
     expect((await row()).failedAt).toBeInstanceOf(Date);
+    expect(logger.error).toHaveBeenCalledTimes(1); // PAT-01: solo al agotar los intentos
+    expect(JSON.parse(logger.error.mock.calls[0]![0] as string)).toMatchObject({ event: 'outbox.event_failed', event_id: (await row()).id, attempts: 10, error: 'siempre falla' });
+    expect(await poller.countFailed()).toBe(1);
 
     await new Promise((r) => setTimeout(r, 10));
     expect(await poller.tick()).toBe(0);
@@ -170,6 +174,7 @@ describe('OutboxPoller', () => {
 
     expect(await retryFailed(db, newId())).toBe(0); // otro id: no toca nada
     expect(await retryFailed(db, (await row()).id)).toBe(1);
+    expect(await poller.countFailed()).toBe(0);
     expect(await row()).toMatchObject({ failedAt: null, attempts: 0, lastError: 'siempre falla' }); // conserva el último error
     handle.mockResolvedValue(undefined);
     expect(await poller.tick()).toBe(1);

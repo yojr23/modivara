@@ -25,7 +25,9 @@ describe('health', () => {
     try {
       expect((await request(app.getHttpServer()).get('/api/v1/health/live')).status).toBe(200);
       expect((await request(app.getHttpServer()).get('/api/v1/health')).status).toBe(200);
-      expect((await request(app.getHttpServer()).get('/api/v1/health/ready')).status).toBe(ready);
+      const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
+      expect(res.status).toBe(ready);
+      if (ready === 200) expect(res.body).toEqual({ status: 'ok', database: 'up' }); // sin estado interno: la sonda es pública
     } finally {
       await app.close();
     }

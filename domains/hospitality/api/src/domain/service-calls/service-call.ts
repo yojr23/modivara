@@ -113,13 +113,13 @@ export class ServiceCall extends AggregateRoot {
   get callType() { return this.props.callType; }
   get status() { return this.props.status; }
   get pressCount() { return this.props.pressCount; }
-  get createdAt() { return this.props.createdAt; }
-  get lastPressAt() { return this.props.lastPressAt; }
-  get acknowledgedAt() { return this.props.acknowledgedAt; }
+  get createdAt() { return new Date(this.props.createdAt); }
+  get lastPressAt() { return new Date(this.props.lastPressAt); }
+  get acknowledgedAt() { return this.props.acknowledgedAt && new Date(this.props.acknowledgedAt); }
   get acknowledgedBy() { return this.props.acknowledgedBy; }
-  get completedAt() { return this.props.completedAt; }
+  get completedAt() { return this.props.completedAt && new Date(this.props.completedAt); }
   get completedBy() { return this.props.completedBy; }
-  get updatedAt() { return this.props.updatedAt; }
+  get updatedAt() { return new Date(this.props.updatedAt); }
   get isActive() { return this.props.status !== 'completed'; }
 
   /** Estado con el que se leyó de persistencia: el repositorio lo usa para detectar concurrencia. `null` si es nuevo. Una instancia sirve para un solo guardado. */
@@ -182,7 +182,15 @@ export class ServiceCall extends AggregateRoot {
   }
 
   toProps(): ServiceCallProps {
-    return { ...this.props };
+    const { createdAt, lastPressAt, acknowledgedAt, completedAt, updatedAt } = this.props;
+    return {
+      ...this.props,
+      createdAt: new Date(createdAt),
+      lastPressAt: new Date(lastPressAt),
+      acknowledgedAt: acknowledgedAt && new Date(acknowledgedAt),
+      completedAt: completedAt && new Date(completedAt),
+      updatedAt: new Date(updatedAt),
+    };
   }
 
   private event<T extends ServiceCallDomainEvent['eventType']>(
