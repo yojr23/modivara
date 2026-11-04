@@ -26,7 +26,7 @@ class TestHostModule {}
 
 export async function createTestApp(opts: { unlimited?: boolean } = {}) {
   let builder = Test.createTestingModule({ imports: [TestHostModule] });
-  if (opts.unlimited ?? true) builder = builder.overrideProvider(LoginRateLimiter).useValue({ check: () => undefined, fail: () => undefined });
+  if (opts.unlimited ?? true) builder = builder.overrideProvider(LoginRateLimiter).useValue({ hit: () => undefined, refund: () => undefined });
   const app: INestApplication = (await builder.compile()).createNestApplication();
   app.use(cookieParser());
   app.setGlobalPrefix('api/v1');
