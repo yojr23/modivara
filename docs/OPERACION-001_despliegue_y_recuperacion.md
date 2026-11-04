@@ -52,7 +52,7 @@ scripts/restore-check.sh     # restaura el más reciente en un contenedor desech
 - Los roles `<dominio>_app` no van en el dump: se recrean con `init-schemas.sh` al crear el volumen (mismas contraseñas del `.env`).
 
 **Restauración real** (VPS nuevo o base dañada): levantar solo `db` con volumen nuevo (corre `init-schemas.sh`), luego
-`openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE -in <archivo>.dump.enc | docker compose exec -T db sh -c 'pg_restore --clean --if-exists --no-owner --role=postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB"'` y después `up -d`. Ensayar este camino completo cada trimestre.
+`openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE -in <archivo>.dump.enc | docker compose exec -T db sh -c 'pg_restore --clean --if-exists -U "$POSTGRES_USER" -d "$POSTGRES_DB"'` y después `up -d`. Ensayar este camino completo cada trimestre.
 
 **Pasos del operador (no automatizados, sin servicios pagos):**
 - Cron diario: `0 3 * * * cd /ruta/modivara && BACKUP_PASSPHRASE=... scripts/backup.sh >> backups/cron.log 2>&1`.
