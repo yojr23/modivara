@@ -3,7 +3,9 @@
 	handle /api/* {
 		reverse_proxy api:3000
 	}
-	handle_path /sim* {
+	# `/sim` sin barra rompería el `fetch('press')` relativo de la página: se normaliza a `/sim/`.
+	redir /sim /sim/
+	handle_path /sim/* {
 		reverse_proxy button-sim:4000
 	}
 	handle {
