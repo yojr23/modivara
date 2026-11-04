@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Module, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Inject, Logger, Module, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { AnalyticsModule } from '@modivara/analytics-api';
 import { COMMERCE_OUTBOX, CommerceModule } from '@modivara/commerce-api';
 import { CORE_OUTBOX, CORE_PRISMA, CoreModule, coreGlobalProviders, Public } from '@modivara/core-api';
@@ -8,6 +8,8 @@ import { IntegrationSubscribersModule } from './integration-subscribers.module.j
 
 @Controller('health')
 export class HealthController {
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(
     @Inject(CORE_PRISMA) private readonly db: { $queryRawUnsafe(sql: string): Promise<unknown> },
     @Optional() @Inject(CORE_OUTBOX) private readonly coreOutbox?: OutboxPoller,
@@ -31,13 +33,16 @@ export class HealthController {
     } catch {
       throw new ServiceUnavailableException({ status: 'unavailable', database: 'down' });
     }
-    return { status: 'ok', database: 'up', outbox_failed: await this.failedEvents() };
+    const failed = await this.failedEvents();
+    if (Object.values(failed).some((n) => n)) this.logger.warn(JSON.stringify({ event: 'outbox.failed_pending', ...failed }));
+    return { status: 'ok', database: 'up' };
   }
 
   /**
    * Eventos con `failed_at` por dominio (PAT-01). Informativo: NO pone ready en 503, porque un evento detenido no impide atender
-   * peticiones y sacar la instancia del balanceador no lo arregla; se actúa con la alerta sobre el log `outbox.event_failed`
-   * o con este contador, y se libera con `pnpm outbox:retry`. Si el recuento falla devuelve null (no tumba la sonda).
+   * peticiones y sacar la instancia del balanceador no lo arregla; se actúa con la alerta sobre los logs `outbox.event_failed`
+   * y `outbox.failed_pending` (cada sonda mientras queden), y se libera con `pnpm outbox:retry`. No va en la respuesta: la sonda
+   * es pública (Caddy expone /api/*) y el estado interno no se publica. Si el recuento falla devuelve null (no tumba la sonda).
    */
   private async failedEvents(): Promise<Record<string, number | null>> {
     const pollers = { core: this.coreOutbox, hospitality: this.hospitalityOutbox, commerce: this.commerceOutbox };
