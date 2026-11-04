@@ -55,17 +55,27 @@ function setup() {
     .add({ id: LOC, organizationId: ORG, timezone: 'America/Bogota', active: true })
     .add({ id: OTHER_LOC, organizationId: OTHER_ORG, timezone: 'America/Bogota', active: true });
   const projectEvent = new ProjectEvent(buildEventRegistry(calls, stocks), processed);
-  const subscriber = new AnalyticsEventSubscriber(projectEvent);
+  const projector = {
+    clear: async () => { await Promise.all([calls.clear(), stocks.clear(), processed.clear()]); },
+    project: (event: unknown) => projectEvent.execute(event),
+  };
+  // Simula el rollback de la transacción real: si el trabajo lanza, los reclamos de la corrida se descartan.
+  const transaction = {
+    run: async <T,>(work: (p: typeof projector) => Promise<T>) => {
+      const before = new Map(processed.ids);
+      try { return await work(projector); } catch (e) {
+        processed.ids.clear();
+        before.forEach((v, k) => processed.ids.set(k, v));
+        throw e;
+      }
+    },
+  };
+  const subscriber = new AnalyticsEventSubscriber(transaction);
   return {
     calls, stocks, processed, subscriber, projectEvent,
     callMetrics: new GetServiceCallMetrics(calls, core),
     stockMetrics: new GetInventoryMetrics(stocks, core),
-    rebuild: new RebuildProjections({
-      run: (work) => work({
-        clear: async () => { await Promise.all([calls.clear(), stocks.clear(), processed.clear()]); },
-        project: (event) => projectEvent.execute(event),
-      }),
-    }),
+    rebuild: new RebuildProjections(transaction),
   };
 }
 type Ctx = ReturnType<typeof setup>;

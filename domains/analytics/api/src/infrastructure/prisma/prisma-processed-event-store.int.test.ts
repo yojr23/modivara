@@ -12,8 +12,8 @@ describe('PrismaProcessedEventStore', () => {
   it('has/add; el mismo event_id dos veces deja una sola fila', async () => {
     const id = newId();
     expect(await store.has(id)).toBe(false);
-    await store.add(id, 'a.b.v1');
-    await store.add(id, 'a.b.v1');
+    expect(await store.add(id, 'a.b.v1')).toBe(true);
+    expect(await store.add(id, 'a.b.v1')).toBe(false);
     expect(await store.has(id)).toBe(true);
     expect(await db.processedEvent.count()).toBe(1);
   });

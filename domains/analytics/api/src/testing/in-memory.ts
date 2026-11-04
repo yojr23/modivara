@@ -76,7 +76,9 @@ export class InMemoryProcessedEventStore implements ProcessedEventStore {
     return this.ids.has(eventId);
   }
   async add(eventId: string, eventType: string) {
+    if (this.ids.has(eventId)) return false;
     this.ids.set(eventId, eventType);
+    return true;
   }
   async clear() {
     this.ids.clear();
