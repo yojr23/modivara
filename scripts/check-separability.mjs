@@ -2,7 +2,7 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { findDependencyViolations, findImportViolations } from './separability.mjs';
+import { findDependencyViolations, findImportViolations, findLayerViolations } from './separability.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const dirs = (p) => readdirSync(p, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
@@ -32,7 +32,7 @@ const files = units.flatMap((unitRoot) =>
   sourceFiles(unitRoot).map((file) => ({ file, unitRoot, content: readFileSync(file, 'utf8') })),
 );
 
-const violations = [...findDependencyViolations(pkgs), ...findImportViolations(files)].map((v) => v.replaceAll(root + path.sep, ''));
+const violations = [...findDependencyViolations(pkgs), ...findImportViolations(files), ...findLayerViolations(files)].map((v) => v.replaceAll(root + path.sep, ''));
 if (violations.length) {
   console.error(`Separabilidad: ${violations.length} violación(es)\n- ${violations.join('\n- ')}`);
   process.exit(1);
