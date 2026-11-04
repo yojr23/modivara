@@ -221,10 +221,11 @@ describe('rol sin el permiso, en su propio local -> 403', () => {
 
 describe('local de otro negocio -> 404, sea cual sea el rol y tenga o no el permiso', () => {
   const locationRoutes = ROUTES.filter(hasLocation);
-  const fromDemo = ROLES.flatMap((role) => locationRoutes.map((x) => [`${role} de bar-demo ${label(x)}`, USER_OF[role].join('/'), pisosLocation, x] as const));
-  const fromPisos = locationRoutes.map((x) => [`admin de bar-demo-pisos ${label(x)}`, 'bar-demo-pisos/admin', demoLocation, x] as const);
+  const fromDemo = ROLES.flatMap((role) => locationRoutes.map((x) => [`${role} de bar-demo ${label(x)}`, USER_OF[role].join('/'), () => pisosLocation, x] as const));
+  const fromPisos = locationRoutes.map((x) => [`admin de bar-demo-pisos ${label(x)}`, 'bar-demo-pisos/admin', () => demoLocation, x] as const);
 
-  it.each([...fromDemo, ...fromPisos])('%s', async (_n, who, foreignLocation, route) => {
+  it.each([...fromDemo, ...fromPisos])('%s', async (_n, who, foreign, route) => {
+    const foreignLocation = foreign(); // los ids se llenan en beforeAll
     const res = await call(cookies.get(who), route.method, fill(route.path, foreignLocation), withBody(route));
     expect(res.status).toBe(404);
     expect(JSON.stringify(res.body)).not.toContain(foreignLocation);
@@ -254,7 +255,7 @@ describe('ids de otro negocio bajo un local propio -> 404', () => {
   it.each([
     ['PATCH mesa ajena', 'patch', (b: string) => `${b}/tables/${pisos.table}`, { label: 'zz' }],
     ['POST desactivar mesa ajena', 'post', (b: string) => `${b}/tables/${pisos.table}/deactivate`, {}],
-    ['POST mesa en zona ajena', 'post', (b: string) => `${b}/tables`, { label: 'Z1', zone_id: pisos.zone }],
+    ['POST mesa en zona ajena', 'post', (b: string) => `${b}/tables`, () => ({ label: 'Z1', zone_id: pisos.zone })],
     ['PATCH zona ajena', 'patch', (b: string) => `${b}/zones/${pisos.zone}`, { name: 'zz' }],
     ['POST desactivar zona ajena', 'post', (b: string) => `${b}/zones/${pisos.zone}/deactivate`, {}],
     ['PATCH producto ajeno', 'patch', (b: string) => `${b}/products/${pisos.product}`, { name: 'zz' }],
@@ -264,7 +265,8 @@ describe('ids de otro negocio bajo un local propio -> 404', () => {
     ['POST finalizar llamado ajeno', 'post', (b: string) => `${b}/service-calls/${pisos.call}/complete`, {}],
     ['POST desactivar motivo ajeno', 'post', () => `/commerce/movement-reasons/${pisos.reason}/deactivate`, {}],
   ] as const)('admin de bar-demo: %s', async (_n, method, path, body) => {
-    expect((await call(admin(), method, path(base()), body)).status).toBe(404);
+    // `pisos` se llena en beforeAll: los cuerpos que lo usan van como función.
+    expect((await call(admin(), method, path(base()), typeof body === 'function' ? body() : body)).status).toBe(404);
   });
 
   it.each([
