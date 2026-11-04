@@ -557,7 +557,7 @@ export function AreaInspector({ ed }: { ed: Ed }) {
       </div>
       <div>
         <Button size="sm" variant="secondary" className="w-full" onClick={() => ed.removeArea(area.id)}><Trash aria-hidden className="size-4" />Eliminar área</Button>
-        <p className="mt-1 text-xs text-muted">Las mesas no se mueven ni se borran; quedan sin área. Las métricas pasadas conservan el área que tenían.</p>
+        <p className="mt-1 text-xs text-muted">Las mesas no se mueven ni se borran; quedan sin área. Las métricas por área se calculan con el plano actual.</p>
       </div>
     </div>
   );

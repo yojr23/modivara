@@ -130,7 +130,7 @@ function Review({ ed }: { ed: Ed }) {
               <li key={c.label}><span className="font-semibold">{c.label}</span>: {c.before ?? 'sin área'} a {c.after ?? 'sin área'}</li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-muted">Las métricas de antes conservan el área que tenían; las nuevas usan la nueva.</p>
+          <p className="mt-2 text-xs text-muted">Las métricas por área se calculan con el plano actual, también las de días anteriores.</p>
         </section>
       )}
       <section aria-labelledby="review-sum">
