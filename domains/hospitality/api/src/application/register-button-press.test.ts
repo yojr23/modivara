@@ -219,4 +219,28 @@ describe('RegisterButtonPress', () => {
       expect((await w.registerPress.registerPress(w.press())).result).toBe('call_created');
     });
   });
+
+  describe('idempotencia y trazabilidad (PAT-03, QA-05)', () => {
+    it('un reenvío con la misma press_id (incluso pasado el debounce) no registra otro evento ni cuenta otra pulsación', async () => {
+      await seedTableWithButton(w);
+      const msg = { gatewayId: crypto.randomUUID(), pressId: 'p-1', payload: { device_code: 'BTN-1', press_id: 'p-1' } };
+      const first = await w.registerPress.registerPress(w.press(msg));
+      vi.setSystemTime(new Date(T0.getTime() + 60_000));
+      const retry = await w.registerPress.registerPress(w.press(msg));
+      expect(retry).toEqual(first);
+      expect(w.events.all()).toHaveLength(1);
+      expect(w.calls.all()[0]!.pressCount).toBe(1);
+      expect(w.notifications.sent).toHaveLength(1);
+      // Otra pulsación (otra clave) sí cuenta.
+      const next = await w.registerPress.registerPress(w.press({ gatewayId: msg.gatewayId, pressId: 'p-2', payload: { device_code: 'BTN-1', press_id: 'p-2' } }));
+      expect(next.result).toBe('repeat_press');
+    });
+
+    it('el correlation_id de la ingesta llega al device_event y al evento de outbox del llamado', async () => {
+      await seedTableWithButton(w);
+      await w.registerPress.registerPress(w.press({ correlationId: 'c0ffee00-0000-4000-8000-000000000001' }));
+      expect(w.events.all()[0]!.correlationId).toBe('c0ffee00-0000-4000-8000-000000000001');
+      expect(w.calls.outbox.map((e) => e.correlationId)).toEqual(['c0ffee00-0000-4000-8000-000000000001']);
+    });
+  });
 });

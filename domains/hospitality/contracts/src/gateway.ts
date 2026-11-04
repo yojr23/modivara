@@ -4,6 +4,8 @@ import { z } from 'zod';
 export const gatewayPressMessageSchema = z.object({
   device_code: z.string().min(1).max(64),
   button_key: z.string().min(1).max(64).optional(),
+  /** PAT-03: clave estable de la pulsación, generada en el gateway. Un reenvío con la misma clave se registra una sola vez. */
+  press_id: z.string().min(1).max(64).optional(),
   /** Reloj del gateway: no confiable, solo informativo. */
   sent_at: z.iso.datetime({ offset: true }).optional(),
 });

@@ -71,6 +71,31 @@ describe('POST /device-events', () => {
     expect(await db.serviceCall.count()).toBe(1);
   });
 
+  it('PAT-03: reenviar la misma press_id por HTTP (aun pasado el debounce) deja un solo device_event y un solo conteo', async () => {
+    const body = { device_code: 'btn-01', press_id: 'press-0001' };
+    const first = await post(PRESS, body);
+    await db.deviceEvent.updateMany({ data: { receivedAt: new Date(Date.now() - 60_000) } });
+    const retry = await post(PRESS, body);
+    expect(retry.status).toBe(200);
+    expect(retry.body).toEqual(first.body);
+    expect(await db.deviceEvent.count()).toBe(1);
+    expect((await db.serviceCall.findFirstOrThrow()).pressCount).toBe(1);
+  });
+
+  it('PAT-03: reenvíos simultáneos de la misma press_id se registran una sola vez', async () => {
+    const body = { device_code: 'btn-01', press_id: 'press-0002' };
+    const res = await Promise.all([post(PRESS, body), post(PRESS, body), post(PRESS, body)]);
+    expect(new Set(res.map((r) => r.body.device_event_id)).size).toBe(1);
+    expect(await db.deviceEvent.count()).toBe(1);
+  });
+
+  it('QA-05: el correlation_id de la pulsación es el mismo en el device_event, el llamado y su evento de outbox', async () => {
+    await post(PRESS, { device_code: 'btn-01' });
+    const e = await db.deviceEvent.findFirstOrThrow();
+    const outbox = await db.outboxEvent.findMany({ where: { eventType: 'hospitality.service_call.created' } });
+    expect(outbox.map((o) => o.correlationId)).toEqual([e.correlationId]);
+  });
+
   it.each([
     ['sin clave', null],
     ['clave desconocida', 'mvg_desconocida'],

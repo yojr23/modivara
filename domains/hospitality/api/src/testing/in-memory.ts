@@ -192,6 +192,9 @@ export class InMemoryDeviceEventRepository implements DeviceEventRepository {
       .filter((e) => inScope(e, scope) && e.deviceId === deviceId && e.buttonKey === buttonKey && (e.result === 'call_created' || e.result === 'repeat_press'));
     return counted.sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime())[0] ?? null;
   }
+  findByPressId({ gatewayId, deviceId, pressId, ...scope }: Scope & { gatewayId: string; deviceId: string; pressId: string }) {
+    return this.store.all().find((e) => inScope(e, scope) && e.gatewayId === gatewayId && e.deviceId === deviceId && e.toProps().payload.press_id === pressId) ?? null;
+  }
   constructor(private readonly devices: InMemoryDeviceRepository) {}
 
   async listUnknownCodes({ since, ...scope }: Scope & { since: Date }) {
@@ -245,6 +248,7 @@ export class InMemoryButtonPressStore implements ButtonPressStore {
       // Sin concurrencia real en memoria: el caso de uso ya comprobó la mesa activa antes del bloqueo.
       lockActiveTable: async () => true,
       findLastPress: async (query) => this.events.lastPress(query),
+      findByPressId: async (query) => this.events.findByPressId(query),
       upsertActiveCall: async (candidate, now) => {
         if (this.fail.upsert) throw this.fail.upsert;
         const { undo: revert, ...result } = this.calls.upsertActive(candidate, now);

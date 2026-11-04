@@ -119,6 +119,17 @@ describe('adaptador MQTT con broker real', () => {
     expect(await db.serviceCall.count()).toBe(2);
   });
 
+  it('PAT-03: la misma press_id reenviada por HTTP y luego por MQTT se registra una sola vez', async () => {
+    const body = { device_code: 'mqtt-1', press_id: 'press-mixto-1' };
+    await viaHttp(body);
+    await db.deviceEvent.updateMany({ data: { receivedAt: new Date(Date.now() - 60_000) } });
+    await viaMqtt(gatewayId, 'press', body);
+    await viaMqtt(gatewayId, 'press', body);
+    await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1' }); // sentinela sin clave: llega después de los reenvíos
+    await eventually(async () => (await db.deviceEvent.count({ where: { deviceCode: 'mqtt-1' } })) === 2);
+    expect(await db.deviceEvent.count({ where: { deviceCode: 'mqtt-1', payload: { path: ['press_id'], equals: 'press-mixto-1' } } })).toBe(1);
+  });
+
   it('el tenant sale del gateway del tópico, no del mensaje', async () => {
     await viaMqtt(gatewayId, 'press', { device_code: 'mqtt-1', organization_id: newId(), location_id: newId() });
     const e = await eventually(() => db.deviceEvent.findFirst({ where: { deviceCode: 'mqtt-1' } }));
