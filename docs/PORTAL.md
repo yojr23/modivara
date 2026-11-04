@@ -6,6 +6,7 @@
 
 | Ruta | Qué es | Quién la ve |
 |---|---|---|
+| `/` | Portada: «¿Cuál es tu negocio?». Valida el slug con `slugSchema` (core-contracts) y lleva a `/<negocio>`. | Todos |
 | `/<negocio>` | Login por negocio (ADR-002 D2). Con sesión de ese negocio redirige a la app; con sesión de otro, muestra el login para entrar a este. | Todos |
 | `/<negocio>/app` | Abre la primera pantalla permitida. | Con sesión |
 | `/<negocio>/app/tablero` | Tablero operativo sobre los planos publicados (L-06). | Módulo `hospitality` + `hospitality.calls.read` |
@@ -41,7 +42,9 @@ Las pantallas usan solo los hooks públicos de cada `domains/<d>/web` (TanStack 
 
 **Historial** (`app/History.tsx`): `useCallHistory` (rango `from` inclusivo / `to` exclusivo sobre días del navegador, mesa con `useTables`, estado; «Cargar más» sigue el cursor) y `useCallDetail` en un panel lateral con la línea de tiempo de transiciones y nombres.
 
-**Editor de espacios** (`app/Spaces.tsx`, `app/editor-kit.tsx`): espacios = zonas (más «Salón principal» si hay mesas sin zona o no hay zonas). Por espacio carga borrador o publicado (`useLayoutDraft`), guarda con `revision` (`useSaveLayoutDraft`; 409 → recargar la versión vigente o conservar la propia y reemplazar) y publica (`usePublishLayout`). Crea espacios (`useCreateZone`) y mesas (`useCreateTable`), renombra (`useUpdateZone`, `useUpdateTable`) y desactiva mesas y espacios (`app/Deactivate.tsx`: `useDeactivateTable`/`useDeactivateZone`, con confirmación; la mesa también se quita del borrador del plano). Modo «Actividad»: llamados por mesa y área del período (`useServiceCallMetrics`).
+**Editor de espacios** (`app/Spaces.tsx`, `app/editor-kit.tsx`): espacios = zonas (más «Salón principal» si hay mesas sin zona o no hay zonas). Por espacio carga borrador o publicado (`useLayoutDraft`), guarda con `revision` (`useSaveLayoutDraft`; 409 → recargar la versión vigente o conservar la propia y reemplazar) y publica (`usePublishLayout`). Crea espacios (`useCreateZone`) y mesas (`useCreateTable`), renombra (`useUpdateZone`, `useUpdateTable`) y desactiva mesas y espacios (`app/Deactivate.tsx`: `useDeactivateTable`/`useDeactivateZone`, con confirmación; la mesa también se quita del borrador del plano). Modo «Actividad»: llamados por mesa y área del período (`useServiceCallMetrics`). El título del espacio se confirma con Enter o al perder el foco y Escape cancela. Con cambios sin guardar, `useBlocker` + `beforeunload` avisan al salir de la pantalla o cerrar la pestaña (Guardar y salir / Descartar y salir / Seguir editando); el cambio de espacio lo pregunta el editor.
+
+**Errores de carga**: `ErrorState` (`app/ui.tsx`) recibe `error` y `app/error-copy.ts` (`describeError`) elige copy y acción: sin conexión (`navigator.onLine`, `NetworkError`, `TypeError`) y 404/409/5xx reintentan; 401 ofrece volver a entrar; 403 no ofrece acción. Sin `error` (Board, Inventory, Spaces) usa copy genérico.
 
 **Métricas** (`app/Metrics.tsx`): `useServiceCallMetrics` (todo el local y, al elegir una mesa, con `table_id`) sobre el plano publicado teñido por área; `useInventoryMetrics` (una consulta de todo el local: `by_product` da salidas y cantidades por producto; otra con `product_id` para la serie del producto elegido) con `useProducts` para la unidad y `useMovements` para los últimos movimientos.
 

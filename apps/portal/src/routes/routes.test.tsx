@@ -1,6 +1,6 @@
 import { AuthProvider } from '@modivara/core-web';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { routes } from './routes';
@@ -53,4 +53,16 @@ it('un 401 de cualquier consulta limpia la sesión y redirige', async () => {
   // consulta cualquiera del portal que recibe 401
   await client.fetchQuery({ queryKey: ['x'], queryFn: async () => { const r = await fetch('/api/v1/x'); if (r.status === 401) throw Object.assign(new (await import('@modivara/core-web')).ApiRequestError(401, 'session_expired')); } }).catch(() => {});
   await waitFor(() => expect(router.state.location.pathname).toBe('/demo'));
+});
+
+it('la portada pide el negocio, valida el slug y lleva a su login', async () => {
+  const { router } = mount('/', async () => json({ code: 'unauthorized' }, 401));
+  const input = await screen.findByLabelText(/Nombre de tu negocio/);
+  fireEvent.change(input, { target: { value: 'Mal Slug' } });
+  fireEvent.submit(input.closest('form')!);
+  expect(await screen.findByRole('alert')).toBeTruthy();
+  expect(router.state.location.pathname).toBe('/');
+  fireEvent.change(input, { target: { value: ' Bar-Demo ' } });
+  fireEvent.submit(input.closest('form')!);
+  await waitFor(() => expect(router.state.location.pathname).toBe('/bar-demo'));
 });
