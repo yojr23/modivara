@@ -29,3 +29,31 @@ export function findImportViolations(files) {
     }),
   );
 }
+
+const FRAMEWORK = /^(@nestjs\/|@prisma\/|zod$|react($|\/)|react-dom)/;
+const OUTER_LAYER = /(^|\/)(infrastructure|presentation)(\/|$)/;
+
+/**
+ * Capas de Clean Architecture (QA-07, TECH-001 §5). `file` en cualquier separador:
+ * - domains/<d>/api/src/domain/**: sin Nest, Prisma, Zod ni React, ni imports de infrastructure/presentation;
+ * - domains/<d>/api/src/application/**: sin Prisma ni infrastructure;
+ * - se ignoran los *.test.* (cablean adaptadores a propósito);
+ * - apps/api/src: solo compone módulos, no importa carpetas domain/ ni application/.
+ */
+export function findLayerViolations(files) {
+  return files.flatMap(({ file, content }) => {
+    const f = file.replaceAll('\\', '/');
+    if (/\.test\.[mc]?[jt]sx?$/.test(f)) return []; // las pruebas de integración cablean adaptadores a propósito
+    const inLayer = (layer) => new RegExp(`domains/[^/]+/api/src/${layer}/`).test(f);
+    const isDomain = inLayer('domain');
+    const isApplication = inLayer('application');
+    const isHost = /(^|\/)apps\/api\/src\//.test(f);
+    if (!isDomain && !isApplication && !isHost) return [];
+    return [...content.matchAll(SPECIFIER)].flatMap(([, spec]) => {
+      if (isDomain && (FRAMEWORK.test(spec) || OUTER_LAYER.test(spec))) return [`${file}: domain no puede importar ${spec}`];
+      if (isApplication && (/^@prisma\//.test(spec) || /(^|\/)infrastructure(\/|$)/.test(spec))) return [`${file}: application no puede importar ${spec}`];
+      if (isHost && /(^|\/)(domain|application)\//.test(spec)) return [`${file}: apps/api no implementa negocio; importa ${spec}`];
+      return [];
+    });
+  });
+}

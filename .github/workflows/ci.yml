@@ -17,6 +17,7 @@ jobs:
           node-version: 24.22.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=critical # SEC-08: política: críticos bloquean el PR; altos se revisan vía Dependabot
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm check:separability

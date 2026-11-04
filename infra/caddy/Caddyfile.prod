@@ -2,6 +2,16 @@
 # sirve HTTPS y redirige HTTP→HTTPS solo. Socket.IO (/api/v1/realtime) pasa por /api/* con el upgrade a WebSocket.
 # Sin /sim: el simulador puede crear llamados sin sesión y no se publica (SEC-01).
 {$DOMAIN} {
+	# SEC-10. CSP para el portal Vite: script/estilos/fuentes propios (fontsource se empaqueta), 'unsafe-inline' solo en estilos
+	# (los `style={{}}` de React), Socket.IO al mismo origen (wss). Sin includeSubDomains/preload hasta decidirlo (irreversible en navegadores).
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' wss://{$DOMAIN}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
 	handle /api/* {
 		reverse_proxy api:3000
 	}
