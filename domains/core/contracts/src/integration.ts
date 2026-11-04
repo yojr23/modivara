@@ -10,7 +10,11 @@ export type IntegrationEvent = EventEnvelope & { payload: unknown };
 export interface IntegrationEventSubscriber {
   readonly name: string;
   handles(eventType: string): boolean;
-  handle(event: IntegrationEvent): Promise<void>;
+  /**
+   * `signal` se aborta cuando vence `deliveryTimeoutMs` (ARC-08): JS no cancela una promesa, así que solo un suscriptor que lo propague
+   * (fetch, consultas, timers) deja de trabajar; uno que lo ignore sigue en segundo plano y puede solaparse con el reintento.
+   */
+  handle(event: IntegrationEvent, signal?: AbortSignal): Promise<void>;
 }
 
 /** Token multi-proveedor bajo el que el host registra los suscriptores; el poller los inyecta sin conocer sus dominios. */

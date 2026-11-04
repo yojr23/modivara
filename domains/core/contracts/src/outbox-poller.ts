@@ -201,17 +201,30 @@ export class OutboxPoller {
   private async deliver(row: OutboxRow): Promise<void> {
     const event = rowToEvent(row);
     for (const subscriber of this.subscribers) {
-      if (subscriber.handles(event.event_type)) await this.withTimeout(subscriber.handle(event), subscriber.name);
+      if (subscriber.handles(event.event_type)) await this.withTimeout((signal) => subscriber.handle(event, signal), subscriber.name);
     }
   }
 
-  /** Un suscriptor que no responde no puede retener la transacción (ni el lock de la fila) indefinidamente. */
-  private async withTimeout(delivery: Promise<void>, name: string): Promise<void> {
+  /**
+   * Un suscriptor que no responde no puede retener la transacción (ni el lock de la fila) indefinidamente.
+   * ARC-08: el `Promise.race` libera la fila pero no detiene al suscriptor; por eso además se aborta `signal`.
+   * ponytail: un suscriptor que ignore `signal` sigue corriendo y puede solaparse con el reintento (que espera el backoff);
+   * por eso deben ser idempotentes por `event_id`. Techo: ejecutarlos en un worker/proceso que se pueda matar.
+   */
+  private async withTimeout(run: (signal: AbortSignal) => Promise<void>, name: string): Promise<void> {
     let timer: NodeJS.Timeout | undefined;
+    const controller = new AbortController();
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`El suscriptor ${name} no respondió en ${this.options.deliveryTimeoutMs} ms`)), this.options.deliveryTimeoutMs);
+      timer = setTimeout(() => {
+        const error = new Error(`El suscriptor ${name} no respondió en ${this.options.deliveryTimeoutMs} ms`);
+        controller.abort(error);
+        reject(error);
+      }, this.options.deliveryTimeoutMs);
     });
     try {
+      // Si el suscriptor falla tarde (tras el timeout) su rechazo ya no tiene a quién llegar: se absorbe para no tumbar el proceso.
+      const delivery = run(controller.signal);
+      delivery.catch(() => undefined);
       await Promise.race([delivery, timeout]);
     } finally {
       clearTimeout(timer);
