@@ -25,10 +25,10 @@ const TONE_TEXT: Record<Tone, string> = {
   idle: 'Sin llamados', new: 'Pendiente', waiting: 'Pendiente, más de 2 min', late: 'Pendiente, más de 5 min', attending: 'En atención',
 };
 // El color fuerte se concentra en las mesas del plano; tarjetas blancas con borde izquierdo y un chip de estado.
-const EDGE: Record<Tone, string> = { idle: 'border-l-line', new: 'border-l-pending', waiting: 'border-l-pending', late: 'border-l-danger', attending: 'border-l-attending' };
+const EDGE: Record<Tone, string> = { idle: 'border-l-line', new: 'border-l-pending-line', waiting: 'border-l-pending-line', late: 'border-l-danger', attending: 'border-l-attending' };
 const card = (tone: Tone) => cn('rounded-lg border border-line border-l-[6px] bg-surface', EDGE[tone]);
 const CHIP: Record<Tone, string> = {
-  idle: 'text-muted', new: 'ring-2 ring-inset ring-pending', waiting: 'bg-pending text-pending-fg', late: 'bg-danger text-danger-fg', attending: 'bg-attending text-attending-fg',
+  idle: 'text-muted', new: 'ring-2 ring-inset ring-pending-line', waiting: 'bg-pending text-pending-fg', late: 'bg-danger text-danger-fg', attending: 'bg-attending text-attending-fg',
 };
 
 function Chip({ tone, className }: { tone: Tone; className?: string }) {
@@ -207,7 +207,7 @@ function Legend({ className }: { className?: string }) {
     <ul aria-label="Leyenda" className={cn('flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted', className)}>
       {(['idle', 'new', 'waiting', 'late', 'attending'] as const).map((t) => (
         <li key={t} className="flex items-center gap-2">
-          <span aria-hidden className={cn('size-4 rounded-full border-2', { idle: 'border-line-strong', new: 'border-pending', waiting: 'border-pending bg-pending', late: 'border-danger bg-danger', attending: 'border-attending' }[t])} />
+          <span aria-hidden className={cn('size-4 rounded-full border-2', { idle: 'border-line-strong', new: 'border-pending-line', waiting: 'border-pending-line bg-pending', late: 'border-danger bg-danger', attending: 'border-attending' }[t])} />
           {TONE_TEXT[t]}
         </li>
       ))}

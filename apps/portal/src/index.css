@@ -30,6 +30,8 @@
   --primary-hover: #19a08c;
   --primary-fg: #101e33;
   --pending: #e6a03d;
+  /* Trazos y bordes de «pendiente» sobre superficie clara: el ámbar #e6a03d da 2.2:1; este mismo tono más oscuro da 3.8:1 (UX-11). */
+  --pending-line: #b9740f;
   --pending-fg: #101e33;
   --attending: #3865e9;
   --attending-fg: #ffffff;
@@ -55,6 +57,7 @@
   --primary-hover: #2bbfa9;
   --primary-fg: #101e33;
   --pending: #e6a03d;
+  --pending-line: #e6a03d;
   --pending-fg: #101e33;
   --attending: #3865e9;
   --attending-fg: #ffffff;
@@ -79,6 +82,7 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-fg: var(--primary-fg);
   --color-pending: var(--pending);
+  --color-pending-line: var(--pending-line);
   --color-pending-fg: var(--pending-fg);
   --color-attending: var(--attending);
   --color-attending-fg: var(--attending-fg);
@@ -104,6 +108,9 @@
     outline-offset: 2px;
   }
 }
+
+/* plan.tsx dibuja los trazos de «pendiente» con `stroke-pending`; fuera de capa gana a la utilidad y usa el tono con contraste. */
+.stroke-pending { stroke: var(--pending-line); }
 
 @keyframes call-pulse {
   50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--pending) 35%, transparent); }
