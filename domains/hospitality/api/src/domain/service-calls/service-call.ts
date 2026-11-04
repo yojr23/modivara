@@ -103,18 +103,7 @@ export class ServiceCall extends AggregateRoot {
   }
 
   static restore(props: ServiceCallProps): ServiceCall {
-    const d = (v: Date) => new Date(v);
-    return new ServiceCall(
-      {
-        ...props,
-        createdAt: d(props.createdAt),
-        lastPressAt: d(props.lastPressAt),
-        acknowledgedAt: props.acknowledgedAt && d(props.acknowledgedAt),
-        completedAt: props.completedAt && d(props.completedAt),
-        updatedAt: d(props.updatedAt),
-      },
-      props.status,
-    );
+    return new ServiceCall(structuredClone(props), props.status); // copia profunda: las fechas recibidas no quedan compartidas
   }
 
   get id() { return this.props.id; }
