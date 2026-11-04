@@ -1,0 +1,11 @@
+# Producción (docker-compose.prod.yml). Con un dominio como dirección, Caddy obtiene el certificado,
+# sirve HTTPS y redirige HTTP→HTTPS solo. Socket.IO (/api/v1/realtime) pasa por /api/* con el upgrade a WebSocket.
+# Sin /sim: el simulador puede crear llamados sin sesión y no se publica (SEC-01).
+{$DOMAIN} {
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle {
+		reverse_proxy web:80
+	}
+}
