@@ -140,7 +140,8 @@ describe('F3-10 tiempo real de punta a punta', () => {
     const db = app.get<{ outboxEvent: { count(a: object): Promise<number> } }>('HOSPITALITY_PRISMA', { strict: false });
     for (let i = 0; i < 40 && (await db.outboxEvent.count({ where: { dispatchedAt: null } })) > 0; i++) await new Promise((r) => setTimeout(r, 50));
     expect(await db.outboxEvent.count({ where: { dispatchedAt: null } })).toBe(0);
-    expect(await db.outboxEvent.count({})).toBe(2);
+    // Solo los llamados: la preparación (gateway, botón, asignación) también deja eventos de auditoría de plataforma.
+    expect(await db.outboxEvent.count({ where: { eventType: { startsWith: 'hospitality.service_call.' } } })).toBe(2);
   });
 
   it('gateways.status llega a la sala del local en la transición', async () => {

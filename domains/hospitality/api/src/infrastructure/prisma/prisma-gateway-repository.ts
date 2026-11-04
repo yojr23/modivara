@@ -1,7 +1,10 @@
+import type { DomainEvent } from '@modivara/core-contracts';
 import { Gateway } from '../../domain/devices/gateway.js';
 import { ConflictError } from '../../domain/errors.js';
 import type { ById, GatewayRepository, Scope } from '../../application/ports/index.js';
-import { mapUnique, type Db } from './db.js';
+import type { HospitalityPrisma } from './client.js';
+import { mapUnique } from './db.js';
+import { outboxRow } from './service-call-persistence.js';
 
 type Row = { id: string; organizationId: string; locationId: string; name: string; keyHash: Uint8Array; lastSeenAt: Date | null; createdAt: Date; createdBy: string | null; deactivatedAt: Date | null };
 
@@ -13,7 +16,7 @@ const toDomain = (r: Row) =>
   });
 
 export class PrismaGatewayRepository implements GatewayRepository {
-  constructor(private readonly db: Db) {}
+  constructor(private readonly db: HospitalityPrisma) {}
 
   async findById({ id, organizationId, locationId }: ById) {
     const r = await this.db.gateway.findFirst({ where: { id, organizationId, locationId } });
@@ -44,17 +47,20 @@ export class PrismaGatewayRepository implements GatewayRepository {
     await this.db.gateway.updateMany({ where: { id, organizationId, locationId, deactivatedAt: null }, data: { lastSeenAt: at } });
   }
 
-  save(gateway: Gateway) {
+  save(gateway: Gateway, events: DomainEvent[] = []) {
     const p = gateway.toProps();
     // La clave nunca cambia: el update no toca key_hash.
     const data = { name: p.name, lastSeenAt: p.lastSeenAt, deactivatedAt: p.deactivatedAt };
     return mapUnique(
       async () =>
-        void (await this.db.gateway.upsert({
-          where: { id: p.id },
-          create: { id: p.id, organizationId: p.organizationId, locationId: p.locationId, keyHash: Buffer.from(p.keyHash, 'hex'), createdAt: p.createdAt, createdBy: p.createdBy, ...data },
-          update: data,
-        })),
+        void (await this.db.$transaction([
+          this.db.gateway.upsert({
+            where: { id: p.id },
+            create: { id: p.id, organizationId: p.organizationId, locationId: p.locationId, keyHash: Buffer.from(p.keyHash, 'hex'), createdAt: p.createdAt, createdBy: p.createdBy, ...data },
+            update: data,
+          }),
+          this.db.outboxEvent.createMany({ data: events.map(outboxRow) }),
+        ])),
       () => new ConflictError('Gateway key already exists'),
     );
   }

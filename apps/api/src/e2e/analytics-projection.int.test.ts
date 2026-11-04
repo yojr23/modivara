@@ -18,7 +18,8 @@ describe('llamados: hospitality → analytics', () => {
     expect((await as('bar-demo/barra').post(`${base}/acknowledge`)).status).toBe(200);
     const done = serviceCallSchema.parse((await as('bar-demo/barra').post(`${base}/complete`)).body);
 
-    expect(await host.tickHospitality()).toBe(3);
+    // 3 de llamado + 3 de auditoría de plataforma (gateway, botón, asignación) de la preparación.
+    expect(await host.tickHospitality()).toBe(6);
     const facts = await host.analyticsDb.$queryRawUnsafe<Array<{ created_at: Date; acknowledged_at: Date; completed_at: Date; press_count: number; table_label: string }>>(
       'SELECT created_at, acknowledged_at, completed_at, press_count, table_label FROM service_call_facts',
     );

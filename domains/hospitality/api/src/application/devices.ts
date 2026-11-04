@@ -3,7 +3,7 @@ import { Device } from '../domain/devices/device.js';
 import { DeviceAssignment } from '../domain/devices/device-assignment.js';
 import { DeviceAlreadyAssignedError, DuplicateError, NotFoundError } from '../domain/errors.js';
 import type { DeviceAssignmentRepository, DeviceEventRepository, DeviceRepository, DiningTableRepository, UnknownDeviceCode } from './ports/index.js';
-import { type ActorContext, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
+import { type ActorContext, platformAction, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
 
 export class RegisterDevice {
   constructor(
@@ -15,7 +15,7 @@ export class RegisterDevice {
     await requireActiveLocation(this.core, input);
     const device = Device.create({ ...input, createdBy: input.actorUserId, now: new Date() });
     if (await this.devices.findActiveByCode({ ...scopeOf(input), code: device.code })) throw new DuplicateError('device');
-    await this.devices.save(device);
+    await this.devices.save(device, [platformAction(input, 'device.created', device.id, { code: device.code, model: device.model })]);
     return device;
   }
 }
@@ -46,7 +46,7 @@ export class AssignDevice {
       assignedBy: input.actorUserId,
       now: new Date(),
     });
-    await this.assignments.save(assignment);
+    await this.assignments.save(assignment, [platformAction(input, 'device.assigned', device.id, { tableId: table.id, assignmentId: assignment.id })]);
     return assignment;
   }
 }
@@ -59,7 +59,7 @@ export class UnassignDevice {
   async execute(input: ActorContext & { deviceId: string }): Promise<DeviceAssignment> {
     const assignment = owned(await this.assignments.findActiveByDevice({ ...scopeOf(input), deviceId: input.deviceId }), input, 'device assignment');
     assignment.unassign(input.actorUserId, new Date());
-    await this.assignments.save(assignment);
+    await this.assignments.save(assignment, [platformAction(input, 'device.unassigned', input.deviceId, { tableId: assignment.tableId, assignmentId: assignment.id })]);
     return assignment;
   }
 }

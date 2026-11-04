@@ -15,8 +15,7 @@ const DEFAULT_UNKNOWN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Consola de plataforma: solo superadmin (los `platform.*` solo los tiene él), operando sobre un negocio con `acting_organization_id`.
- * OPEN: ADR-002 D3 pide registrar estas acciones en `core.audit_log`, pero hospitality no puede escribir en core y core-contracts no ofrece
- * un puerto de auditoría ni un evento para ello. Hoy solo queda el usuario en `created_by`/`assigned_by`/`unassigned_by` de cada fila.
+ * Cada acción de escritura queda en `core.audit_log` vía el evento `hospitality.platform_action.recorded` (outbox propio; core lo suscribe).
  */
 @Controller()
 @UseFilters(HospitalityConflictFilter)

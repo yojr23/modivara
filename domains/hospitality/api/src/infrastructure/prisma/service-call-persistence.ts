@@ -24,7 +24,7 @@ export async function persistTransitionsAndOutbox(tx: Db, call: ServiceCall): Pr
   if (events.length > 0) await tx.outboxEvent.createMany({ data: events.map(outboxRow) });
 }
 
-const outboxRow = (e: DomainEvent) => ({
+export const outboxRow = (e: DomainEvent) => ({
   id: e.eventId,
   eventType: e.eventType,
   eventVersion: e.eventVersion,

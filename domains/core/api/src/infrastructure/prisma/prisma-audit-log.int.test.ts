@@ -21,4 +21,14 @@ describe('PrismaAuditLog', () => {
     expect(rows[0]).toMatchObject({ organizationId: sol.id, action: 'user.created', targetId: actor.id, details: { username: 'ana', roles: ['staff'] } });
     expect(rows[0]?.occurredAt.getTime()).toBe(occurredAt.getTime());
   });
+
+  it('es idempotente por id: registrar dos veces el mismo evento deja una sola fila', async () => {
+    const sol = await seedOrganization(db, 'bar-sol');
+    const actor = await seedUser(db, sol);
+    const entry = { id: newId(), organizationId: sol.id, actorUserId: actor.id, action: 'gateway.created', targetType: 'gateway', targetId: newId(), details: {}, occurredAt: new Date() };
+    const log = new PrismaAuditLog(db);
+    await log.record(entry);
+    await log.record(entry);
+    expect(await db.auditLog.count()).toBe(1);
+  });
 });

@@ -7,7 +7,7 @@ import {
   ProvisionOrganization, ResetPassword, ResolveLocationAccess, RevokeUserSessions, SelectActingOrganization, SetLocationRoles,
 } from './application/index.js';
 import type { AdminTransactions, AuditLog, EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './application/ports/index.js';
-import { AuthController, LoginRateLimiter, PlatformController, UsersController } from './presentation/index.js';
+import { AuthController, LoginRateLimiter, PlatformActionSubscriber, PlatformController, UsersController } from './presentation/index.js';
 import { Argon2PasswordHasher, CryptoSessionTokenService } from './infrastructure/index.js';
 import {
   createCorePrisma, PrismaAdminTransactions, PrismaAuditLog, PrismaEntitlementRepository, PrismaLocationRepository, PrismaMembershipRepository,
@@ -25,6 +25,8 @@ export const MEMBERSHIPS = 'CORE_MEMBERSHIPS';
 export const SESSIONS = 'CORE_SESSIONS';
 export const ENTITLEMENTS = 'CORE_ENTITLEMENTS';
 export const AUDIT_LOG = 'CORE_AUDIT_LOG';
+/** Suscriptor a las acciones de plataforma de hospitality; el host lo registra bajo INTEGRATION_EVENT_SUBSCRIBERS. */
+export const CORE_EVENT_SUBSCRIBER = 'CORE_EVENT_SUBSCRIBER';
 export const ADMIN_TRANSACTIONS = 'CORE_ADMIN_TRANSACTIONS';
 export const PASSWORD_HASHER = 'CORE_PASSWORD_HASHER';
 export const SESSION_TOKENS = 'CORE_SESSION_TOKENS';
@@ -91,6 +93,7 @@ export class CoreModule implements OnModuleInit, OnModuleDestroy {
         { provide: SESSIONS, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): SessionRepository => new PrismaSessionRepository(p) },
         { provide: ENTITLEMENTS, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): EntitlementRepository => new PrismaEntitlementRepository(p) },
         { provide: AUDIT_LOG, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): AuditLog => new PrismaAuditLog(p) },
+        { provide: CORE_EVENT_SUBSCRIBER, inject: [AUDIT_LOG], useFactory: (a: AuditLog) => new PlatformActionSubscriber(a) },
         { provide: ADMIN_TRANSACTIONS, inject: [CORE_PRISMA], useFactory: (p: CorePrisma): AdminTransactions => new PrismaAdminTransactions(p) },
         // Los suscriptores los registra el host bajo INTEGRATION_EVENT_SUBSCRIBERS (multi-proveedor); sin ninguno, igual se marca despachado.
         ...(options.outbox === false
@@ -115,7 +118,7 @@ export class CoreModule implements OnModuleInit, OnModuleDestroy {
         },
       ],
       // CORE_PRISMA y CORE_OUTBOX: solo para la sonda de disponibilidad del host (`/health/ready`).
-      exports: [CORE_ACCESS_PORT, CORE_PRISMA, ...(options.outbox === false ? [] : [CORE_OUTBOX]), ...useCases.map(([useCase]) => useCase)],
+      exports: [CORE_ACCESS_PORT, CORE_PRISMA, CORE_EVENT_SUBSCRIBER, ...(options.outbox === false ? [] : [CORE_OUTBOX]), ...useCases.map(([useCase]) => useCase)],
     };
   }
 
