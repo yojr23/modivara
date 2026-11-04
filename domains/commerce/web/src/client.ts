@@ -104,11 +104,14 @@ const list = <T>(item: Parser<T>): Parser<T[]> => ({
 export const newIdempotencyKey = (): string => crypto.randomUUID();
 
 export interface StockFilters { stockLocationId?: string; productId?: string; limit?: number }
-const stockQuery = (f: StockFilters): string => {
+/** Filtros del historial en el servidor: `from` inclusivo, `to` exclusivo (ISO); `cursor` = `movementCursor` del último movimiento recibido. */
+export interface MovementFilters extends StockFilters { direction?: MovementDto['direction']; from?: string; to?: string; cursor?: string }
+const stockQuery = (f: MovementFilters): string => {
   const q = new URLSearchParams();
   if (f.stockLocationId) q.set('stock_location_id', f.stockLocationId);
   if (f.productId) q.set('product_id', f.productId);
   if (f.limit) q.set('limit', String(f.limit));
+  for (const k of ['direction', 'from', 'to', 'cursor'] as const) if ((f as MovementFilters)[k]) q.set(k, (f as MovementFilters)[k]!);
   const s = q.toString();
   return s ? `?${s}` : '';
 };
@@ -129,7 +132,7 @@ export const commerceApi = {
   deactivateReason: (reasonId: string): Promise<void> => request(buildPath(P.reasonDeactivate, { reasonId }), null, send('POST')),
 
   listBalances: (l: string, f: StockFilters = {}): Promise<BalanceDto[]> => request(buildPath(P.balances, { locationId: l }) + stockQuery(f), list(balanceSchema)),
-  listMovements: (l: string, f: StockFilters = {}): Promise<MovementDto[]> => request(buildPath(P.movements, { locationId: l }) + stockQuery(f), list(movementSchema)),
+  listMovements: (l: string, f: MovementFilters = {}): Promise<MovementDto[]> => request(buildPath(P.movements, { locationId: l }) + stockQuery(f), list(movementSchema)),
   registerMovement: (l: string, input: RegisterMovementDto, idempotencyKey: string = newIdempotencyKey()): Promise<RecordedMovementDto> =>
     request(buildPath(P.movements, { locationId: l }), recordedMovementSchema, send('POST', input, { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey })),
   adjustToCount: (l: string, input: AdjustToCountDto, idempotencyKey: string = newIdempotencyKey()): Promise<RecordedMovementDto> =>

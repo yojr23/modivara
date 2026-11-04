@@ -277,6 +277,17 @@ describe('movimientos', () => {
     expect(await s.h.listMovements.execute({ organizationId: ORG, locationId: LOC, limit: 1 })).toHaveLength(1);
   });
 
+  it('pagina con cursor y filtra por tipo y rango', async () => {
+    const s = await stocked('10');
+    for (const q of ['1', '2', '3']) await s.h.registerMovement.execute({ ...s.target, direction: 'out', reasonId: s.venta.id, quantity: q, idempotencyKey: s.idem() });
+    const q = { organizationId: ORG, locationId: LOC };
+    const first = await s.h.listMovements.execute({ ...q, limit: 2 });
+    const next = await s.h.listMovements.execute({ ...q, limit: 2, after: { occurredAt: first[1]!.occurredAt, id: first[1]!.id } });
+    expect([...first, ...next].map((m) => m.delta.toString())).toEqual(['-3.000', '-2.000', '-1.000', '10.000']);
+    expect(await s.h.listMovements.execute({ ...q, direction: 'in' })).toHaveLength(1);
+    expect(await s.h.listMovements.execute({ ...q, to: new Date(0) })).toEqual([]);
+  });
+
   it('withActorNames resuelve el nombre de quien registró; null si no se resuelve', async () => {
     const s = await stocked('3');
     const q = { organizationId: ORG, locationId: LOC };

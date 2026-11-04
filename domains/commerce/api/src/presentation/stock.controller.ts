@@ -2,7 +2,7 @@ import { Body, Controller, Get, Headers, Inject, Param, Post, Query, Res, UseFil
 import type { RequestActor } from '@modivara/core-contracts';
 import {
   adjustToCountSchema, type BalanceDto, COMMERCE_API_PATHS as P, idempotencyKeySchema, type MovementDto, type RecordedMovementDto,
-  registerMovementSchema, stockQuerySchema,
+  parseMovementCursor, registerMovementSchema, stockQuerySchema,
 } from '@modivara/commerce-contracts';
 import { AdjustToCount, GetBalances, ListMovements, RegisterMovement, type RecordedMovement } from '../application/index.js';
 import type { StockBalance } from '../domain/stock-balance.js';
@@ -44,7 +44,8 @@ export class StockController {
   async movements(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Query() query: unknown): Promise<MovementDto[]> {
     const q = stockQuerySchema.parse(query);
     const found = await this.listMovements.withActorNames({
-      ...contextOf(actor, locationId), stockLocationId: q.stock_location_id, productId: q.product_id, limit: q.limit,
+      ...contextOf(actor, locationId), stockLocationId: q.stock_location_id, productId: q.product_id, limit: q.limit, direction: q.direction,
+      from: q.from ? new Date(q.from) : undefined, to: q.to ? new Date(q.to) : undefined, after: q.cursor ? parseMovementCursor(q.cursor) ?? undefined : undefined,
     });
     return found.map((f) => toMovement(f.movement, f.actorName));
   }

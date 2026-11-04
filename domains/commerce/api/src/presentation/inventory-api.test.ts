@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { newId, permissionsFor, type RequestActor } from '@modivara/core-contracts';
 import {
-  balanceSchema, movementReasonSchema, movementSchema, productSchema, recordedMovementSchema, stockLocationSchema,
+  balanceSchema, movementCursor, movementReasonSchema, movementSchema, productSchema, recordedMovementSchema, stockLocationSchema,
 } from '@modivara/commerce-contracts';
 import { EnsureDefaultStockLocation } from '../application/index.js';
 import { createCommerceTestApp, type TestCaller } from '../testing/http.js';
@@ -114,6 +114,10 @@ describe('F4-07 movimientos y saldos', () => {
     const history = (await t.as(inventory).get(`${base}/stock/movements?product_id=${w.product.id}&limit=2`)).body.map((m: unknown) => movementSchema.parse(m));
     expect(history.map((m: { delta: string }) => m.delta)).toEqual(['-2.000', '-3.000']);
     expect(history.every((m: { actor_name: string | null }) => m.actor_name === null)).toBe(true);
+    const page2 = (await t.as(inventory).get(`${base}/stock/movements?product_id=${w.product.id}&limit=2&cursor=${movementCursor(history[1])}`)).body;
+    expect(page2.map((m: { delta: string }) => m.delta)).toEqual(['10.000']);
+    expect((await t.as(inventory).get(`${base}/stock/movements?direction=in`)).body).toHaveLength(1);
+    expect((await t.as(inventory).get(`${base}/stock/movements?cursor=basura`)).status).toBe(400);
     t.core.names.set(inventory.actor.actorUserId, 'Ana Inventario');
     const named = (await t.as(inventory).get(`${base}/stock/movements?product_id=${w.product.id}&limit=1`)).body.map((m: unknown) => movementSchema.parse(m));
     expect(named[0]).toMatchObject({ actor_user_id: inventory.actor.actorUserId, actor_name: 'Ana Inventario' });

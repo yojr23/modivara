@@ -42,11 +42,17 @@ export interface BalanceQuery {
 
 export interface MovementQuery extends BalanceQuery {
   limit: number;
+  direction?: StockMovement['direction'];
+  /** `from` inclusivo, `to` exclusivo. */
+  from?: Date;
+  to?: Date;
+  /** Última fila de la página anterior: devuelve las que van después en el orden (occurred_at, id) descendente. */
+  after?: { occurredAt: Date; id: string };
 }
 
 /** Lecturas del libro (sin efectos). */
 export interface StockQueries {
   listBalances(query: BalanceQuery): Promise<StockBalance[]>;
-  /** Más recientes primero. */
+  /** Más recientes primero, desempate por `id` descendente. */
   listMovements(query: MovementQuery): Promise<StockMovement[]>;
 }

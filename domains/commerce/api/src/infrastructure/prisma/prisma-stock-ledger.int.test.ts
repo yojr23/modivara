@@ -157,3 +157,37 @@ describe('F4-04 ajuste por conteo', () => {
     expect(await balance()).toBe('0.000');
   });
 });
+
+describe('DAT-03 historial paginado por cursor sobre PostgreSQL', () => {
+  it('recorre más de 100 movimientos sin repetir ni saltar (aun con el mismo instante) y filtra por tipo y rango', async () => {
+    const { base, reason, target } = await setup();
+    const compra = await reason('Compra');
+    const venta = await reason('Venta');
+    const t0 = Date.parse('2026-01-01T00:00:00Z');
+    const at = (min: number) => new Date(t0 + min * 60_000);
+    // 130 entradas (una por minuto; las tres últimas comparten instante) y 10 salidas después.
+    for (let i = 0; i < 130; i++) await w.registerMovement.execute({ ...base, direction: 'in', quantity: '1', reasonId: compra, idempotencyKey: newId(), occurredAt: at(Math.min(i, 127)) });
+    for (let i = 0; i < 10; i++) await w.registerMovement.execute({ ...base, direction: 'out', quantity: '1', reasonId: venta, idempotencyKey: newId(), occurredAt: at(200 + i) });
+
+    const list = (q: object = {}) => w.listMovements.execute({ ...w.t, ...q });
+    const seen: { id: string; occurredAt: Date }[] = [];
+    for (let after: { occurredAt: Date; id: string } | undefined; ;) {
+      const page = await list({ limit: 60, after });
+      seen.push(...page);
+      if (page.length < 60) break;
+      after = { occurredAt: page.at(-1)!.occurredAt, id: page.at(-1)!.id };
+    }
+    expect(seen).toHaveLength(140);
+    expect(new Set(seen.map((m) => m.id)).size).toBe(140);
+    const sorted = [...seen].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime() || (a.id < b.id ? 1 : -1));
+    expect(seen.map((m) => m.id)).toEqual(sorted.map((m) => m.id));
+
+    expect(await list({ direction: 'out', limit: 200 })).toHaveLength(10);
+    expect(await list({ direction: 'in', from: at(10), to: at(20), limit: 200 })).toHaveLength(10); // from inclusivo, to exclusivo
+    expect(await list({ productId: target.productId, direction: 'in', to: at(5), limit: 200 })).toHaveLength(5);
+    // seen[0..9] son las salidas; tras la primera entrada (seen[10]) quedan 129, y el filtro y el cursor se combinan.
+    const second = await list({ direction: 'in', limit: 100, after: { occurredAt: seen[10]!.occurredAt, id: seen[10]!.id } });
+    expect(second).toHaveLength(100);
+    expect(second[0]!.id).toBe(seen[11]!.id);
+  });
+});
