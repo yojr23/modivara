@@ -1,13 +1,13 @@
 import { useServiceCallMetrics } from '@modivara/analytics-web';
 import { Check, LogOut, Pencil, Plus, Send, SquareDashed, TriangleAlert, ZoomIn, ZoomOut } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link, useBlocker } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { AREA_STYLE } from './plan';
 import { AreaInspector, EditorDialogs, Inspector, KIND, PlanCanvas, TOOLS, UnplacedTables, nameOf, useLayoutEditor, type Ed, type ToolId } from './editor-kit';
 import { DeactivatePanel, DeactivateTable } from './Deactivate';
-import { Bone, ErrorState, Wordmark, useApp } from './ui';
+import { Bone, ErrorState, Modal, Wordmark, useApp } from './ui';
 
 // L-05, versión elegida por el responsable (29/10/2026): alternativa E, mezcla de A (barra lateral de espacios) y C (paleta visible,
 // «¿Qué falta?», revisión antes de publicar), con áreas dentro de cada espacio y modo Actividad (métricas reales por mesa).
@@ -206,10 +206,21 @@ function Activity({ ed, heat, range, setRange, loading }: { ed: Ed; heat: (id: s
 function SpaceTitle({ ed }: { ed: Ed }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
+  const closed = useRef(false); // evita doble confirmación: Enter desmonta el campo y el navegador puede disparar blur
   if (editing) {
+    const close = (save: boolean) => {
+      if (closed.current) return;
+      closed.current = true;
+      if (save) ed.renameSpace(name); // ignora vacío o sin cambio
+      setEditing(false);
+    };
     return (
-      <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); ed.renameSpace(name); setEditing(false); }}>
-        <input autoFocus aria-label="Nombre del espacio" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} onBlur={() => setEditing(false)} className="h-10 rounded-md border border-line-strong px-2 text-xl font-bold" />
+      <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); close(true); }}>
+        <input
+          autoFocus aria-label="Nombre del espacio" value={name} maxLength={60} onChange={(e) => setName(e.target.value)}
+          onBlur={() => close(true)} onKeyDown={(e) => e.key === 'Escape' && close(false)}
+          className="h-10 rounded-md border border-line-strong px-2 text-xl font-bold"
+        />
         <Button size="sm" type="submit" onMouseDown={(e) => e.preventDefault()}>Guardar</Button>
       </form>
     );
@@ -217,8 +228,31 @@ function SpaceTitle({ ed }: { ed: Ed }) {
   return (
     <h1 className="flex items-center gap-2 text-2xl font-bold">
       {ed.space.name}
-      {ed.zoneId && <Button size="sm" variant="ghost" aria-label="Cambiar el nombre del espacio" onClick={() => { setName(ed.space.name); setEditing(true); }}><Pencil aria-hidden className="size-4" /></Button>}
+      {ed.zoneId && <Button size="sm" variant="ghost" aria-label="Cambiar el nombre del espacio" onClick={() => { setName(ed.space.name); closed.current = false; setEditing(true); }}><Pencil aria-hidden className="size-4" /></Button>}
     </h1>
+  );
+}
+
+/** Cambios sin guardar: avisa al cerrar o recargar la pestaña y al salir a otra ruta del portal (el cambio de espacio lo pregunta el editor). */
+function LeaveGuard({ ed }: { ed: Ed }) {
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => ed.dirty && currentLocation.pathname !== nextLocation.pathname);
+  useEffect(() => {
+    if (!ed.dirty) return;
+    const h = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [ed.dirty]);
+  if (blocker.state !== 'blocked') return null;
+  return (
+    <Modal label="Cambios sin guardar" onClose={blocker.reset}>
+      <h2 className="mb-2 text-lg font-bold">Tienes cambios sin guardar en {ed.space.name}</h2>
+      <p className="mb-5 text-sm text-muted">Si sales ahora se pierden. Lo publicado no cambia en ningún caso.</p>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={blocker.reset}>Seguir editando</Button>
+        <Button size="sm" variant="secondary" onClick={blocker.proceed}>Descartar y salir</Button>
+        <Button size="sm" disabled={ed.saving} onClick={async () => ((await ed.save()) ? blocker.proceed() : blocker.reset())}>Guardar y salir</Button>
+      </div>
+    </Modal>
   );
 }
 
@@ -378,6 +412,7 @@ export default function Spaces() {
         ) : <><Todo ed={ed} /><DeactivatePanel ed={ed} /></>}
       </aside>
       <EditorDialogs ed={ed} />
+      <LeaveGuard ed={ed} />
     </div>
   );
 }

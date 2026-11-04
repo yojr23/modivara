@@ -48,7 +48,7 @@ function Detail({ locationId, call, onClose }: { locationId: string; call: Servi
         <section aria-label="Línea de tiempo">
           <h3 className="mb-3 font-semibold">Línea de tiempo</h3>
           {q.isPending ? <div className="space-y-3"><Bone className="w-2/3" /><Bone className="w-1/2" /><Bone className="w-3/5" /></div>
-            : q.isError ? <ErrorState what="el detalle" onRetry={() => void q.refetch()} />
+            : q.isError ? <ErrorState what="el detalle" onRetry={() => void q.refetch()} error={q.error} />
             : (
               <ol className="space-y-4 border-l border-line pl-4">
                 {q.data.transitions.map((t, i) => (
@@ -110,7 +110,7 @@ export default function History() {
 
         {!validRange ? <EmptyState Icon={HistoryIcon} title="Elige un rango válido" text="La fecha «Desde» debe ser igual o anterior a «Hasta»." />
           : h.isPending ? <div role="status" aria-label="Cargando historial" className="space-y-4">{Array.from({ length: 6 }, (_, i) => <Bone key={i} className="h-12 w-full" />)}</div>
-          : h.isError ? <ErrorState what="el historial" onRetry={() => void h.refetch()} />
+          : h.isError ? <ErrorState what="el historial" onRetry={() => void h.refetch()} error={h.error} />
           : items.length === 0 ? <EmptyState Icon={HistoryIcon} title="Sin llamados en este rango" text="Prueba con otro rango de fechas, otra mesa u otro estado." />
           : (
             <>

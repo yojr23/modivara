@@ -1,9 +1,10 @@
 import type { MeResponse } from '@modivara/core-contracts';
 import { LogOut, RotateCw, WifiOff, type LucideIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
+import { describeError } from './error-copy';
 
 // Piezas comunes de las pantallas del portal: shell (barra lateral `ink` y header blanco, el lenguaje del editor de espacios),
 // esqueletos, estados vacío/error/sin conexión, avisos y control segmentado.
@@ -139,12 +140,15 @@ export function EmptyState({ title, text, action, Icon }: { title: string; text:
   );
 }
 
-export function ErrorState({ what, onRetry }: { what: string; onRetry: () => void }) {
+export function ErrorState({ what, onRetry, error }: { what: string; onRetry: () => void; error?: unknown }) {
+  const { slug } = useParams();
+  const { text, action } = describeError(error);
   return (
     <div role="alert" className="anim-rise flex flex-col items-center gap-3 px-6 py-14 text-center">
       <p className="font-display text-lg font-bold">No se pudo cargar {what}</p>
-      <p className="max-w-sm text-muted">El servidor no respondió. Lo que ya estaba guardado no se perdió.</p>
-      <Button variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-4" />Reintentar</Button>
+      <p className="max-w-sm text-muted">{text}</p>
+      {action === 'retry' && <Button variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-4" />Reintentar</Button>}
+      {action === 'login' && <Link to={slug ? `/${slug}` : '/'} className="text-link underline">Volver a entrar</Link>}
     </div>
   );
 }

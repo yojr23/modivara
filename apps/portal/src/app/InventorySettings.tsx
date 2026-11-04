@@ -63,7 +63,7 @@ function Places({ canCreate }: { canCreate: boolean }) {
     <section aria-labelledby="places" className="space-y-3">
       <h2 id="places" className="text-lg font-bold">Lugares de stock</h2>
       <p className="text-sm text-muted">De {location.name}. No se pueden renombrar ni quitar una vez creados.</p>
-      {q.isPending ? <Bone className="h-12 w-full" /> : q.isError ? <ErrorState what="los lugares" onRetry={() => void q.refetch()} /> : (
+      {q.isPending ? <Bone className="h-12 w-full" /> : q.isError ? <ErrorState what="los lugares" onRetry={() => void q.refetch()} error={q.error} /> : (
         <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
           {q.data.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
@@ -106,7 +106,7 @@ function Reasons() {
     <section aria-labelledby="reasons" className="space-y-3">
       <h2 id="reasons" className="text-lg font-bold">Motivos de movimiento</h2>
       <p className="text-sm text-muted">Valen para todo el negocio. Un motivo desactivado deja de ofrecerse al registrar.</p>
-      {q.isPending ? <Bone className="h-24 w-full" /> : q.isError ? <ErrorState what="los motivos" onRetry={() => void q.refetch()} /> : (
+      {q.isPending ? <Bone className="h-24 w-full" /> : q.isError ? <ErrorState what="los motivos" onRetry={() => void q.refetch()} error={q.error} /> : (
         <div className="space-y-4">
           {GROUPS.map(([d, label]) => (
             <div key={d} role="group" aria-label={label}>
