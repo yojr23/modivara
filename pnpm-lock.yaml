@@ -52,17 +52,17 @@ importers:
         specifier: 12.2.0
         version: 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core':
-        specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        specifier: 12.3.2
+        version: 12.3.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-express':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)
       '@nestjs/platform-socket.io':
         specifier: 12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/websockets@12.2.0)(rxjs@7.8.2)
       '@nestjs/websockets':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       cookie-parser:
         specifier: 1.4.7
         version: 1.4.7
@@ -81,7 +81,7 @@ importers:
         version: link:../../domains/hospitality/contracts
       '@nestjs/testing':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-express@12.2.0)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-express@12.2.0)
       '@types/cookie-parser':
         specifier: 1.4.10
         version: 1.4.10(@types/express@5.0.6)
@@ -343,8 +343,8 @@ importers:
         specifier: 12.2.0
         version: 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core':
-        specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        specifier: 12.3.2
+        version: 12.3.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@prisma/adapter-pg':
         specifier: 7.10.1
         version: 7.10.1
@@ -363,10 +363,10 @@ importers:
     devDependencies:
       '@nestjs/platform-express':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)
       '@nestjs/testing':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-express@12.2.0)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-express@12.2.0)
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
@@ -463,8 +463,8 @@ importers:
         specifier: 12.2.0
         version: 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core':
-        specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        specifier: 12.3.2
+        version: 12.3.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@node-rs/argon2':
         specifier: 2.2.2
         version: 2.2.2
@@ -489,10 +489,10 @@ importers:
     devDependencies:
       '@nestjs/platform-express':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)
       '@nestjs/testing':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-express@12.2.0)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-express@12.2.0)
       '@types/cookie-parser':
         specifier: 1.4.10
         version: 1.4.10(@types/express@5.0.6)
@@ -586,14 +586,14 @@ importers:
         specifier: 12.2.0
         version: 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core':
-        specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        specifier: 12.3.2
+        version: 12.3.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-socket.io':
         specifier: 12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/websockets@12.2.0)(rxjs@7.8.2)
       '@nestjs/websockets':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@prisma/adapter-pg':
         specifier: 7.10.1
         version: 7.10.1
@@ -621,10 +621,10 @@ importers:
     devDependencies:
       '@nestjs/platform-express':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)
       '@nestjs/testing':
         specifier: 12.2.0
-        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-express@12.2.0)
+        version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-express@12.2.0)
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
@@ -842,8 +842,8 @@ packages:
       class-validator:
         optional: true
 
-  '@nestjs/core@12.2.0':
-    resolution: {integrity: sha512-OTNlRALw/xlSJ/cXeIo7HzY/TqE9RSyv6uFS+OY41dDelDwMqnAjpRFiN5RVGOI/R4wAhaD0TJVjsfOrpZJCjA==}
+  '@nestjs/core@12.3.2':
+    resolution: {integrity: sha512-lCDN5iC4BoG9k5Sk/tG2EF4VAtoZABFjN4e0nk9xKK3ytD4eSMc9ma1Y092t/navenlf3roTtCDUZ/RIHzYjCw==}
     engines: {node: '>= 20'}
     peerDependencies:
       '@nestjs/common': ^12.0.0
@@ -943,24 +943,28 @@ packages:
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@node-rs/argon2-linux-arm64-musl@2.2.2':
     resolution: {integrity: sha512-FYlfj3XgQ1xrx6HzQbKbUcKiYMG/3iSi/X81KyhHaItTJ7vZlMwrbVLl9yqDmvotKUF6VjrhrlZ8KRbbzchseA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@node-rs/argon2-linux-x64-gnu@2.2.2':
     resolution: {integrity: sha512-ULXLs8UFYZANlwiROM7AeccxZndr2Xk3IstADq3jAUhnwV2W75mxMBTABUZ+7AdKRhPLOrxU77OgnMWlDkYJQg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@node-rs/argon2-linux-x64-musl@2.2.2':
     resolution: {integrity: sha512-zgjIwc9TyGodn62vGc+36DGwFqVV5e7L8Ptd2FQWuBxe5aFrcFxvtDGn1/qfYwoHLv09utgtR+RBAPCXepWG3Q==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@node-rs/argon2-win32-arm64-msvc@2.2.2':
     resolution: {integrity: sha512-3nLhvLie/ec5xfxUBXXqGMb7oGeqF+YXrcGckqaTaGkPtOBozho0Kh2IuP/zi9BcOriirTG2LW3gtIOfpuh+mQ==}
@@ -1194,36 +1198,42 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@rolldown/binding-linux-arm64-musl@1.2.14':
     resolution: {integrity: sha512-BJ2CL19M6uuWesMgnqJzgxoI+N+eV7b0A9O9vLV42y+gitC41fNa8KElau1tHVzuLWX5GzEuxMPhAO0tQXQMkg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@rolldown/binding-linux-ppc64-gnu@1.2.14':
     resolution: {integrity: sha512-4+Kl8daPV8NDHaD7mfCcc1pRM+Qg7ab8DyMm5FG5WoZgv4h2i3KFN1CybYBNbQqmuYm7ftJLvmMI1eHYJ22S/Q==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   '@rolldown/binding-linux-s390x-gnu@1.2.14':
     resolution: {integrity: sha512-V/h8ePq1fKDrmtFMz6xcCN3DKvuvMRrwwD1q0PkBeeo4DpK64biaKvqWGVxqCeYKqeRk7gE7/iKPxLCn08O97A==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   '@rolldown/binding-linux-x64-gnu@1.2.14':
     resolution: {integrity: sha512-WxalXzgrLVpKC93xfpaJ3gCXUWzeCr+FRCbDVD2mUAy4L6Vo3lNVz0epUEUpxPWJkLNYUwM4OSIikv36OJ9mLg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@rolldown/binding-linux-x64-musl@1.2.14':
     resolution: {integrity: sha512-3G3tnAmTpdk9jO3GQtyHXqeFD2SlecfTws/Y3M2mmj9nMBwwuLT4kur8sZKeu7ENUHSpVO3cIsm5A52LEWWwlg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@rolldown/binding-openharmony-arm64@1.2.14':
     resolution: {integrity: sha512-qyr5XiNGxm2ytx17vvtcJ9nXn6v1gENETi503bJx3OGwZ1tSonj7BosxbMa/xeAfSl5iS9X6KjEWYXLu6v1L7Q==}
@@ -1290,24 +1300,28 @@ packages:
     engines: {node: '>= 20'}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@tailwindcss/oxide-linux-arm64-musl@4.3.3':
     resolution: {integrity: sha512-Md44bD6veX/PC5iyF8cDVnw4HBIANZepRZZ7a8DQOvkfo5WUBwcp6iAuCUz23u+4SUkhJlD3eL7hNdW8ezd/kA==}
     engines: {node: '>= 20'}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@tailwindcss/oxide-linux-x64-gnu@4.3.3':
     resolution: {integrity: sha512-tx7us1muwOKAKWao2v/GaafFeQboE6aj88vC6ziN2NCGcRm8gWUhwjzg+YdVB1e4boAtdtma4L43onunI6NS4w==}
     engines: {node: '>= 20'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@tailwindcss/oxide-linux-x64-musl@4.3.3':
     resolution: {integrity: sha512-SJxX60smvHgasZoBy11dX6YRjXJFovwWBoedhbQPOBzgFWBHGB+TVPWB9BxzR7TTxU8FQZAI2AyiNCMzFm8Img==}
     engines: {node: '>= 20'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@tailwindcss/oxide-wasm32-wasi@4.3.3':
     resolution: {integrity: sha512-jx1+rPhY/5Ympkktd656HBWEBLxP7dH06losBLjjf5vgCODXvi9KhtftWcMIwTFIDqBr7cRnQkdLnAG+IOlGvQ==}
@@ -2304,48 +2318,56 @@ packages:
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   lightningcss-linux-arm64-gnu@1.33.0:
     resolution: {integrity: sha512-j2v/itmy4HlNxlc6voKXYgBqNi0Ng2LShg4z7GufpEgs05P+2suBVyi9I6YHq5uoVFx9ETin3eCEhLVyXGQnKg==}
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   lightningcss-linux-arm64-musl@1.32.0:
     resolution: {integrity: sha512-UpQkoenr4UJEzgVIYpI80lDFvRmPVg6oqboNHfoH4CQIfNA+HOrZ7Mo7KZP02dC6LjghPQJeBsvXhJod/wnIBg==}
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   lightningcss-linux-arm64-musl@1.33.0:
     resolution: {integrity: sha512-yiO5ROMuYQgXbC60yjZU5CYSFZGKXL0HFATXt9mHJn1+zW55oCtMI9NfcVhYLMFDL7gV7oBPon/EmMMGg2OvtQ==}
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   lightningcss-linux-x64-gnu@1.32.0:
     resolution: {integrity: sha512-V7Qr52IhZmdKPVr+Vtw8o+WLsQJYCTd8loIfpDaMRWGUZfBOYEJeyJIkqGIDMZPwPx24pUMfwSxxI8phr/MbOA==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   lightningcss-linux-x64-gnu@1.33.0:
     resolution: {integrity: sha512-ar+Ju7LmcN0Jo4FpL4hpFybwNG9/3A/Br5KW2n2jyODg3MEZXaDYADdemoNS+BDNfMgKvylJLj4S5tyRActuAg==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   lightningcss-linux-x64-musl@1.32.0:
     resolution: {integrity: sha512-bYcLp+Vb0awsiXg/80uCRezCYHNg1/l3mt0gzHnWV9XP1W5sKa5/TCdGWaR/zBM2PeF/HbsQv/j2URNOiVuxWg==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   lightningcss-linux-x64-musl@1.33.0:
     resolution: {integrity: sha512-RYiYbkokw0trfKqqzfF55lginwEPrD3OJDfTuJzFs1MK6iFnDenaz1fqLLtX4ITG3OktJQXOeTaw1awrBAlZPw==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   lightningcss-win32-arm64-msvc@1.32.0:
     resolution: {integrity: sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw==}
@@ -2932,6 +2954,9 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
+  tslib@2.9.1:
+    resolution: {integrity: sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA==}
+
   type-is@1.6.18:
     resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}
     engines: {node: '>= 0.6'}
@@ -3261,7 +3286,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)':
+  '@nestjs/core@12.3.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)':
     dependencies:
       '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
       fast-safe-stringify: 2.1.1
@@ -3272,13 +3297,13 @@ snapshots:
       tslib: 2.8.1
       uid: 2.0.2
     optionalDependencies:
-      '@nestjs/platform-express': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)
-      '@nestjs/websockets': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)
+      '@nestjs/websockets': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
 
-  '@nestjs/platform-express@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)':
+  '@nestjs/platform-express@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)':
     dependencies:
       '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/core': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core': 12.3.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       cors: 2.8.6
       express: 5.3.0
       multer: 2.5.0
@@ -3290,7 +3315,7 @@ snapshots:
   '@nestjs/platform-socket.io@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/websockets@12.2.0)(rxjs@7.8.2)':
     dependencies:
       '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/websockets': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/websockets': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       rxjs: 7.8.2
       socket.io: 4.8.4
       tslib: 2.8.1
@@ -3299,18 +3324,18 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@nestjs/testing@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-express@12.2.0)':
+  '@nestjs/testing@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-express@12.2.0)':
     dependencies:
       '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/core': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core': 12.3.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       tslib: 2.8.1
     optionalDependencies:
-      '@nestjs/platform-express': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)
+      '@nestjs/platform-express': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)
 
-  '@nestjs/websockets@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)':
+  '@nestjs/websockets@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.3.2)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)':
     dependencies:
       '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/core': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core': 12.3.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       iterare: 1.2.1
       object-hash: 3.0.0
       reflect-metadata: 0.2.2
@@ -4078,7 +4103,7 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.10
       fast-unique-numbers: 9.0.27
-      tslib: 2.8.1
+      tslib: 2.9.1
       worker-factory: 7.0.50
 
   buffer-from@1.1.2: {}
@@ -4418,7 +4443,7 @@ snapshots:
   fast-unique-numbers@9.0.27:
     dependencies:
       '@babel/runtime': 7.29.10
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   fast-uri@3.1.9: {}
 
@@ -5268,6 +5293,8 @@ snapshots:
 
   tslib@2.8.1: {}
 
+  tslib@2.9.1: {}
+
   type-is@1.6.18:
     dependencies:
       media-typer: 0.3.0
@@ -5384,26 +5411,26 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.10
       fast-unique-numbers: 9.0.27
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   worker-timers-broker@8.0.18:
     dependencies:
       '@babel/runtime': 7.29.10
       broker-factory: 3.1.15
       fast-unique-numbers: 9.0.27
-      tslib: 2.8.1
+      tslib: 2.9.1
       worker-timers-worker: 9.0.15
 
   worker-timers-worker@9.0.15:
     dependencies:
       '@babel/runtime': 7.29.10
-      tslib: 2.8.1
+      tslib: 2.9.1
       worker-factory: 7.0.50
 
   worker-timers@8.0.34:
     dependencies:
       '@babel/runtime': 7.29.10
-      tslib: 2.8.1
+      tslib: 2.9.1
       worker-timers-broker: 8.0.18
       worker-timers-worker: 9.0.15
 
