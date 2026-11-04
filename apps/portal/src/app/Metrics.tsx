@@ -104,7 +104,7 @@ function CallsOnPlan({ range }: { range: RangePreset }) {
   const one = useServiceCallMetrics(l, { range, table_id: table ?? undefined });
 
   if (all.isPending || layouts.isPending) return <PageBones />;
-  if (all.isError) return <ErrorState what="las métricas" onRetry={() => void all.refetch()} />;
+  if (all.isError) return <ErrorState what="las métricas" onRetry={() => void all.refetch()} error={all.error} />;
   if (all.data.totals.calls === 0) return <EmptyState Icon={ChartColumn} title="Sin llamados en este período" text="Cuando las mesas pulsen su botón, aquí verás cuántos llamados hubo y cuánto tardó cada paso. Prueba un período más largo." />;
 
   const counts = new Map(all.data.by_table.map((r) => [r.table_id, r.calls]));
@@ -183,7 +183,7 @@ function StockByProduct({ range }: { range: RangePreset }) {
   const recent = useMovements(l, { productId: productId ?? undefined, limit: 5 });
 
   if (all.isPending) return <PageBones />;
-  if (all.isError) return <ErrorState what="las métricas de inventario" onRetry={() => void all.refetch()} />;
+  if (all.isError) return <ErrorState what="las métricas de inventario" onRetry={() => void all.refetch()} error={all.error} />;
   if (!list.length || !productId) return <EmptyState Icon={ChartColumn} title="Sin movimientos de stock" text="Las entradas, salidas y ajustes que se registren en Inventario aparecen aquí." />;
 
   const p = list.find((x) => x.id === productId)!;
