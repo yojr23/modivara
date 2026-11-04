@@ -107,7 +107,7 @@ export class CommerceModule implements OnModuleInit, OnModuleDestroy {
           useFactory: (...args: unknown[]) => new (useCase as new (...a: unknown[]) => unknown)(...args),
         })),
       ],
-      exports: [COMMERCE_EVENT_SUBSCRIBER, COMMERCE_EVENT_HISTORY, ...useCases.map(([useCase]) => useCase)],
+      exports: [COMMERCE_EVENT_SUBSCRIBER, COMMERCE_EVENT_HISTORY, ...(options.outbox === false ? [] : [COMMERCE_OUTBOX]), ...useCases.map(([useCase]) => useCase)],
     };
   }
 

@@ -25,7 +25,10 @@ describe('health', () => {
     try {
       expect((await request(app.getHttpServer()).get('/api/v1/health/live')).status).toBe(200);
       expect((await request(app.getHttpServer()).get('/api/v1/health')).status).toBe(200);
-      expect((await request(app.getHttpServer()).get('/api/v1/health/ready')).status).toBe(ready);
+      const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
+      expect(res.status).toBe(ready);
+      // PAT-01: informa los eventos detenidos por dominio (sin afectar el estado).
+      if (ready === 200) expect(res.body.outbox_failed).toEqual({ core: expect.any(Number), hospitality: expect.any(Number), commerce: expect.any(Number) });
     } finally {
       await app.close();
     }

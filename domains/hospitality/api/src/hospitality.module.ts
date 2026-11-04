@@ -168,7 +168,7 @@ export class HospitalityModule implements OnModuleInit, OnModuleDestroy {
           useFactory: (...args: unknown[]) => new (useCase as new (...a: unknown[]) => unknown)(...args),
         })),
       ],
-      exports: [HOSPITALITY_EVENT_SUBSCRIBER, HOSPITALITY_EVENT_HISTORY, ...useCases.map(([useCase]) => useCase)],
+      exports: [HOSPITALITY_EVENT_SUBSCRIBER, HOSPITALITY_EVENT_HISTORY, ...(options.outbox === false ? [] : [HOSPITALITY_OUTBOX]), ...useCases.map(([useCase]) => useCase)],
     };
   }
 

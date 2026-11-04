@@ -133,6 +133,12 @@ export class OutboxPoller {
     await this.running?.catch(() => undefined); // deja terminar el lote en curso antes de que se cierre el cliente
   }
 
+  /** Eventos detenidos por el tope de intentos (`failed_at`); `/health/ready` lo expone y `outbox:retry` los libera. */
+  async countFailed(): Promise<number> {
+    const [row] = await this.db.$queryRaw<Array<{ n: bigint }>>`SELECT count(*) AS n FROM outbox_events WHERE failed_at IS NOT NULL`;
+    return Number(row?.n ?? 0);
+  }
+
   /** Un ciclo; si hay uno en curso no se solapa y devuelve el mismo. Resuelve con los eventos procesados (entregados o fallidos). */
   tick(): Promise<number> {
     this.running ??= this.pollOnce()
@@ -173,6 +179,13 @@ export class OutboxPoller {
           const seconds = backoffMs(attempt, this.options) / 1000;
           const giveUp = attempt >= this.options.maxAttempts;
           this.logger.warn(`Evento ${row.id} (${row.event_type}) falló (intento ${attempt}${giveUp ? ', se detiene' : ''}): ${message}`);
+          // PAT-01: un evento que agota sus intentos queda detenido (failed_at); la línea es JSON para poder alertar sobre ella.
+          if (giveUp) {
+            this.logger.error(JSON.stringify({
+              event: 'outbox.event_failed', event_id: row.id, event_type: row.event_type, organization_id: row.organization_id,
+              location_id: row.location_id, attempts: attempt, error: message,
+            }));
+          }
           await tx.$executeRaw`
             UPDATE outbox_events
             SET attempts = ${attempt}::int, last_error = ${message}, next_attempt_at = now() + make_interval(secs => ${seconds}::double precision),
