@@ -6,6 +6,9 @@ import type { Prisma } from './generated/client.js';
 import { insertDeviceEvent, toDeviceEvent } from './prisma-device-event-mapper.js';
 import { persistTransitionsAndOutbox, toServiceCall } from './service-call-persistence.js';
 
+/** Cuánto tiempo se recuerda una clave de pulsación para deduplicar reenvíos. */
+const PRESS_ID_WINDOW_MS = 24 * 3_600_000;
+
 class PrismaButtonPressTx implements ButtonPressTx {
   constructor(private readonly tx: Prisma.TransactionClient) {}
 
@@ -18,6 +21,23 @@ class PrismaButtonPressTx implements ButtonPressTx {
     const r = await this.tx.deviceEvent.findFirst({
       where: { organizationId, locationId, deviceId, buttonKey, result: { in: ['call_created', 'repeat_press'] } },
       orderBy: { receivedAt: 'desc' },
+    });
+    return r && toDeviceEvent(r);
+  }
+
+  /**
+   * PAT-03: busca `press_id` en el JSON de `device_events`, acotado por dispositivo (usa `ix_device_events_device`) y ventana.
+   * ponytail: sin índice único (no se crea migración): el bloqueo por dispositivo serializa los reenvíos, pero un reenvío
+   * posterior a la ventana se contaría de nuevo. Techo: índice único parcial (gateway_id, payload->>'press_id') si hace falta garantía dura.
+   */
+  async findByPressId({ organizationId, locationId, gatewayId, deviceId, pressId }: Scope & { gatewayId: string; deviceId: string; pressId: string }) {
+    const r = await this.tx.deviceEvent.findFirst({
+      where: {
+        organizationId, locationId, gatewayId, deviceId,
+        receivedAt: { gte: new Date(Date.now() - PRESS_ID_WINDOW_MS) },
+        payload: { path: ['press_id'], equals: pressId },
+      },
+      orderBy: { receivedAt: 'asc' },
     });
     return r && toDeviceEvent(r);
   }

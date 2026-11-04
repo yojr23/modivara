@@ -11,6 +11,8 @@ export interface ButtonPressTx {
   lockActiveTable(tableId: string): Promise<boolean>;
   /** Última pulsación contada (call_created/repeat_press) de la misma señal: botón + tecla. */
   findLastPress(query: Scope & { deviceId: string; buttonKey: string | null }): Promise<DeviceEvent | null>;
+  /** PAT-03: pulsación ya registrada con esa clave del gateway (reenvío por red); null si es nueva. */
+  findByPressId(query: Scope & { gatewayId: string; deviceId: string; pressId: string }): Promise<DeviceEvent | null>;
   /**
    * Equivale a `INSERT … ON CONFLICT (mesa, tipo activo) DO UPDATE SET press_count = press_count + 1`.
    * Si no hay llamado activo para la mesa y tipo, guarda `candidate` junto con su transición y su evento de outbox

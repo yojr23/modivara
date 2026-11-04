@@ -1,3 +1,4 @@
+import { newId } from '@modivara/core-contracts';
 import { gatewayPressMessageSchema, type Transport } from '@modivara/hospitality-contracts';
 import type { DeviceRepository, GatewayRepository, NormalizedPress } from '../application/ports/index.js';
 import { Gateway } from '../domain/devices/gateway.js';
@@ -38,7 +39,7 @@ export class GatewayPressAdapter {
   async toPress(gateway: Gateway, rawMessage: unknown, transport: Transport): Promise<NormalizedPress> {
     const parsed = gatewayPressMessageSchema.safeParse(rawMessage);
     if (!parsed.success) throw new ValidationError(`Invalid press message: ${parsed.error.message}`);
-    const { device_code, button_key, sent_at } = parsed.data;
+    const { device_code, button_key, sent_at, press_id } = parsed.data;
     // El modelo solo hace falta para traducir la tecla: sin tecla no se consulta el dispositivo.
     const model = button_key
       ? ((await this.devices.findActiveByCode({ organizationId: gateway.organizationId, locationId: gateway.locationId, code: device_code }))?.model ?? null)
@@ -53,6 +54,8 @@ export class GatewayPressAdapter {
       sentAt: sent_at ? new Date(sent_at) : null,
       transport,
       payload: parsed.data,
+      pressId: press_id,
+      correlationId: newId(),
     };
   }
 }

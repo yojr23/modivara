@@ -28,6 +28,16 @@ describe('GatewayPressAdapter', () => {
     expect(press.payload).not.toHaveProperty('location_id');
   });
 
+  it('la clave press_id viaja a la pulsación y la ingesta crea un correlation_id nuevo (PAT-03, QA-05)', async () => {
+    const { adapter, gateway } = await setup();
+    const a = await adapter.toPress(gateway, { device_code: 'B1', press_id: 'p-1' }, 'http');
+    const b = await adapter.toPress(gateway, { device_code: 'B1', press_id: 'p-1' }, 'mqtt');
+    expect(a.pressId).toBe('p-1');
+    expect(a.payload).toMatchObject({ press_id: 'p-1' });
+    expect(a.correlationId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(a.correlationId).not.toBe(b.correlationId);
+  });
+
   it('mensaje inválido -> ValidationError', async () => {
     const { adapter, gateway } = await setup();
     await expect(adapter.toPress(gateway, { device_code: '' }, 'http')).rejects.toThrow(/Invalid press message/);

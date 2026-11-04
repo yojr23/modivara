@@ -22,9 +22,9 @@ export class GatewaySimulator {
     this.#active = this.#get(name);
   }
 
-  press(deviceCode: string, now = new Date()) {
+  press(deviceCode: string, now = new Date(), pressId: string = crypto.randomUUID()) {
     if (!this.devices.some((d) => d.code === deviceCode)) throw new Error(`Dispositivo desconocido para el simulador: ${deviceCode}`);
-    return this.#active.sendPress({ device_code: deviceCode, sent_at: now.toISOString() });
+    return this.#active.sendPress({ device_code: deviceCode, press_id: pressId, sent_at: now.toISOString() });
   }
 
   heartbeat(now = new Date()) {

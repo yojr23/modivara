@@ -21,9 +21,11 @@ describe('GatewaySimulator', () => {
     sim.useTransport('mqtt');
     await sim.press('btn-01', now);
 
-    const message = { device_code: 'btn-01', sent_at: '2026-10-19T22:00:00.000Z' };
+    // PAT-03: cada pulsación lleva su propia clave estable.
+    const message = { device_code: 'btn-01', sent_at: '2026-10-19T22:00:00.000Z', press_id: expect.any(String) };
     expect(http.sendPress).toHaveBeenCalledWith(message);
     expect(mqtt.sendPress).toHaveBeenCalledWith(message);
+    expect(vi.mocked(http.sendPress).mock.calls[0]![0].press_id).not.toBe(vi.mocked(mqtt.sendPress).mock.calls[0]![0].press_id);
   });
 
   it('rechaza canales no configurados y dispositivos ajenos', () => {
@@ -133,10 +135,10 @@ describe('MqttTransport con cliente inyectado', () => {
   it('publica pulsación y señal de vida en el tópico del gateway con QoS 1 y el JSON del contrato', async () => {
     const { publishAsync, transport } = setup();
     const sim = new GatewaySimulator(devices, [transport], 'mqtt');
-    await sim.press('btn-02', new Date('2026-10-19T22:00:00Z'));
+    await sim.press('btn-02', new Date('2026-10-19T22:00:00Z'), 'p-1');
     await sim.heartbeat(new Date('2026-10-19T22:00:30Z'));
 
-    expect(publishAsync).toHaveBeenNthCalledWith(1, 'modivara/gw/gw-1/press', '{"device_code":"btn-02","sent_at":"2026-10-19T22:00:00.000Z"}', { qos: 1 });
+    expect(publishAsync).toHaveBeenNthCalledWith(1, 'modivara/gw/gw-1/press', '{"device_code":"btn-02","press_id":"p-1","sent_at":"2026-10-19T22:00:00.000Z"}', { qos: 1 });
     expect(publishAsync).toHaveBeenNthCalledWith(2, 'modivara/gw/gw-1/heartbeat', '{"sent_at":"2026-10-19T22:00:30.000Z"}', { qos: 1 });
   });
 

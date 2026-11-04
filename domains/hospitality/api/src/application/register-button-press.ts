@@ -82,6 +82,9 @@ export class RegisterButtonPress implements IoTInputPort {
         await tx.saveDeviceEvent(event);
         return { outcome: outcomeOf(event), created: false, call: null };
       }
+      // PAT-03: un reenvío de la misma pulsación (misma clave del gateway) devuelve el resultado original sin registrar nada nuevo.
+      const prior = press.pressId ? await tx.findByPressId({ ...scopeOf(press), gatewayId: press.gatewayId, deviceId: device.id, pressId: press.pressId }) : null;
+      if (prior) return { outcome: outcomeOf(prior), created: false, call: null };
       const last = await tx.findLastPress({ ...scopeOf(press), deviceId: device.id, buttonKey: press.buttonKey });
       // OPEN: ¿la señal es solo el botón (DATA-001 §3 literal) o botón + tecla? Se usa botón + tecla.
       if (isDebounced(last?.receivedAt ?? null, now)) {
@@ -104,7 +107,7 @@ export class RegisterButtonPress implements IoTInputPort {
       return { outcome: outcomeOf(event), created: upserted.created, call: upserted.call };
     });
     // El aviso va después de confirmar (DATA-001 §3 paso 4).
-    if (call) await notifyAfterSave(this.notifications, created ? 'created' : 'repeat_press', call);
+    if (call) await notifyAfterSave(this.notifications, created ? 'created' : 'repeat_press', call, console, correlationId);
     return outcome;
   }
 }

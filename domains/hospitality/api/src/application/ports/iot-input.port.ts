@@ -14,6 +14,9 @@ export interface NormalizedPress {
   transport: Transport;
   /** Mensaje original completo, para el registro. */
   payload: Record<string, unknown>;
+  /** Clave de idempotencia del gateway (PAT-03); sin ella solo protege el debounce. */
+  pressId?: string;
+  /** Nace en la ingesta (QA-05); si falta, el caso de uso genera uno. */
   correlationId?: string;
 }
 
