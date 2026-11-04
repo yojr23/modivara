@@ -154,7 +154,7 @@ describe('F2-07 plataforma y F2-06 estado de botones', () => {
       expect(status.tables.find((x) => x.table_id === table.id)?.has_button).toBe(true);
       expect(status.tables.find((x) => x.table_id === lonely.id)?.has_button).toBe(false);
       expect(status.connectivity).toBe('some_disconnected');
-      expect(status.gateways).toEqual([{ name: expect.any(String), last_seen_at: null, connected: false }]);
+      expect(status.gateways).toContainEqual({ name: 'Salón', last_seen_at: null, connected: false });
       // Ningún dato técnico en la respuesta.
       const text = JSON.stringify(res.body);
       for (const secret of ['secret-btn-77', 'code', 'key_hash', 'gateway_id', 'key', gw.key, gw.id, device.id]) expect(text).not.toContain(secret);
