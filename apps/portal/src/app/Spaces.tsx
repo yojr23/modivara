@@ -242,15 +242,17 @@ function LeaveGuard({ ed }: { ed: Ed }) {
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
   }, [ed.dirty]);
+  const [failed, setFailed] = useState(false);
   if (blocker.state !== 'blocked') return null;
   return (
     <Modal label="Cambios sin guardar" onClose={blocker.reset}>
       <h2 className="mb-2 text-lg font-bold">Tienes cambios sin guardar en {ed.space.name}</h2>
       <p className="mb-5 text-sm text-muted">Si sales ahora se pierden. Lo publicado no cambia en ningún caso.</p>
+      {failed && <p role="alert" className="mb-5 text-sm text-danger">No se pudo guardar (¿venció tu sesión?). Descarta los cambios para salir o vuelve a intentar.</p>}
       <div className="flex flex-wrap justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={blocker.reset}>Seguir editando</Button>
         <Button size="sm" variant="secondary" onClick={blocker.proceed}>Descartar y salir</Button>
-        <Button size="sm" disabled={ed.saving} onClick={async () => ((await ed.save()) ? blocker.proceed() : blocker.reset())}>Guardar y salir</Button>
+        <Button size="sm" disabled={ed.saving} onClick={async () => ((await ed.save()) ? blocker.proceed() : setFailed(true))}>Guardar y salir</Button>
       </div>
     </Modal>
   );

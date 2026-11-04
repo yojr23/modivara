@@ -109,7 +109,7 @@ function useBoard() {
     me, now, toast, spaces, sound, silentGateways: (devices.data?.gateways ?? []).filter((g) => !g.connected),
     toggleSound() { const on = !sound; if (on) prepareAudio(); saveSound(on); setSound(on); }, queue, callOf, waited, status, gateways,
     loading: layouts.isPending || tables.isPending || calls.isPending,
-    layoutsError: layouts.isError, callsError: calls.isError,
+    layoutsError: layouts.error, callsError: calls.error,
     retry: () => { void layouts.refetch(); void calls.refetch(); void tables.refetch(); void zones.refetch(); },
     canAck: can('hospitality.calls.acknowledge'), canComplete: can('hospitality.calls.complete'), canEdit: can('hospitality.tables.manage'),
     pending: queue.filter((c) => c.status === 'pending'),
@@ -292,7 +292,7 @@ export default function Board() {
       <GatewayAlert b={b} />
       <div className="flex flex-col md:h-[calc(100dvh-73px)]">
         <div className="hidden min-h-0 flex-1 gap-3 bg-sunken p-3 md:grid" style={{ gridTemplateColumns: b.spaces.length ? b.spaces.map((s) => `minmax(0,${s.width}fr)`).join(' ') : '1fr' }}>
-          {b.loading ? <PlanBones /> : b.layoutsError ? <div className="rounded-xl bg-surface"><ErrorState what="los planos" onRetry={b.retry} /></div> : b.spaces.length === 0 ? (
+          {b.loading ? <PlanBones /> : b.layoutsError ? <div className="rounded-xl bg-surface"><ErrorState what="los planos" onRetry={b.retry} error={b.layoutsError} /></div> : b.spaces.length === 0 ? (
             <div className="grid place-items-center rounded-xl bg-surface">
               <EmptyState Icon={MapIcon} title="Aún no hay planos publicados" text="Los llamados llegan igual a la cola de abajo. Cuando se publique el plano de un espacio, las mesas se verán aquí."
                 action={b.canEdit && <Button asChild variant="secondary"><Link to="../espacios" relative="path">Ir a Espacios</Link></Button>} />
@@ -320,7 +320,7 @@ export default function Board() {
             <Legend className="hidden text-xs lg:flex" />
           </div>
           <ol className="flex flex-col gap-2 md:flex-row md:overflow-x-auto md:pb-1">
-            {b.loading ? <CardBones n={4} /> : b.callsError ? <li className="w-full"><ErrorState what="los llamados" onRetry={b.retry} /></li> : b.queue.length === 0 ? (
+            {b.loading ? <CardBones n={4} /> : b.callsError ? <li className="w-full"><ErrorState what="los llamados" onRetry={b.retry} error={b.callsError} /></li> : b.queue.length === 0 ? (
               <li className="w-full"><EmptyState Icon={CheckCheck} title="Sin llamados activos" text="Cuando una mesa pulse su botón aparece aquí y se marca en el plano." /></li>
             ) : b.queue.map((c) => {
               const tone = b.tone(c);
