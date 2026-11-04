@@ -51,6 +51,8 @@ export const CONNECTIVITY_STATUSES = ['no_gateways', 'all_connected', 'some_disc
 export const deviceStatusSchema = z.object({
   connectivity: z.enum(CONNECTIVITY_STATUSES),
   tables: z.array(z.object({ table_id: z.uuid(), has_button: z.boolean() })),
+  /** Para diagnosticar en el tablero qué equipo no da señal; sin id ni clave. */
+  gateways: z.array(z.object({ name: z.string(), last_seen_at: z.iso.datetime({ offset: true }).nullable(), connected: z.boolean() })),
 });
 
 export const createGatewaySchema = z.object({ name });
