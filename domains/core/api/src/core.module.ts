@@ -113,7 +113,8 @@ export class CoreModule implements OnModuleInit, OnModuleDestroy {
           useFactory: (l: LocationRepository, e: EntitlementRepository, u: UserRepository, a: AuthenticateSession, r: ResolveLocationAccess) => new CoreAccessService(l, e, u, a, r),
         },
       ],
-      exports: [CORE_ACCESS_PORT, ...useCases.map(([useCase]) => useCase)],
+      // CORE_PRISMA: solo para la sonda de disponibilidad del host (`/health/ready`).
+      exports: [CORE_ACCESS_PORT, CORE_PRISMA, ...useCases.map(([useCase]) => useCase)],
     };
   }
 
