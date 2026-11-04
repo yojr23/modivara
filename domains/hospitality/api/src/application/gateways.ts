@@ -2,7 +2,7 @@ import type { CoreAccessPort } from '@modivara/core-contracts';
 import { Gateway } from '../domain/devices/gateway.js';
 import { GatewayInUseError, NotFoundError } from '../domain/errors.js';
 import type { DeviceAssignmentRepository, DiningTableRepository, GatewayRepository } from './ports/index.js';
-import { type ActorContext, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
+import { type ActorContext, platformAction, requireActiveLocation, owned, scopeOf, type TenantContext } from './support.js';
 
 export class CreateGateway {
   constructor(
@@ -14,7 +14,7 @@ export class CreateGateway {
   async execute(input: ActorContext & { name: string }): Promise<{ gateway: Gateway; plainKey: string }> {
     await requireActiveLocation(this.core, input);
     const created = Gateway.create({ ...input, createdBy: input.actorUserId, now: new Date() });
-    await this.gateways.save(created.gateway);
+    await this.gateways.save(created.gateway, [platformAction(input, 'gateway.created', created.gateway.id, { name: created.gateway.name })]);
     return created;
   }
 }
@@ -38,7 +38,7 @@ export class DeactivateGateway {
     const others = (await this.gateways.listByLocation(scopeOf(input))).filter((g) => g.isActive && g.id !== gateway.id);
     if (others.length === 0 && (await this.assignments.listActiveByLocation(scopeOf(input))).length > 0) throw new GatewayInUseError();
     gateway.deactivate(new Date());
-    await this.gateways.save(gateway);
+    await this.gateways.save(gateway, [platformAction(input, 'gateway.deactivated', gateway.id, { name: gateway.name })]);
   }
 }
 

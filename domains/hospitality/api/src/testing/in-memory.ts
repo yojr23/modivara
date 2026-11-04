@@ -152,7 +152,8 @@ export class InMemoryDeviceRepository implements DeviceRepository {
     return this.store.all().find((d) => inScope(d, scope) && d.isActive && d.code === code) ?? null;
   }
   async listActiveByLocation(scope: Scope) { return this.store.all().filter((d) => inScope(d, scope) && d.isActive); }
-  async save(device: Device) { this.store.put(device); }
+  readonly outbox: DomainEvent[] = [];
+  async save(device: Device, events: DomainEvent[] = []) { this.store.put(device); this.outbox.push(...events); }
 }
 
 export class InMemoryDeviceAssignmentRepository implements DeviceAssignmentRepository {
@@ -165,7 +166,8 @@ export class InMemoryDeviceAssignmentRepository implements DeviceAssignmentRepos
       this.store.all().find((a) => inScope(a, scope) && a.deviceId === deviceId && a.assignedAt <= at && (a.unassignedAt === null || a.unassignedAt > at)) ?? null
     );
   }
-  async save(assignment: DeviceAssignment) { this.store.put(assignment); }
+  readonly outbox: DomainEvent[] = [];
+  async save(assignment: DeviceAssignment, events: DomainEvent[] = []) { this.store.put(assignment); this.outbox.push(...events); }
   async reassign(closed: DeviceAssignment, opened: DeviceAssignment) { this.store.put(closed); this.store.put(opened); }
   history() { return this.store.all(); }
 }
@@ -177,7 +179,8 @@ export class InMemoryGatewayRepository implements GatewayRepository {
   async listActive() { return this.store.all().filter((g) => g.isActive); }
   async findByIdAnyTenant(id: string) { return this.store.get(id) ?? null; }
   async listByLocation(scope: Scope) { return this.store.all().filter((g) => inScope(g, scope)); }
-  async save(gateway: Gateway) { this.store.put(gateway); }
+  readonly outbox: DomainEvent[] = [];
+  async save(gateway: Gateway, events: DomainEvent[] = []) { this.store.put(gateway); this.outbox.push(...events); }
   async touchLastSeen({ id, ...scope }: ById, at: Date) { const g = this.store.get(id); if (g && inScope(g, scope) && g.isActive) { g.recordHeartbeat(at); this.store.put(g); } }
 }
 

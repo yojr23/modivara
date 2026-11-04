@@ -1,8 +1,10 @@
+import type { DomainEvent } from '@modivara/core-contracts';
 import { DeviceAssignment } from '../../domain/devices/device-assignment.js';
 import { DeviceAlreadyAssignedError } from '../../domain/errors.js';
 import type { DeviceAssignmentRepository, Scope } from '../../application/ports/index.js';
 import type { HospitalityPrisma } from './client.js';
 import { isUniqueViolation, type Db } from './db.js';
+import { outboxRow } from './service-call-persistence.js';
 
 type Row = { id: string; organizationId: string; locationId: string; deviceId: string; tableId: string; assignedAt: Date; assignedBy: string; unassignedAt: Date | null; unassignedBy: string | null };
 const toDomain = (r: Row) =>
@@ -47,9 +49,12 @@ export class PrismaDeviceAssignmentRepository implements DeviceAssignmentReposit
     return r && toDomain(r);
   }
 
-  async save(a: DeviceAssignment) {
+  async save(a: DeviceAssignment, events: DomainEvent[] = []) {
     try {
-      await write(this.db, a);
+      await this.db.$transaction(async (tx) => {
+        await write(tx, a);
+        await tx.outboxEvent.createMany({ data: events.map(outboxRow) });
+      });
     } catch (e) {
       throw await this.alreadyAssigned(e, a);
     }

@@ -41,6 +41,25 @@ export const serviceCallCompletedEventSchema = defineEvent(
   }),
 );
 
+/** Acciones del superadmin sobre gateways y botones; core las vuelca en `core.audit_log` con este mismo `action` (ADR-002 D3). */
+export const PLATFORM_ACTIONS = ['gateway.created', 'gateway.deactivated', 'device.created', 'device.assigned', 'device.unassigned'] as const;
+
+export const platformActionRecordedEventSchema = defineEvent(
+  'hospitality.platform_action.recorded',
+  1,
+  z.object({
+    action: z.enum(PLATFORM_ACTIONS),
+    actor_user_id: z.uuid(),
+    target_type: z.enum(['gateway', 'device']),
+    target_id: z.uuid(),
+    /** Nunca claves ni hashes. */
+    details: z.record(z.string(), z.unknown()),
+  }),
+);
+
+export type PlatformAction = (typeof PLATFORM_ACTIONS)[number];
+export type PlatformActionRecordedEvent = z.infer<typeof platformActionRecordedEventSchema>;
+
 export type ServiceCallCreatedEvent = z.infer<typeof serviceCallCreatedEventSchema>;
 export type ServiceCallAcknowledgedEvent = z.infer<typeof serviceCallAcknowledgedEventSchema>;
 export type ServiceCallCompletedEvent = z.infer<typeof serviceCallCompletedEventSchema>;
@@ -52,6 +71,7 @@ export const HOSPITALITY_EVENT_TYPES = {
   serviceCallCreated: serviceCallCreatedEventSchema.shape.event_type.value,
   serviceCallAcknowledged: serviceCallAcknowledgedEventSchema.shape.event_type.value,
   serviceCallCompleted: serviceCallCompletedEventSchema.shape.event_type.value,
+  platformActionRecorded: platformActionRecordedEventSchema.shape.event_type.value,
 } as const;
 
 /** Token del `EventHistoryReader` de hospitality (lee su propio outbox; Q-09). */

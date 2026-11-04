@@ -1,4 +1,5 @@
-import { type CoreAccessPort, findActiveLocation, type Permission } from '@modivara/core-contracts';
+import { type CoreAccessPort, type DomainEvent, findActiveLocation, newId, type Permission } from '@modivara/core-contracts';
+import type { PlatformAction } from '@modivara/hospitality-contracts';
 import { LocationUnavailableError, NotFoundError } from '../domain/errors.js';
 import type { CallChange, NotificationPort } from './ports/notification.port.js';
 import type { ServiceCall } from '../domain/service-calls/service-call.js';
@@ -41,4 +42,13 @@ export async function notifyAfterSave(notifications: NotificationPort, change: C
   } catch {
     // ponytail: se ignora sin registrar (aún no hay logger); el tablero se recupera al refrescar. Agregar LoggerPort con la infraestructura real.
   }
+}
+
+/** Evento de auditoría de una acción del superadmin; el repositorio lo guarda en el outbox junto al cambio (core lo vuelca en `audit_log`). */
+export function platformAction(ctx: ActorContext, action: PlatformAction, targetId: string, details: Record<string, unknown>): DomainEvent {
+  return {
+    eventId: newId(), eventType: 'hospitality.platform_action.recorded', eventVersion: 1, occurredAt: new Date(),
+    organizationId: ctx.organizationId, locationId: ctx.locationId, aggregateId: targetId, correlationId: newId(), causationId: null,
+    payload: { action, actor_user_id: ctx.actorUserId, target_type: action.split('.')[0], target_id: targetId, details },
+  };
 }

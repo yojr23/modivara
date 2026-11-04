@@ -1,7 +1,10 @@
+import type { DomainEvent } from '@modivara/core-contracts';
 import { Device } from '../../domain/devices/device.js';
 import { DuplicateError } from '../../domain/errors.js';
 import type { ById, DeviceRepository, Scope } from '../../application/ports/index.js';
-import { mapUnique, type Db } from './db.js';
+import type { HospitalityPrisma } from './client.js';
+import { mapUnique } from './db.js';
+import { outboxRow } from './service-call-persistence.js';
 
 const toDomain = (r: { id: string; organizationId: string; locationId: string; code: string; model: string | null; createdAt: Date; createdBy: string | null; deactivatedAt: Date | null }) =>
   Device.restore({
@@ -10,7 +13,7 @@ const toDomain = (r: { id: string; organizationId: string; locationId: string; c
   });
 
 export class PrismaDeviceRepository implements DeviceRepository {
-  constructor(private readonly db: Db) {}
+  constructor(private readonly db: HospitalityPrisma) {}
 
   async findById({ id, organizationId, locationId }: ById) {
     const r = await this.db.device.findFirst({ where: { id, organizationId, locationId } });
@@ -28,16 +31,19 @@ export class PrismaDeviceRepository implements DeviceRepository {
     return rows.map(toDomain);
   }
 
-  save(device: Device) {
+  save(device: Device, events: DomainEvent[] = []) {
     const p = device.toProps();
     const data = { model: p.model, deactivatedAt: p.deactivatedAt };
     return mapUnique(
       async () =>
-        void (await this.db.device.upsert({
-          where: { id: p.id },
-          create: { id: p.id, organizationId: p.organizationId, locationId: p.locationId, code: p.code, createdAt: p.createdAt, createdBy: p.createdBy, ...data },
-          update: data,
-        })),
+        void (await this.db.$transaction([
+          this.db.device.upsert({
+            where: { id: p.id },
+            create: { id: p.id, organizationId: p.organizationId, locationId: p.locationId, code: p.code, createdAt: p.createdAt, createdBy: p.createdBy, ...data },
+            update: data,
+          }),
+          this.db.outboxEvent.createMany({ data: events.map(outboxRow) }),
+        ])),
       () => new DuplicateError('device'),
     );
   }

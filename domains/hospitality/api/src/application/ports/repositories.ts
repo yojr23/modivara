@@ -1,3 +1,4 @@
+import type { DomainEvent } from '@modivara/core-contracts';
 import type { CallStatus } from '@modivara/hospitality-contracts';
 import type { Device } from '../../domain/devices/device.js';
 import type { DeviceAssignment } from '../../domain/devices/device-assignment.js';
@@ -74,7 +75,8 @@ export interface DeviceRepository {
   findById(key: ById): Promise<Device | null>;
   findActiveByCode(query: Scope & { code: string }): Promise<Device | null>;
   listActiveByLocation(scope: Scope): Promise<Device[]>;
-  save(device: Device): Promise<void>;
+  /** `events` van al outbox en la misma transacción que el cambio. */
+  save(device: Device, events?: DomainEvent[]): Promise<void>;
 }
 
 export interface DeviceAssignmentRepository {
@@ -84,7 +86,7 @@ export interface DeviceAssignmentRepository {
   /** ¿Qué mesa tenía el botón en el instante `at`? Incluye el instante de asignación y excluye el de cierre. Sirve para auditar pulsaciones pasadas. */
   findAt(query: Scope & { deviceId: string; at: Date }): Promise<DeviceAssignment | null>;
   /** Inserta o cierra una asignación. Lanza `DeviceAlreadyAssignedError` si el botón ya tiene otra activa. */
-  save(assignment: DeviceAssignment): Promise<void>;
+  save(assignment: DeviceAssignment, events?: DomainEvent[]): Promise<void>;
   /** Mueve un botón de mesa en UNA transacción: cierra `closed` (ya con `unassign`) y abre `opened`; si algo falla no cambia nada. El historial se conserva. */
   reassign(closed: DeviceAssignment, opened: DeviceAssignment): Promise<void>;
 }
@@ -98,7 +100,7 @@ export interface GatewayRepository {
   listByLocation(scope: Scope): Promise<Gateway[]>;
   /** Todos los gateways activos de todos los locales: solo para la tarea periódica de salud (sin tenant, como `findByKeyHash`). */
   listActive(): Promise<Gateway[]>;
-  save(gateway: Gateway): Promise<void>;
+  save(gateway: Gateway, events?: DomainEvent[]): Promise<void>;
   /**
    * Heartbeat: actualiza SOLO `last_seen_at`, y solo si el gateway sigue activo (operación dirigida, sin reescribir el agregado).
    * Así un heartbeat con una entidad leída antes de desactivarlo no lo reactiva ni pisa otros cambios.
