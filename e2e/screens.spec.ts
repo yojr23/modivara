@@ -15,8 +15,11 @@ async function shot(page: Page, file: string) {
   await page.screenshot({ path: file, fullPage: true, animations: 'disabled' });
 }
 
-test('login de cada negocio', async ({ page }) => {
+test('portada y login de cada negocio', async ({ page }) => {
   mkdirSync(join(OUT, 'login'), { recursive: true });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: '¿Cuál es tu negocio?' })).toBeVisible();
+  await shot(page, join(OUT, 'login', '00-portada.png'));
   for (const slug of new Set(USERS.map(([s]) => s))) {
     await new LoginPage(page).goto(slug);
     await shot(page, join(OUT, 'login', `${slug}.png`));
@@ -44,6 +47,12 @@ for (const user of USERS) {
         await expect(page.getByRole('status').filter({ hasText: 'Estás actuando en Bar Demo' })).toBeVisible();
         await page.getByLabel('Local').selectOption({ label: 'Principal' });
         await shot(page, join(dir, `${name}-bar-demo.png`));
+      }
+      // Inventario: el historial completo (filtros y «Cargar más» en servidor) se abre con «Ver historial».
+      const history = page.getByRole('button', { name: 'Ver historial', exact: true });
+      if (await history.count()) {
+        await history.click();
+        await shot(page, join(dir, `${name}-historial.png`));
       }
       for (const label of TABS) {
         const options = page.getByRole('group', { name: label, exact: true }).getByRole('button', { pressed: false });
