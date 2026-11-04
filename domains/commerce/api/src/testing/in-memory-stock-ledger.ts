@@ -67,11 +67,13 @@ export class InMemoryStockLedger implements StockLedger, StockQueries {
   }
 
   async listMovements(q: MovementQuery): Promise<StockMovement[]> {
-    return this.movements
+    const rows = this.movements
       .filter((m) => m.organizationId === q.organizationId && m.locationId === q.locationId)
       .filter((m) => !q.stockLocationId || m.stockLocationId === q.stockLocationId)
       .filter((m) => !q.productId || m.productId === q.productId)
-      .reverse() // inserción = orden cronológico
-      .slice(0, q.limit);
+      .filter((m) => (!q.direction || m.direction === q.direction) && (!q.from || m.occurredAt >= q.from) && (!q.to || m.occurredAt < q.to))
+      .reverse(); // inserción = orden cronológico
+    const start = q.after ? rows.findIndex((m) => m.id === q.after!.id) + 1 : 0;
+    return rows.slice(start, start + q.limit);
   }
 }

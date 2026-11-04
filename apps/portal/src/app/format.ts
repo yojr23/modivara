@@ -1,7 +1,7 @@
 import type { Unit } from '@modivara/commerce-contracts';
 
-// Formato común de las pantallas (es-CO). Las fechas se muestran en la zona del navegador.
-// ponytail: el tablero y el portal se usan en el local, así que coincide con la zona del local; usar `location.timezone` si no.
+// Formato común de las pantallas (es-CO). Las fechas de inventario van en la zona del local (`location.timezone`); el resto, en la del navegador.
+// ponytail: tablero e historial de llamados siguen en la zona del navegador; pasarles `tz` si se administra un local remoto.
 
 /** Cantidad NUMERIC(12,3) del contrato («12.000», «-1.500»). */
 export const dec = (n: number) => n.toFixed(3);
@@ -26,13 +26,32 @@ const dayFmt = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeri
 const hourFmt = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', hour12: false });
 /** Rótulo de una cubeta de métricas desde su inicio (la API manda `bucket_label` en ISO): «vie 24» o «21 h». */
 export const bucketLabel = (start: string, groupBy: 'hour' | 'day') => (groupBy === 'day' ? dayFmt.format(new Date(start)) : `${hourFmt.format(new Date(start))} h`);
-const timeFmt = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
-const dateFmt = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
-/** «Hoy 21:40», «Ayer 19:05», «lun, 20 oct 18:30». */
-export function fmtWhen(isoOrMs: string | number) {
-  const d = new Date(isoOrMs);
-  const today = startOfDay(new Date()).getTime();
-  const day = startOfDay(d).getTime();
-  const prefix = day === today ? 'Hoy' : day === today - 86_400_000 ? 'Ayer' : dateFmt.format(d);
-  return `${prefix} ${timeFmt.format(d)}`;
+const fmts = new Map<string, Intl.DateTimeFormat>();
+const dtf = (tz: string | undefined, o: Intl.DateTimeFormatOptions, locale = 'es-CO') => {
+  const k = `${locale}|${tz}|${JSON.stringify(o)}`;
+  let f = fmts.get(k);
+  if (!f) fmts.set(k, (f = new Intl.DateTimeFormat(locale, { ...o, timeZone: tz })));
+  return f;
+};
+
+/** Día calendario «YYYY-MM-DD» de un instante en la zona `tz` (el local; sin `tz`, el navegador). */
+export const dayKey = (ms: number, tz?: string) => dtf(tz, { year: 'numeric', month: '2-digit', day: '2-digit' }, 'en-CA').format(ms);
+
+/** Instante (ms) en que empieza el día «YYYY-MM-DD» en `tz`. */
+export function dayStart(day: string, tz?: string) {
+  const offset = (t: number) => { // zona − UTC en el instante t
+    const p = Object.fromEntries(dtf(tz, { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23' }, 'en-US').formatToParts(t).map((x) => [x.type, +x.value]));
+    return Date.UTC(p.year!, p.month! - 1, p.day!, p.hour, p.minute, p.second) - Math.floor(t / 1000) * 1000;
+  };
+  const utc = Date.parse(`${day}T00:00:00Z`);
+  return utc - offset(utc - offset(utc));
+}
+
+/** «Hoy 21:40», «Ayer 19:05», «lun, 20 oct 18:30» en la zona `tz` (la del local; sin `tz`, la del navegador). */
+export function fmtWhen(isoOrMs: string | number, tz?: string) {
+  const ms = new Date(isoOrMs).getTime();
+  const today = dayKey(Date.now(), tz);
+  const day = dayKey(ms, tz);
+  const prefix = day === today ? 'Hoy' : day === dayKey(dayStart(today, tz) - 1, tz) ? 'Ayer' : dtf(tz, { weekday: 'short', day: 'numeric', month: 'short' }).format(ms);
+  return `${prefix} ${dtf(tz, { hour: '2-digit', minute: '2-digit', hour12: false }).format(ms)}`;
 }

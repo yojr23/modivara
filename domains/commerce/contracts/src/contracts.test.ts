@@ -6,6 +6,9 @@ import {
   registerMovementSchema,
   SEEDED_MOVEMENT_REASONS,
   stockIssuedV1,
+  movementCursor,
+  parseMovementCursor,
+  stockQuerySchema,
   stockReceivedV1,
 } from './index.js';
 
@@ -86,5 +89,15 @@ describe('DTOs', () => {
     const base = { stock_location_id: uuid(2), product_id: uuid(3), reason_id: uuid(4) };
     expect(adjustToCountSchema.safeParse({ ...base, counted_quantity: '0' }).success).toBe(true);
     expect(adjustToCountSchema.safeParse({ ...base, counted_quantity: '-1' }).success).toBe(false);
+  });
+});
+
+describe('cursor del historial', () => {
+  it('va y vuelve (occurred_at, id) y rechaza lo que no lo es', () => {
+    const m = { occurred_at: '2026-11-03T10:00:00.123Z', id: uuid(7) };
+    expect(parseMovementCursor(movementCursor(m))).toEqual({ occurredAt: new Date(m.occurred_at), id: m.id });
+    expect(parseMovementCursor('basura')).toBeNull();
+    expect(stockQuerySchema.safeParse({ cursor: 'basura' }).success).toBe(false);
+    expect(stockQuerySchema.safeParse({ cursor: movementCursor(m), direction: 'out' }).success).toBe(true);
   });
 });

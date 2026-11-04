@@ -1,8 +1,9 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type {
   AdjustToCountDto, CreateMovementReasonDto, CreateProductDto, CreateStockLocationDto, RegisterMovementDto, UpdateProductDto,
 } from '@modivara/commerce-contracts';
-import { commerceApi as api, toStockErrorState, type StockFilters } from './client.js';
+import { movementCursor } from '@modivara/commerce-contracts';
+import { commerceApi as api, toStockErrorState, type MovementFilters, type StockFilters } from './client.js';
 
 /** Claves por local (los motivos, por negocio): nunca se mezclan datos de dos locales. */
 export const commerceKeys = {
@@ -29,8 +30,17 @@ export const useStockLocations = (l: string) => useQuery({ queryKey: commerceKey
 export const useReasons = () => useQuery({ queryKey: commerceKeys.reasons(), queryFn: () => api.listReasons(), retry });
 export const useBalances = (l: string, f: StockFilters = {}) =>
   useQuery({ queryKey: [...commerceKeys.balances(l), f], queryFn: () => api.listBalances(l, f), retry });
-export const useMovements = (l: string, f: StockFilters = {}) =>
+export const useMovements = (l: string, f: MovementFilters = {}) =>
   useQuery({ queryKey: [...commerceKeys.movements(l), f], queryFn: () => api.listMovements(l, f), retry });
+/** Historial paginado por cursor `(occurred_at, id)`: `fetchNextPage` trae la siguiente tanda con los mismos filtros. */
+export const useMovementPages = (l: string, f: Omit<MovementFilters, 'cursor'> & { limit: number }) =>
+  useInfiniteQuery({
+    queryKey: [...commerceKeys.movements(l), 'pages', f],
+    queryFn: ({ pageParam }) => api.listMovements(l, { ...f, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.length < f.limit ? undefined : movementCursor(last[last.length - 1]!)),
+    retry,
+  });
 
 export const useCreateProduct = (l: string) => mutation((v: CreateProductDto) => api.createProduct(l, v), () => [commerceKeys.products(l)]);
 export const useUpdateProduct = (l: string) =>

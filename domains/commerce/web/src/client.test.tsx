@@ -87,6 +87,9 @@ it('los filtros viajan en el query string', async () => {
   const f = stub(json([]));
   await commerceApi.listMovements(L, { productId: P, limit: 20 });
   expect(f.mock.calls[0]![0]).toBe(`/api/v1/locations/${L}/stock/movements?product_id=${P}&limit=20`);
+  const g = stub(json([]));
+  await commerceApi.listMovements(L, { direction: 'out', from: '2026-11-01T05:00:00.000Z', to: '2026-11-02T05:00:00.000Z', cursor: 'c' });
+  expect(g.mock.calls[0]![0]).toBe(`/api/v1/locations/${L}/stock/movements?direction=out&from=2026-11-01T05%3A00%3A00.000Z&to=2026-11-02T05%3A00%3A00.000Z&cursor=c`);
 });
 
 it('useProducts expone los datos por local', async () => {

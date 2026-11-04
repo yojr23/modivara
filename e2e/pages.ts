@@ -47,7 +47,7 @@ export class BoardPage {
 export class InventoryPage {
   constructor(readonly page: Page) {}
   readonly type = (name: 'Salida' | 'Entrada' | 'Ajuste por conteo') => this.page.getByRole('group', { name: 'Tipo de movimiento' }).getByRole('button', { name });
-  readonly product = (name: string) => this.page.getByRole('radio', { name: new RegExp(`^${name}`) });
+  readonly product = (name: string) => this.page.getByRole('button', { name: new RegExp(`^${name}`) });
   readonly today = () => this.page.getByRole('complementary', { name: 'Hoy' });
 
   async goto() {

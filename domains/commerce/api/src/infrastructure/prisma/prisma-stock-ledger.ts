@@ -105,9 +105,13 @@ export class PrismaStockLedger implements StockLedger, StockQueries {
   }
 
   /** Más recientes primero; `id` (UUIDv7) desempata movimientos con el mismo instante. */
-  async listMovements({ organizationId, locationId, stockLocationId, productId, limit }: MovementQuery) {
+  async listMovements({ organizationId, locationId, stockLocationId, productId, direction, from, to, after, limit }: MovementQuery) {
     const rows = await this.db.stockMovement.findMany({
-      where: { organizationId, locationId, ...(stockLocationId && { stockLocationId }), ...(productId && { productId }) },
+      where: {
+        organizationId, locationId, ...(stockLocationId && { stockLocationId }), ...(productId && { productId }), ...(direction && { direction }),
+        ...((from || to) && { occurredAt: { ...(from && { gte: from }), ...(to && { lt: to }) } }),
+        ...(after && { OR: [{ occurredAt: { lt: after.occurredAt } }, { occurredAt: after.occurredAt, id: { lt: after.id } }] }),
+      },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
       take: limit,
     });

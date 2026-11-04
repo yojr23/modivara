@@ -15,6 +15,7 @@ test.describe('inventario', () => {
     await inv.goto();
 
     await inv.createProduct(name);
+    await expect(page.getByRole('button', { name: 'Nuevo producto' })).toBeFocused(); // el <dialog> devuelve el foco a su disparador
     await expect(inv.type('Entrada')).toHaveAttribute('aria-pressed', 'true'); // tras crear, toca su stock inicial
     await inv.register('10', 'Registrar entrada');
     await expect(page.getByText(`Entrada registrada: +10 botellas de ${name}. Saldo: 10 botellas`)).toBeVisible();
@@ -34,6 +35,15 @@ test.describe('inventario', () => {
     const rows = inv.today().getByRole('listitem').filter({ hasText: name });
     await expect(rows).toHaveCount(3);
     await expect(rows.first()).toContainText('Saldo 6 botellas');
+
+    // Historial completo (filtros y paginación en el servidor): solo este producto, con motivo y autor.
+    await page.getByRole('button', { name: 'Ver historial' }).click();
+    const hist = page.getByRole('complementary', { name: 'Historial' });
+    await hist.getByRole('combobox', { name: 'Producto' }).selectOption({ label: name });
+    await expect(hist.getByRole('listitem')).toHaveCount(3);
+    await expect(hist.getByRole('listitem').first()).toContainText(', tú');
+    await hist.getByRole('button', { name: 'Salidas' }).click();
+    await expect(hist.getByRole('listitem')).toHaveCount(1);
 
     // La API dice lo mismo que la pantalla.
     const api = await apiAs(['bar-demo', 'inventario1']);

@@ -214,7 +214,7 @@ function StockByProduct({ range }: { range: RangePreset }) {
           <ul className="divide-y divide-line text-sm">
             {(recent.data ?? []).map((x) => (
               <li key={x.id} className="flex items-center justify-between gap-3 py-2">
-                <span>{reasonName.get(x.reason_id) ?? (x.direction === 'in' ? 'Entrada' : x.direction === 'out' ? 'Salida' : 'Ajuste')}<span className="block text-xs text-muted">{fmtWhen(x.occurred_at)}</span></span>
+                <span>{reasonName.get(x.reason_id) ?? (x.direction === 'in' ? 'Entrada' : x.direction === 'out' ? 'Salida' : 'Ajuste')}<span className="block text-xs text-muted">{fmtWhen(x.occurred_at, location.timezone)}</span></span>
                 <span className="font-semibold tabular-nums">{fmtSigned(x.delta, unit)}</span>
               </li>
             ))}

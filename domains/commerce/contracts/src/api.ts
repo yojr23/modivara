@@ -74,6 +74,14 @@ export const movementSchema = z.object({
 });
 export type MovementDto = z.infer<typeof movementSchema>;
 
+/** Cursor estable `(occurred_at, id)` de un movimiento: la página siguiente empieza justo después de él. */
+const MOVEMENT_CURSOR = /^(\d{4}-\d\d-\d\dT[\d:.]+Z)_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+export const movementCursor = (m: Pick<MovementDto, 'occurred_at' | 'id'>) => `${m.occurred_at}_${m.id}`;
+export const parseMovementCursor = (c: string) => {
+  const m = MOVEMENT_CURSOR.exec(c);
+  return m ? { occurredAt: new Date(m[1]!), id: m[2]! } : null;
+};
+
 /** 201 si el movimiento es nuevo; 200 si la clave ya existía y se devuelve el original (`replayed`). */
 export const recordedMovementSchema = z.object({ movement: movementSchema, replayed: z.boolean() });
 export type RecordedMovementDto = z.infer<typeof recordedMovementSchema>;
@@ -83,5 +91,10 @@ export const stockQuerySchema = z.object({
   stock_location_id: z.uuid().optional(),
   product_id: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
+  /** Solo movimientos: tipo, rango `from` inclusivo / `to` exclusivo, y página siguiente (`movementCursor` del último de la anterior). */
+  direction: movementDirectionSchema.optional(),
+  from: iso.optional(),
+  to: iso.optional(),
+  cursor: z.string().regex(MOVEMENT_CURSOR).optional(),
 });
 export type StockQueryDto = z.infer<typeof stockQuerySchema>;

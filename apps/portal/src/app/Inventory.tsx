@@ -1,14 +1,14 @@
 import type { MovementDto, ProductDto, Unit } from '@modivara/commerce-contracts';
 import {
-  newIdempotencyKey, stockErrorState, useAdjustToCount, useBalances, useCreateProduct, useMovements, useProducts, useReasons, useRegisterMovement, useStockLocations,
+  newIdempotencyKey, stockErrorState, useAdjustToCount, useBalances, useCreateProduct, useMovementPages, useMovements, useProducts, useReasons, useRegisterMovement, useStockLocations,
 } from '@modivara/commerce-web';
-import { ArrowDownToLine, ArrowUpFromLine, CircleAlert, Minus, Package, PackagePlus, Plus, Scale, X, type LucideIcon } from 'lucide-react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { ArrowDownToLine, ArrowUpFromLine, CircleAlert, Minus, Package, PackagePlus, Plus, Scale, type LucideIcon } from 'lucide-react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { dec, fmtQty, fmtSigned, fmtWhen, startOfDay } from './format';
+import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen } from './format';
 import InventorySettings from './InventorySettings';
-import { Bone, EmptyState, ErrorState, Page, Segmented, useApp, useEscape, useToast } from './ui';
+import { Bone, EmptyState, ErrorState, Modal, Page, Segmented, useApp, useToast } from './ui';
 
 // F4-09 — inventario, versión «registro rápido» (PLAN-002): tipo, producto, cantidad y motivo a la vista; lo registrado hoy al lado.
 // Cada envío lleva su `Idempotency-Key` (reintentar tras un error reenvía la misma). Saldos y movimientos del lugar de stock por defecto.
@@ -23,7 +23,8 @@ const DIR_OPTIONS = [['out', 'Salida'], ['in', 'Entrada'], ['adjust', 'Ajuste po
 const UNITS: [Unit, string][] = [['bottle', 'Botellas'], ['unit', 'Unidades'], ['kg', 'Kilos'], ['g', 'Gramos'], ['l', 'Litros'], ['ml', 'Mililitros']];
 const NO_CATEGORY = 'Sin categoría';
 const step = (u: Unit) => (u === 'kg' || u === 'l' ? 0.5 : 1);
-const MOVEMENTS_LIMIT = 100;
+const TODAY_LIMIT = 200; // tope de la API; un día de un local no se acerca
+const PAGE = 50;
 
 /* ---------- Estado compartido ---------- */
 
@@ -35,7 +36,9 @@ function useInventory() {
   const placesQ = useStockLocations(l);
   const place = placesQ.data?.find((p) => p.is_default && p.active) ?? placesQ.data?.find((p) => p.active);
   const balancesQ = useBalances(l, { stockLocationId: place?.id });
-  const movementsQ = useMovements(l, { stockLocationId: place?.id, limit: MOVEMENTS_LIMIT });
+  // «Hoy» es el día del local (DAT-07), no el del navegador.
+  const tz = location.timezone;
+  const todayQ = useMovements(l, { stockLocationId: place?.id, from: new Date(dayStart(dayKey(Date.now(), tz), tz)).toISOString(), limit: TODAY_LIMIT });
   const reasonsQ = useReasons();
   const registerM = useRegisterMovement(l);
   const adjustM = useAdjustToCount(l);
@@ -48,12 +51,12 @@ function useInventory() {
   const categories = [...new Set(products.map((p) => p.category ?? NO_CATEGORY))].sort((a, b) => (a === NO_CATEGORY ? 1 : b === NO_CATEGORY ? -1 : a.localeCompare(b)));
 
   return {
-    me, toast, place, products, categories, reasonName, fresh,
-    movements: movementsQ.data ?? [],
+    me, tz, toast, place, products, categories, reasonName, fresh,
+    today: todayQ.data ?? [],
     canWrite: can('commerce.stock.write'), canCatalog: can('commerce.catalog.manage'),
     loading: productsQ.isPending || placesQ.isPending || balancesQ.isPending || reasonsQ.isPending,
     error: productsQ.isError || placesQ.isError || balancesQ.isError || reasonsQ.isError,
-    retry: () => { void productsQ.refetch(); void placesQ.refetch(); void balancesQ.refetch(); void reasonsQ.refetch(); void movementsQ.refetch(); },
+    retry: () => { void productsQ.refetch(); void placesQ.refetch(); void balancesQ.refetch(); void reasonsQ.refetch(); void todayQ.refetch(); },
     reasonsFor: (d: Direction) => (reasonsQ.data ?? []).filter((r) => r.direction === d && r.active),
     balance: (id: string) => balances.get(id) ?? 0,
     product: (id: string) => products.find((p) => p.id === id),
@@ -211,7 +214,7 @@ function MovementList({ inv, movements, dense = false }: { inv: Inv; movements: 
               <span className="block text-muted"><DirTag d={m.direction} reason={inv.reasonName.get(m.reason_id)} /></span>
             </span>
             <span className="text-right font-semibold tabular-nums">{fmtSigned(m.delta, unit)}</span>
-            <span className="truncate text-xs text-muted">{fmtWhen(m.occurred_at)}{m.actor_user_id === inv.me.actor.user_id ? ', tú' : m.actor_name ? `, ${m.actor_name}` : ''}{m.note ? `. ${m.note}` : ''}</span>
+            <span className="truncate text-xs text-muted">{fmtWhen(m.occurred_at, inv.tz)}{m.actor_user_id === inv.me.actor.user_id ? ', tú' : m.actor_name ? `, ${m.actor_name}` : ''}{m.note ? `. ${m.note}` : ''}</span>
             <span className="text-right text-xs text-muted tabular-nums">Saldo {fmtQty(m.balance_after, unit)}</span>
           </li>
         );
@@ -220,22 +223,38 @@ function MovementList({ inv, movements, dense = false }: { inv: Inv; movements: 
   );
 }
 
-/** Historial reciente con filtros por producto y tipo. */
+/** Historial completo: filtros por producto, tipo y fechas (día del local) en el servidor; «Cargar más» sigue el cursor. */
 function HistoryView({ inv }: { inv: Inv }) {
+  const { location } = useApp();
   const [productId, setProductId] = useState('');
   const [dir, setDir] = useState<'' | Direction>('');
-  const rows = inv.movements.filter((m) => (!productId || m.product_id === productId) && (!dir || m.direction === dir));
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const day = (d: string, plus = 0) => new Date(dayStart(d, inv.tz) + plus).toISOString();
+  const q = useMovementPages(location.id, {
+    stockLocationId: inv.place?.id, limit: PAGE,
+    ...(productId && { productId }), ...(dir && { direction: dir }),
+    ...(from && { from: day(from) }),
+    ...(to && { to: day(dayKey(dayStart(to, inv.tz) + 36 * 3_600_000, inv.tz)) }), // «hasta» incluye ese día: el límite es el inicio del siguiente
+  });
+  const rows = q.data?.pages.flat() ?? [];
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         <select aria-label="Producto" value={productId} onChange={(e) => setProductId(e.target.value)} className={cn(input, 'w-auto')}>
           <option value="">Todos los productos</option>
           {inv.products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <Segmented label="Tipo" options={[['', 'Todos'], ['in', 'Entradas'], ['out', 'Salidas'], ['adjust', 'Ajustes']] as const} value={dir} onChange={setDir} />
+        <Field label="Desde" className="w-auto"><input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={cn(input, 'w-auto')} /></Field>
+        <Field label="Hasta" className="w-auto"><input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={cn(input, 'w-auto')} /></Field>
       </div>
-      <MovementList inv={inv} movements={rows} />
-      {inv.movements.length >= MOVEMENTS_LIMIT && <p className="text-center text-sm text-muted">Se muestran los {MOVEMENTS_LIMIT} movimientos más recientes.</p>}
+      {q.isPending ? <RowBones n={5} /> : q.isError ? <ErrorState what="el historial" onRetry={() => void q.refetch()} /> : (
+        <>
+          <MovementList inv={inv} movements={rows} />
+          {q.hasNextPage && <div className="text-center"><Button variant="secondary" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>{q.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}</Button></div>}
+        </>
+      )}
     </div>
   );
 }
@@ -248,7 +267,7 @@ function ProductDialog({ inv, onClose, onCreated }: { inv: Inv; onClose: () => v
   const [sku, setSku] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  useEscape(onClose);
+  const title = useId();
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setError('Escribe el nombre del producto.');
@@ -260,13 +279,10 @@ function ProductDialog({ inv, onClose, onCreated }: { inv: Inv; onClose: () => v
     onClose();
   }
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-ink/30 p-4" onClick={onClose}>
-      <form role="dialog" aria-modal aria-labelledby="new-product" onSubmit={submit} onClick={(e) => e.stopPropagation()} className="anim-rise w-full max-w-md space-y-5 rounded-xl bg-surface p-6 shadow-2xl" noValidate>
-        <div className="flex items-center justify-between">
-          <h2 id="new-product" className="text-xl font-bold">Nuevo producto</h2>
-          <Button variant="ghost" aria-label="Cerrar" onClick={onClose}><X aria-hidden className="size-5" /></Button>
-        </div>
-        <Field label="Nombre"><input autoFocus value={name} onChange={(e) => { setName(e.target.value); setError(''); }} maxLength={120} className={input} /></Field>
+    <Modal labelledBy={title} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-5" noValidate>
+        <h2 id={title} className="text-xl font-bold">Nuevo producto</h2>
+        <Field label="Nombre"><input value={name} onChange={(e) => { setName(e.target.value); setError(''); }} maxLength={120} className={input} /></Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Categoría">
             <input list="categories" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={120} placeholder="Licores" className={input} />
@@ -283,7 +299,7 @@ function ProductDialog({ inv, onClose, onCreated }: { inv: Inv; onClose: () => v
           <Button type="submit" disabled={busy}>{busy ? 'Creando…' : 'Crear producto'}</Button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 
@@ -301,8 +317,7 @@ export default function Inventory() {
   const { can } = useApp();
   const canSettings = can('commerce.reasons.manage') || can('commerce.catalog.manage');
   const product = inv.product(chosen ?? '') ?? inv.products[0];
-  const todayStart = startOfDay(new Date()).getTime();
-  const today = inv.movements.filter((m) => Date.parse(m.occurred_at) >= todayStart);
+  const { today } = inv;
 
   let body: ReactNode;
   if (view === 'ajustes') {
@@ -327,11 +342,11 @@ export default function Inventory() {
                 {inv.categories.map((c) => (
                   <div key={c}>
                     <p className="mb-1.5 text-xs text-muted">{c}</p>
-                    <div role="radiogroup" aria-label={c} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <div role="group" aria-label={c} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {inv.products.filter((p) => (p.category ?? NO_CATEGORY) === c).map((p) => {
                         const on = p.id === product.id;
                         return (
-                          <button key={p.id} type="button" role="radio" aria-checked={on} onClick={() => setChosen(p.id)}
+                          <button key={p.id} type="button" aria-pressed={on} onClick={() => setChosen(p.id)}
                             className={cn('rounded-lg border bg-surface px-3 py-2 text-left transition-colors', on ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong')}>
                             <span className="block font-semibold">{p.name}</span>
                             <span className="text-sm text-muted tabular-nums">{fmtQty(inv.balance(p.id), p.unit)}</span>
