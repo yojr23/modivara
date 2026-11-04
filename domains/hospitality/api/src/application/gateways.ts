@@ -91,6 +91,7 @@ export class GetConnectivity {
 export interface DeviceStatus {
   connectivity: ConnectivityStatus;
   tables: Array<{ tableId: string; hasButton: boolean }>;
+  gateways: Array<Omit<GatewayConnectivity, 'gatewayId'>>;
 }
 
 /** Lo que ven admin y staff: ¿cada mesa tiene botón? y ¿hay gateways desconectados? Nada técnico (DATA-001 §2 `hospitality.devices.status`). */
@@ -108,6 +109,7 @@ export class GetDeviceStatus {
     const tables = (await this.tables.listByLocation(scopeOf(input)))
       .filter((t) => t.isActive)
       .map((t) => ({ tableId: t.id, hasButton: withButton.has(t.id) }));
-    return { connectivity: (await this.connectivity.execute(input)).status, tables };
+    const { status, gateways } = await this.connectivity.execute(input);
+    return { connectivity: status, tables, gateways: gateways.map(({ name, lastSeenAt, connected }) => ({ name, lastSeenAt, connected })) };
   }
 }

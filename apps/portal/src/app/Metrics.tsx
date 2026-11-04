@@ -56,7 +56,7 @@ function HeatPlan({ space, counts, label, selected, onSelect }: { space: Space; 
   const totals = areaTotals(space.areas, space.elements, (id) => counts.get(id) ?? 0);
   const maxArea = Math.max(1, ...totals.values());
   return (
-    <svg viewBox={`-24 -24 ${space.width + 48} ${space.height + 48}`} aria-label={`Llamados en ${space.name}`} className="block h-full w-full" onClick={() => onSelect(null)}>
+    <svg viewBox={`-24 -24 ${space.width + 48} ${space.height + 48}`} role="group" aria-label={`Llamados en ${space.name}`} className="block h-full w-full" onClick={() => onSelect(null)}>
       <rect x={-8} y={-8} width={space.width + 16} height={space.height + 16} rx={12} className="fill-surface" />
       {space.areas.map((a) => {
         const n = totals.get(a.id) ?? 0;

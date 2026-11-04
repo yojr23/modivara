@@ -16,7 +16,9 @@ describe('API de configuración', () => {
     const parsed = deviceStatusSchema.parse({
       connectivity: 'all_connected',
       tables: [{ table_id: '0192d4f0-0000-7000-8000-000000000001', has_button: true, code: 'btn-01', gateway_id: 'x' }],
+      gateways: [{ name: 'Barra', last_seen_at: null, connected: false, id: 'x', key: 'k' }],
     });
     expect(parsed.tables[0]).toEqual({ table_id: '0192d4f0-0000-7000-8000-000000000001', has_button: true });
+    expect(parsed.gateways).toEqual([{ name: 'Barra', last_seen_at: null, connected: false }]);
   });
 });

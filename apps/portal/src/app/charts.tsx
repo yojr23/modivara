@@ -55,7 +55,7 @@ export function Columns({ data, caption, unit, height = 180, labelEvery = 1, cur
           {ticks.map((t) => <div key={t} aria-hidden className="absolute inset-x-0 border-t border-line" style={{ top: `${(1 - t / max) * 100}%` }} />)}
           <div className="absolute inset-0 flex items-end gap-[2px]">
             {data.map((d, i) => (
-              <div key={i} tabIndex={0} aria-label={`${d.label}: ${d.value} ${d.value === 1 ? unit[0] : unit[1]}`} className="group relative flex h-full min-w-0 flex-1 items-end justify-center outline-none">
+              <div key={i} tabIndex={0} role="img" aria-label={`${d.label}: ${d.value} ${d.value === 1 ? unit[0] : unit[1]}`} className="group relative flex h-full min-w-0 flex-1 items-end justify-center">
                 <div
                   className="w-full max-w-6 rounded-t-[4px] bg-interface transition-[height] duration-300 group-hover:brightness-90"
                   style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value ? 2 : 0, ...(i === current && { background: HATCH }) }}
@@ -120,7 +120,7 @@ export function InOutColumns({ data, caption, height = 160, labelEvery = 1 }: {
         <span aria-hidden className="absolute -bottom-1 left-0 text-xs text-muted tabular-nums">−{fmtNum(max)}</span>
         <div className="absolute inset-0 ml-10 flex gap-[2px]">
           {data.map((d, i) => (
-            <div key={i} tabIndex={0} aria-label={`${d.label}: entradas ${fmtNum(d.in)}, salidas ${fmtNum(-d.out)}`} className="group relative flex min-w-0 flex-1 flex-col items-center outline-none">
+            <div key={i} tabIndex={0} role="img" aria-label={`${d.label}: entradas ${fmtNum(d.in)}, salidas ${fmtNum(-d.out)}`} className="group relative flex min-w-0 flex-1 flex-col items-center">
               <div className="flex h-1/2 w-full items-end justify-center pb-px">
                 <div className="w-full max-w-6 rounded-t-[4px] bg-series-in group-hover:brightness-90" style={{ height: `${(d.in / max) * 100}%` }} />
               </div>

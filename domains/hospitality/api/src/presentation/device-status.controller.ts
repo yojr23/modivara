@@ -13,7 +13,11 @@ export class DeviceStatusController {
   @Get(P.deviceStatus)
   @RequirePermission('hospitality.devices.status')
   async get(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string): Promise<DeviceStatusDto> {
-    const { connectivity, tables } = await this.status.execute(contextOf(actor, locationId));
-    return { connectivity, tables: tables.map((t) => ({ table_id: t.tableId, has_button: t.hasButton })) };
+    const { connectivity, tables, gateways } = await this.status.execute(contextOf(actor, locationId));
+    return {
+      connectivity,
+      tables: tables.map((t) => ({ table_id: t.tableId, has_button: t.hasButton })),
+      gateways: gateways.map((g) => ({ name: g.name, last_seen_at: g.lastSeenAt?.toISOString() ?? null, connected: g.connected })),
+    };
   }
 }

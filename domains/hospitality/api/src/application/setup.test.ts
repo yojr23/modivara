@@ -157,6 +157,13 @@ describe('gateways', () => {
     expect((await w.connectivity.execute(w.ctx)).status).toBe('all_connected');
   });
 
+  it('estado de dispositivos: nombre y última señal de cada gateway, sin ids', async () => {
+    const { gateway } = await w.createGateway.execute({ ...w.ctx, name: 'Barra' });
+    expect((await w.deviceStatus.execute(w.ctx)).gateways).toEqual([{ name: 'Barra', lastSeenAt: null, connected: false }]);
+    await w.heartbeat.execute({ ...w.ctx, gatewayId: gateway.id });
+    expect((await w.deviceStatus.execute(w.ctx)).gateways).toEqual([{ name: 'Barra', lastSeenAt: T0, connected: true }]);
+  });
+
   it('sin gateways no se reporta todo conectado', async () => {
     expect(await w.connectivity.execute(w.ctx)).toEqual({ gateways: [], status: 'no_gateways' });
   });

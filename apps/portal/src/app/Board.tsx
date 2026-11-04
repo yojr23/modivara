@@ -1,15 +1,16 @@
 import type { ServiceCallDto } from '@modivara/hospitality-contracts';
 import {
-  callErrorState, useAcknowledgeCall, useActiveCalls, useCompleteCall, useConnectionStatus, useGatewaysStatus, useLayouts, useTables, useZones,
+  callErrorState, useAcknowledgeCall, useActiveCalls, useCompleteCall, useConnectionStatus, useDeviceStatus, useGatewaysStatus, useLayouts, useTables, useZones,
 } from '@modivara/hospitality-web';
-import { BellRing, CheckCheck, HandHelping, Map as MapIcon, Volume2, VolumeX, Wifi, WifiOff, X } from 'lucide-react';
+import { BellRing, CheckCheck, HandHelping, Map as MapIcon, TriangleAlert, Volume2, VolumeX, Wifi, WifiOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
+import { agoLabel } from './format';
 import { DEFAULT_SPACE_NAME, ElementShape, RED_MS, areaAt, shortLabel, spaceIdOf, splitAreas, toneOf, type Space, type Tone } from './plan';
 import { beep, loadSound, newPendingIds, prepareAudio, saveSound } from './sound';
-import { Bone, EmptyState, ErrorState, OfflineBanner, Page, useApp, useToast } from './ui';
+import { Bone, EmptyState, ErrorState, OfflineBanner, Page, useApp, useEscape, useToast } from './ui';
 
 // L-06 — tablero operativo (ADR-003 ESP-23…ESP-30), versión «todo el local a la vista» (PLAN-002): todos los planos publicados
 // lado a lado y la cola global abajo, siempre visible aunque no haya plano. REST + tiempo real (`service_call.changed`).
@@ -25,10 +26,10 @@ const TONE_TEXT: Record<Tone, string> = {
   idle: 'Sin llamados', new: 'Pendiente', waiting: 'Pendiente, más de 2 min', late: 'Pendiente, más de 5 min', attending: 'En atención',
 };
 // El color fuerte se concentra en las mesas del plano; tarjetas blancas con borde izquierdo y un chip de estado.
-const EDGE: Record<Tone, string> = { idle: 'border-l-line', new: 'border-l-pending', waiting: 'border-l-pending', late: 'border-l-danger', attending: 'border-l-attending' };
+const EDGE: Record<Tone, string> = { idle: 'border-l-line', new: 'border-l-pending-line', waiting: 'border-l-pending-line', late: 'border-l-danger', attending: 'border-l-attending' };
 const card = (tone: Tone) => cn('rounded-lg border border-line border-l-[6px] bg-surface', EDGE[tone]);
 const CHIP: Record<Tone, string> = {
-  idle: 'text-muted', new: 'ring-2 ring-inset ring-pending', waiting: 'bg-pending text-pending-fg', late: 'bg-danger text-danger-fg', attending: 'bg-attending text-attending-fg',
+  idle: 'text-muted', new: 'ring-2 ring-inset ring-pending-line', waiting: 'bg-pending text-pending-fg', late: 'bg-danger text-danger-fg', attending: 'bg-attending text-attending-fg',
 };
 
 function Chip({ tone, className }: { tone: Tone; className?: string }) {
@@ -55,7 +56,10 @@ function useBoard() {
   const done = useCompleteCall(l);
   const status = useConnectionStatus();
   const gateways = useGatewaysStatus();
+  const devices = useDeviceStatus(l);
   const [now, setNow] = useState(Date.now());
+  // `gateways.status` solo trae el resumen: al cambiar, se pide el detalle (nombre y última señal) al REST. Sin permiso o con error no hay detalle y queda el resumen.
+  useEffect(() => { void devices.refetch(); }, [gateways]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -102,7 +106,7 @@ function useBoard() {
   }
 
   return {
-    me, now, toast, spaces, sound,
+    me, now, toast, spaces, sound, silentGateways: (devices.data?.gateways ?? []).filter((g) => !g.connected),
     toggleSound() { const on = !sound; if (on) prepareAudio(); saveSound(on); setSound(on); }, queue, callOf, waited, status, gateways,
     loading: layouts.isPending || tables.isPending || calls.isPending,
     layoutsError: layouts.isError, callsError: calls.isError,
@@ -136,10 +140,10 @@ function Action({ b, c, size = 'md', primary = false, className }: { b: Board; c
   const title = offline ? 'Sin conexión: se podrá cuando vuelva' : undefined;
   if (c.status === 'pending') {
     if (!b.canAck) return null;
-    return <Button size={size} variant={primary ? 'primary' : 'secondary'} disabled={offline || b.busy} title={title} className={className} onClick={() => b.acknowledge(c)}><HandHelping aria-hidden className="size-4" />Marcar en atención</Button>;
+    return <Button size={size} variant={primary ? 'primary' : 'secondary'} disabled={offline || b.busy} title={title} aria-label={`Marcar en atención, ${b.label(c.table_id)}`} className={className} onClick={() => b.acknowledge(c)}><HandHelping aria-hidden className="size-4" />Marcar en atención</Button>;
   }
   if (!b.canComplete) return null;
-  return <Button size={size} variant="ghost" disabled={offline || b.busy} title={title} className={cn('border border-line', className)} onClick={() => b.complete(c)}><CheckCheck aria-hidden className="size-4" />Finalizar</Button>;
+  return <Button size={size} variant="ghost" disabled={offline || b.busy} title={title} aria-label={`Finalizar, ${b.label(c.table_id)}`} className={cn('border border-line', className)} onClick={() => b.complete(c)}><CheckCheck aria-hidden className="size-4" />Finalizar</Button>;
 }
 
 function Connection({ b }: { b: Board }) {
@@ -148,6 +152,23 @@ function Connection({ b }: { b: Board }) {
   if (b.gateways === 'no_gateways') return <Pill icon={<WifiOff aria-hidden className="size-4" />}>Sin botones instalados</Pill>;
   if (b.status === 'connecting') return <Pill icon={<Wifi aria-hidden className="size-4" />}>Conectando…</Pill>;
   return <Pill icon={<Wifi aria-hidden className="size-4" />}>{b.gateways === 'all_connected' ? 'Botones conectados' : 'En línea'}</Pill>;
+}
+/** MOD-05: qué equipo no da señal, desde cuándo y qué revisar, sin mirar logs. */
+function GatewayAlert({ b }: { b: Board }) {
+  if (b.status === 'disconnected' || b.silentGateways.length === 0) return null;
+  return (
+    <div role="status" className="anim-rise border-b border-danger/30 bg-danger/8 px-4 py-2 text-sm md:px-6">
+      <p className="flex items-center gap-2 font-semibold"><TriangleAlert aria-hidden className="size-4 shrink-0 text-danger" />Sin señal de botones: los llamados de las mesas pueden no llegar.</p>
+      <ul className="mt-1 space-y-0.5 pl-6">
+        {b.silentGateways.map((g) => (
+          <li key={g.name}>
+            <span className="font-semibold">{g.name}</span>:{' '}
+            {g.last_seen_at ? `última señal ${agoLabel(Date.parse(g.last_seen_at), b.now)}. Revisa que siga encendido y con internet.` : 'aún no ha enviado señal. Revisa que esté encendido y con su clave configurada.'}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 function SoundSwitch({ b }: { b: Board }) {
   const Icon = b.sound ? Volume2 : VolumeX;
@@ -166,7 +187,7 @@ const Pill = ({ down = false, icon, children }: { down?: boolean; icon: ReactNod
 
 function PlanView({ b, space, selected, onSelect, className }: { b: Board; space: Space; selected: string | null; onSelect: (id: string | null) => void; className?: string }) {
   return (
-    <svg viewBox={`-24 -24 ${space.width + 48} ${space.height + 48}`} aria-label={`Plano de ${space.name}`} className={cn('block h-full w-full', className)} onClick={() => onSelect(null)}>
+    <svg viewBox={`-24 -24 ${space.width + 48} ${space.height + 48}`} role="group" aria-label={`Plano de ${space.name}`} className={cn('block h-full w-full', className)} onClick={() => onSelect(null)}>
       <rect x={-8} y={-8} width={space.width + 16} height={space.height + 16} rx={12} className="fill-surface" />
       {/* Áreas discretas: orientan sin competir con los llamados. */}
       {space.areas.map((a) => (
@@ -207,7 +228,7 @@ function Legend({ className }: { className?: string }) {
     <ul aria-label="Leyenda" className={cn('flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted', className)}>
       {(['idle', 'new', 'waiting', 'late', 'attending'] as const).map((t) => (
         <li key={t} className="flex items-center gap-2">
-          <span aria-hidden className={cn('size-4 rounded-full border-2', { idle: 'border-line-strong', new: 'border-pending', waiting: 'border-pending bg-pending', late: 'border-danger bg-danger', attending: 'border-attending' }[t])} />
+          <span aria-hidden className={cn('size-4 rounded-full border-2', { idle: 'border-line-strong', new: 'border-pending-line', waiting: 'border-pending-line bg-pending', late: 'border-danger bg-danger', attending: 'border-attending' }[t])} />
           {TONE_TEXT[t]}
         </li>
       ))}
@@ -215,12 +236,13 @@ function Legend({ className }: { className?: string }) {
   );
 }
 
+const SHEET_ID = 'table-sheet';
 /** Hoja de la mesa tocada: estado, espera y la acción que corresponde. */
 function TableSheet({ b, tableId, onClose, className }: { b: Board; tableId: string; onClose: () => void; className?: string }) {
   const c = b.callOf.get(tableId);
   const tone = b.tone(c);
   return (
-    <div className={cn('anim-rise flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-line-strong bg-surface p-4 shadow-lg', className)}>
+    <div id={SHEET_ID} tabIndex={-1} role="region" aria-label={`Detalle de ${b.label(tableId)}`} className={cn('anim-rise flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-line-strong bg-surface p-4 shadow-lg outline-none', className)}>
       <div>
         <p className="font-display text-3xl font-extrabold">{b.label(tableId)}</p>
         {c && <p className="text-sm text-muted">{b.where(c)}</p>}
@@ -254,18 +276,20 @@ const CardBones = ({ n = 3 }: { n?: number }) => (
 export default function Board() {
   const b = useBoard();
   const [selected, setSelected] = useState<string | null>(null);
+  useEscape(() => setSelected(null), selected !== null);
   const selSpace = selected ? b.spaces.find((s) => s.elements.some((e) => e.type === 'table' && e.table_id === selected))?.id : null;
 
   return (
     <Page
       id="tablero" rail title="Tablero"
       actions={<div className="flex flex-wrap items-center gap-3 md:order-last md:ml-auto">
-        {!b.loading && <p className="text-sm text-muted"><span className="font-semibold text-fg tabular-nums">{b.pending.length}</span> esperando, <span className="font-semibold text-fg tabular-nums">{b.attending.length}</span> en atención</p>}
+        {!b.loading && <p role="status" className="text-sm text-muted"><span className="font-semibold text-fg tabular-nums">{b.pending.length}</span> esperando, <span className="font-semibold text-fg tabular-nums">{b.attending.length}</span> en atención</p>}
         <SoundSwitch b={b} />
         <Connection b={b} />
       </div>}
     >
       {b.status === 'disconnected' && <OfflineBanner />}
+      <GatewayAlert b={b} />
       <div className="flex flex-col md:h-[calc(100dvh-73px)]">
         <div className="hidden min-h-0 flex-1 gap-3 bg-sunken p-3 md:grid" style={{ gridTemplateColumns: b.spaces.length ? b.spaces.map((s) => `minmax(0,${s.width}fr)`).join(' ') : '1fr' }}>
           {b.loading ? <PlanBones /> : b.layoutsError ? <div className="rounded-xl bg-surface"><ErrorState what="los planos" onRetry={b.retry} /></div> : b.spaces.length === 0 ? (
@@ -303,7 +327,7 @@ export default function Board() {
               const on = selected === c.table_id;
               return (
                 <li key={c.id} className={cn('anim-rise flex shrink-0 flex-wrap items-center gap-3 p-2.5 pr-3 md:w-64 md:flex-nowrap', card(tone), on && 'ring-2 ring-focus')}>
-                  <button type="button" onClick={() => setSelected(c.table_id)} className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  <button type="button" onClick={() => { setSelected(c.table_id); setTimeout(() => document.getElementById(SHEET_ID)?.focus()); }} className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     aria-label={`${b.label(c.table_id)}, ${c.status === 'pending' ? `esperando ${fmt(b.waited(c))}` : b.taker(c).replace(/^L/, 'l')}, ${b.where(c)}`}>
                     <span className="font-display text-3xl leading-none font-extrabold tabular-nums">{shortLabel(b.label(c.table_id))}</span>
                     <span className="min-w-0 text-sm">

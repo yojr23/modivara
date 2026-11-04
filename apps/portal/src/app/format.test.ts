@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dayKey, dayStart, fmtWhen } from './format';
+import { agoLabel, dayKey, dayStart, fmtWhen } from './format';
 
 // Zona del local distinta a la del sistema: Bogotá (UTC−5, sin horario de verano) y Tokio (UTC+9).
 afterEach(() => vi.useRealTimers());
@@ -25,4 +25,8 @@ describe('fechas en la zona del local', () => {
     expect(fmtWhen('2026-11-03T02:10:00Z', 'Asia/Tokyo')).toBe('Hoy 11:10');
     expect(fmtWhen('2026-11-02T02:10:00Z', 'Asia/Tokyo')).toBe('Ayer 11:10');
   });
+});
+
+describe('agoLabel', () => {
+  it.each([[40_000, 'hace 40 s'], [5 * 60_000, 'hace 5 min'], [3 * 3600_000, 'hace 3 h'], [2 * 86_400_000, 'hace 2 d'], [-5, 'hace 0 s']])('%i ms', (d, out) => expect(agoLabel(0, d)).toBe(out));
 });
