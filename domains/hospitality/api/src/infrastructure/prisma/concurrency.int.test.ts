@@ -8,9 +8,10 @@ import { DeactivateTable } from '../../application/zones-and-tables.js';
 import { Device } from '../../domain/devices/device.js';
 import { DeviceAssignment } from '../../domain/devices/device-assignment.js';
 import { Gateway } from '../../domain/devices/gateway.js';
-import { ConcurrencyConflictError, InvalidTransitionError, TableInUseError } from '../../domain/errors.js';
+import { ConcurrencyConflictError, DuplicateError, InvalidTransitionError, TableInUseError } from '../../domain/errors.js';
 import { ServiceCall } from '../../domain/service-calls/service-call.js';
 import { DiningTable } from '../../domain/tables/dining-table.js';
+import { Zone } from '../../domain/tables/zone.js';
 import { FakeCoreAccess, RecordingNotifications } from '../../testing/in-memory.js';
 import { hospitalityPrismaForTests, resetHospitality, tenant } from '../../testing/integration.js';
 import { PrismaButtonPressStore } from './prisma-button-press-store.js';
@@ -183,5 +184,24 @@ describe('ARC-03 desactivar mesa con una pulsación en curso', () => {
     await complete.execute(action(call.id));
     await deactivate.execute(input);
     expect(await store.withDeviceLock(newId(), (tx) => tx.lockActiveTable(table.id))).toBe(false);
+  });
+});
+
+describe('DAT-01 unicidad concurrente (índices parciales)', () => {
+  const by = newId();
+  const zonesRepo = new PrismaZoneRepository(db);
+  const tablesRepo = new PrismaDiningTableRepository(db);
+  const outcome = (r: PromiseSettledResult<unknown>[]) => r.map((x) => (x.status === 'fulfilled' ? 'ok' : x.reason instanceof DuplicateError ? 'duplicate' : 'other')).sort();
+
+  it('dos altas paralelas de la misma zona: una gana, la otra es DuplicateError (409), sin 500', async () => {
+    const save = () => zonesRepo.save(Zone.create({ ...t, name: 'Terraza', createdBy: by, now: new Date() }));
+    expect(outcome(await Promise.allSettled([save(), save()]))).toEqual(['duplicate', 'ok']);
+    expect(await db.zone.count()).toBe(1);
+  });
+
+  it('dos altas paralelas de la misma mesa: una gana, la otra es DuplicateError', async () => {
+    const save = () => tablesRepo.save(DiningTable.create({ ...t, label: '7', zoneId: null, position: 0, createdBy: by, now: new Date() }));
+    expect(outcome(await Promise.allSettled([save(), save()]))).toEqual(['duplicate', 'ok']);
+    expect(await db.diningTable.count()).toBe(1);
   });
 });

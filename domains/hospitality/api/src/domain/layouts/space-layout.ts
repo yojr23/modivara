@@ -30,7 +30,7 @@ export interface SpaceLayoutProps extends LayoutContent {
 
 const finite = (...n: number[]) => n.every(Number.isFinite);
 
-/** Reglas de forma del plano que no dependen de otras tablas. Las superposiciones NO se validan (la UI advierte). */
+/** Reglas de forma del plano que no dependen de otras tablas. Superposición y caja de contorno se exigen al publicar (layout-geometry.ts). */
 export function validateLayoutContent({ canvasWidth, canvasHeight, elements }: LayoutContent): void {
   for (const side of [canvasWidth, canvasHeight]) {
     if (!Number.isInteger(side) || side < 1 || side > LAYOUT_MAX_CANVAS) throw new ValidationError(`Canvas sides must be integers between 1 and ${LAYOUT_MAX_CANVAS}`);
