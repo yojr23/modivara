@@ -185,12 +185,16 @@ export function useToast() {
   return { show: (text: string) => setMsg({ text, key: Date.now() }), node };
 }
 
-/** `<dialog>` nativo: Escape y foco los maneja el navegador. */
-export function Modal({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
+/** `<dialog>` nativo (`showModal`): trampa de foco y Escape del navegador; al cerrar, el foco vuelve a quien lo abrió. Nombre: `label` o `labelledBy` (id de un título). */
+export function Modal({ label, labelledBy, onClose, children }: { label?: string; labelledBy?: string; onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => ref.current?.showModal(), []);
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    ref.current?.showModal();
+    return () => opener?.focus();
+  }, []);
   return (
-    <dialog ref={ref} aria-label={label} onClose={onClose} className="m-auto w-full max-w-md rounded-lg border border-line bg-surface p-6 text-fg shadow-xl backdrop:bg-ink/40">
+    <dialog ref={ref} aria-label={label} aria-labelledby={labelledBy} onClose={onClose} className="m-auto w-full max-w-md rounded-lg border border-line bg-surface p-6 text-fg shadow-xl backdrop:bg-ink/40">
       {children}
     </dialog>
   );
