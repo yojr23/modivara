@@ -25,6 +25,7 @@ pnpm test:e2e                  # informe en e2e/report (pnpm exec playwright sho
 | `metrics.spec.ts` | F5-13: total de llamados de hoy en pantalla = historial; saldo en métricas = inventario |
 | `mqtt.spec.ts` | Q-01: pulsación publicada por MQTT con el usuario del gateway (`scripts/mqtt-user.sh`, `mosquitto_pub` dentro del contenedor) → tablero → cerrar |
 | `console.spec.ts` | F2-15 / F3-15: superadmin (`labs`) elige Bar Demo / Principal, crea un gateway «E2E consola …» (clave una vez), lo desactiva; asigna y desasigna el botón fijo `btn-e2e-consola` (no se puede borrar); pestaña de detectados; un admin no ve la consola |
+| `diagnostics.spec.ts` | MOD-05: el tablero nombra el gateway sin señal y qué revisar; al desactivarlo desaparece |
 | `screens.spec.ts` | Pantallazos de todas las vistas por usuario (admin, barra, mesero1, inventario1, pisos/admin, superadmin) la portada, el login y el historial de inventario, en `docs/pantallazos/` |
 | `spaces.spec.ts` | L-05 / L-07: publicar un área mientras otro mira el tablero; conflicto de edición (409) sin pisar el borrador ajeno; desactivar una mesa (sale del borrador) y 409 si tiene botón |
 
