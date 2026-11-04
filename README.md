@@ -2,7 +2,9 @@
 
 Monorepo del MVP (pnpm workspaces). Destino: cuatro repositorios (`platform-core`, `hospitality-ops`, `commerce`, `analytics`); ver ADR-002 D1.
 
-Documentación de arquitectura en `docs/` (ADR-001, ADR-002, ADR-003, TECH-001, DATA-001, BRAND-002, más HANDOFF y NOCHE-LOG), plan de trabajo con el estado por fase en `PLAN-001`, diseño y decisiones de las pantallas en `PLAN-002` y el mapa del frontend (rutas, permisos, datos) en `docs/PORTAL.md`.
+Documentación de arquitectura en `docs/` (ADR-001, ADR-002, ADR-003, TECH-001, DATA-001, BRAND-002, más HANDOFF y NOCHE-LOG, que son históricos), plan de trabajo con el estado por fase en `PLAN-001`, diseño y decisiones de las pantallas en `PLAN-002` y el mapa del frontend (rutas, permisos, datos) en `docs/PORTAL.md`.
+
+Documentos vigentes añadidos: estado actual en [`docs/STATUS-001_estado_actual.md`](docs/STATUS-001_estado_actual.md) (fuente única de qué está hecho, en curso y pendiente), modelo de datos construido en [`docs/DATA-002_modelo_de_datos_as_built.md`](docs/DATA-002_modelo_de_datos_as_built.md) y la propuesta (aún no aceptada) de transporte del gateway, auditoría y contratos en [`docs/ADR-004_propuesta_transporte_auditoria_areas.md`](docs/ADR-004_propuesta_transporte_auditoria_areas.md).
 
 ## Estado (30/10/2026)
 
