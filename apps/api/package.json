@@ -29,7 +29,7 @@
     "@modivara/hospitality-contracts": "workspace:*",
     "@nestjs/testing": "12.2.0",
     "@types/cookie-parser": "1.4.10",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.6",
     "@types/supertest": "7.2.1",
     "socket.io-client": "4.8.4",
     "supertest": "7.3.1",
