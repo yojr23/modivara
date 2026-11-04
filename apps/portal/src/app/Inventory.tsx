@@ -367,7 +367,7 @@ export default function Inventory() {
     <Page id="inventario" title="Inventario" subtitle={inv.place ? `Lugar de stock ${inv.place.name}` : undefined}
       actions={(canSettings || inv.canCatalog) && (
         <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-          {canSettings && <Segmented label="Vista" options={[['registro', 'Registro'], ['ajustes', 'Lugares y motivos']] as const} value={view} onChange={setView} />}
+          {canSettings && <Segmented label="Vista" options={[['registro', 'Registro'], ['ajustes', can('commerce.reasons.manage') ? 'Lugares y motivos' : 'Lugares de stock']] as const} value={view} onChange={setView} />}
           {inv.canCatalog && view === 'registro' && <Button variant="ghost" onClick={() => setCreating(true)}><PackagePlus aria-hidden className="size-4" />Nuevo producto</Button>}
         </div>
       )}>
