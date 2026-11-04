@@ -9,7 +9,7 @@ pnpm test:e2e                  # informe en e2e/report (pnpm exec playwright sho
 ```
 
 - **Credenciales:** `SEED_PASSWORD` del entorno o de `.env` (la misma del seed). Otra URL: `E2E_BASE_URL=http://... pnpm test:e2e`.
-- **Sesiones:** `global-setup.ts` inicia sesión una vez por usuario y guarda las cookies en `e2e/.auth/` (fuera de git). La API limita a 30 logins por IP cada 15 min; una corrida usa unos 13. Si se agota: esperar o `docker compose restart api`.
+- **Sesiones:** `global-setup.ts` inicia sesión una vez por usuario y guarda las cookies en `e2e/.auth/` (fuera de git). La API limita a 30 logins FALLIDOS por IP cada 15 min (los correctos no cuentan, SEC-05); el bloqueo por cuenta (5 fallos) lo prueba `auth.spec.ts`. Si se agota: esperar o `docker compose restart api`.
 - **Pulsaciones:** la primera corrida crea, como superadmin, un «Gateway E2E» en Bar Demo y guarda su id y clave en `e2e/.auth/`; los botones `btn-NN` del seed se pulsan por `POST /api/v1/device-events`.
 - **Datos:** las pruebas usan la base de demo. Cierran los llamados que abren, desactivan el producto y el usuario que crean y republican los planos sin las áreas de prueba; los llamados y movimientos de prueba quedan en el historial.
 - **Un solo worker:** comparten la base y una prueba reinicia la API (`docker compose restart api`).
@@ -25,7 +25,7 @@ pnpm test:e2e                  # informe en e2e/report (pnpm exec playwright sho
 | `metrics.spec.ts` | F5-13: total de llamados de hoy en pantalla = historial; saldo en métricas = inventario |
 | `mqtt.spec.ts` | Q-01: pulsación publicada por MQTT con el usuario del gateway (`scripts/mqtt-user.sh`, `mosquitto_pub` dentro del contenedor) → tablero → cerrar |
 | `console.spec.ts` | F2-15 / F3-15: superadmin (`labs`) elige Bar Demo / Principal, crea un gateway «E2E consola …» (clave una vez), lo desactiva; asigna y desasigna el botón fijo `btn-e2e-consola` (no se puede borrar); pestaña de detectados; un admin no ve la consola |
-| `screens.spec.ts` | Pantallazos de todas las vistas por usuario (admin, barra, mesero1, inventario1, pisos/admin, superadmin) y del login, en `docs/pantallazos/` |
+| `screens.spec.ts` | Pantallazos de todas las vistas por usuario (admin, barra, mesero1, inventario1, pisos/admin, superadmin) la portada, el login y el historial de inventario, en `docs/pantallazos/` |
 | `spaces.spec.ts` | L-05 / L-07: publicar un área mientras otro mira el tablero; conflicto de edición (409) sin pisar el borrador ajeno; desactivar una mesa (sale del borrador) y 409 si tiene botón |
 
 

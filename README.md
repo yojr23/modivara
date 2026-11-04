@@ -6,9 +6,9 @@ Documentación de arquitectura en `docs/` (ADR-001, ADR-002, ADR-003, TECH-001, 
 
 Documentos vigentes añadidos: estado actual en [`docs/STATUS-001_estado_actual.md`](docs/STATUS-001_estado_actual.md) (fuente única de qué está hecho, en curso y pendiente), modelo de datos construido en [`docs/DATA-002_modelo_de_datos_as_built.md`](docs/DATA-002_modelo_de_datos_as_built.md) y la propuesta (aún no aceptada) de transporte del gateway, auditoría y contratos en [`docs/ADR-004_propuesta_transporte_auditoria_areas.md`](docs/ADR-004_propuesta_transporte_auditoria_areas.md).
 
-## Estado (30/10/2026)
+## Estado (04/11/2026)
 
-Backend de las fases 1–5 y de ADR-003 completo. En el portal ya funcionan contra la API, con el diseño aprobado: **tablero** en tiempo real sobre los planos (`/<negocio>/app/tablero`), **editor de espacios** con áreas (`/espacios`), **métricas** sobre el plano (`/metricas`) e **inventario** (`/inventario`), más el login por negocio (`/<negocio>`). Faltan las pantallas de usuarios, historial de llamados, consola de superadmin y lugares y motivos (detalle en PLAN-001 y `docs/PORTAL.md`). Los flujos hechos tienen E2E con Playwright (`pnpm test:e2e`).
+Backend de las fases 1–5 y de ADR-003 completo. En el portal ya funcionan contra la API, con el diseño aprobado: **tablero** en tiempo real sobre los planos (`/<negocio>/app/tablero`), **editor de espacios** con áreas (`/espacios`), **métricas** sobre el plano (`/metricas`) e **inventario** (`/inventario`), más el login por negocio (`/<negocio>`). También **historial de llamados** (`/historial`), **usuarios** (`/usuarios`), **consola de superadmin** (`/labs/app/consola`), **lugares y motivos** de inventario y una portada (`/`) para elegir el negocio. Cada pantalla tiene E2E con Playwright (`pnpm test:e2e`); pantallazos por usuario en `docs/pantallazos/`. Estado vigente y pendientes: `docs/STATUS-001_estado_actual.md` y la traza de `docs/BACKLOG-001_mejoras_repo_modivara_2026-11-03.md`.
 
 ## Desarrollo
 
@@ -92,7 +92,7 @@ Pruebas E2E con Playwright contra este stack: `pnpm test:e2e` (detalle en `e2e/R
 
 ```text
 apps/api          host NestJS: solo compone los módulos de dominio
-apps/portal       SPA React: routes/ (login, sesión, shell por permisos) y app/ (tablero, espacios, métricas, inventario)
+apps/portal       SPA React: routes/ (login, sesión, shell por permisos) y app/ (tablero, historial, espacios, métricas, inventario, lugares y motivos, usuarios, consola)
 apps/button-sim   simulador de gateway (proceso aparte, HTTP/MQTT)
 domains/<d>/{api,web,contracts}   d ∈ core, hospitality, commerce, analytics
 ```

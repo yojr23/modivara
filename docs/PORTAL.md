@@ -1,6 +1,6 @@
-# Portal — pantallas, permisos y datos (estado al 30/10/2026)
+# Portal — pantallas, permisos y datos (estado al 04/11/2026)
 
-> Documento descriptivo del frontend tal como está en `main` (8cce82a). No es un ADR: las decisiones de producto viven en ADR-001…003, TECH-001 y DATA-001; el plan y el estado por tarea, en PLAN-001 y PLAN-002.
+> Documento descriptivo del frontend tal como está en `main`. No es un ADR: las decisiones de producto viven en ADR-001…003, TECH-001 y DATA-001; el plan y el estado por tarea, en PLAN-001 y PLAN-002.
 
 ## Rutas
 
@@ -72,7 +72,7 @@ pnpm seed:planos-demo                      # opcional: los planos diseñados (Pr
 pnpm test:e2e                              # Playwright contra el stack: login, tablero en vivo, editor, inventario, métricas
 ```
 
-Los E2E (`e2e/`, detalle en `e2e/README.md`) cubren F1-16, F3-16, F4-11, F5-13 y L-07. Al escribirlos apareció que el personal (staff) no podía leer mesas ni zonas y su tablero mostraba «Mesa» sin número: `GET` de mesas y zonas ahora acepta `hospitality.calls.read` (modificarlas sigue exigiendo `hospitality.tables.manage`).
+Los E2E (`e2e/`, detalle en `e2e/README.md`) cubren F1-15, F1-16, F2-15, F3-14, F3-15, F3-16, F4-10, F4-11, F5-13, L-07 y los pantallazos por usuario. Al escribirlos apareció que el personal (staff) no podía leer mesas ni zonas y su tablero mostraba «Mesa» sin número: `GET` de mesas y zonas ahora acepta `hospitality.calls.read` (modificarlas sigue exigiendo `hospitality.tables.manage`).
 
 Para generar un llamado sin hardware: el simulador (`/sim`, con `SIM_GATEWAY_KEY` del gateway) o `POST /api/v1/device-events` con la cabecera `x-gateway-key` y `{ "device_code": "btn-07" }`.
 
