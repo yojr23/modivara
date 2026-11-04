@@ -182,7 +182,7 @@ export class OutboxPoller {
           // PAT-01: un evento que agota sus intentos queda detenido (failed_at); la línea es JSON para poder alertar sobre ella.
           if (giveUp) {
             this.logger.error(JSON.stringify({
-              event: 'outbox.event_failed', event_id: row.id, event_type: row.event_type, organization_id: row.organization_id,
+              event: 'outbox.event_failed', event_id: row.id, event_type: row.event_type, correlation_id: row.correlation_id, organization_id: row.organization_id,
               location_id: row.location_id, attempts: attempt, error: message,
             }));
           }

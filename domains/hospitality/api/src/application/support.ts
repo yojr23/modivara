@@ -39,10 +39,10 @@ export interface FailureLog {
   error(message: string): void;
 }
 
-/** Línea JSON sin secretos: solo ids y el mensaje del error. */
-export function logRealtimeFailure(log: FailureLog, event: string, ctx: TenantContext, resourceId: string, error: unknown): void {
+/** Línea JSON sin secretos: solo ids y el mensaje del error. `correlation_id` (QA-05) enlaza con la pulsación que originó el cambio, si se conoce. */
+export function logRealtimeFailure(log: FailureLog, event: string, ctx: TenantContext, resourceId: string, error: unknown, correlationId?: string): void {
   log.error(JSON.stringify({
-    event, organization_id: ctx.organizationId, location_id: ctx.locationId, resource_id: resourceId,
+    event, correlation_id: correlationId, organization_id: ctx.organizationId, location_id: ctx.locationId, resource_id: resourceId,
     error: error instanceof Error ? error.message : String(error),
   }));
 }
@@ -51,11 +51,11 @@ export function logRealtimeFailure(log: FailureLog, event: string, ctx: TenantCo
  * El guardado ya se confirmó: un fallo del aviso no debe convertirse en error para quien actuó, pero queda registrado.
  * El tablero converge solo: al (re)conectar el cliente pide el snapshot de solicitudes activas (REST) y las vuelve a leer.
  */
-export async function notifyAfterSave(notifications: NotificationPort, change: CallChange, call: ServiceCall, log: FailureLog = console): Promise<void> {
+export async function notifyAfterSave(notifications: NotificationPort, change: CallChange, call: ServiceCall, log: FailureLog = console, correlationId?: string): Promise<void> {
   try {
     await notifications.callChanged(change, call);
   } catch (e) {
-    logRealtimeFailure(log, `realtime.service_call.${change}.notify_failed`, call, call.id, e);
+    logRealtimeFailure(log, `realtime.service_call.${change}.notify_failed`, call, call.id, e, correlationId);
   }
 }
 

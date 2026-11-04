@@ -18,6 +18,15 @@ describe('fallas de publicación realtime (ARC-04)', () => {
     });
   });
 
+  it('notifyAfterSave incluye el correlation_id de la pulsación (QA-05)', async () => {
+    const w = buildWorld();
+    await seedTableWithButton(w);
+    await w.registerPress.registerPress(w.press());
+    const error = vi.fn();
+    await notifyAfterSave({ callChanged: () => Promise.reject(new Error('x')) }, 'created', w.calls.all()[0]!, { error }, 'corr-1');
+    expect(JSON.parse(error.mock.calls[0]![0] as string)).toMatchObject({ correlation_id: 'corr-1', organization_id: w.ctx.organizationId, location_id: w.ctx.locationId });
+  });
+
   it('PublishLayout registra la falla del aviso y devuelve el plano publicado', async () => {
     const w = buildWorld();
     const error = vi.fn();
