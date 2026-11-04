@@ -6,6 +6,7 @@ import { OriginGuard } from './origin.guard.js';
 export { AuthController } from './auth.controller.js';
 export { PlatformController } from './platform.controller.js';
 export { UsersController } from './users.controller.js';
+export { PlatformActionSubscriber } from './platform-action.subscriber.js';
 export { LoginRateLimiter } from './login-rate-limiter.js';
 export { DomainExceptionFilter } from './domain-exception.filter.js';
 export * from './guards/index.js';
