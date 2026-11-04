@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Module, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { PLATFORM_ACTIONS } from '@modivara/hospitality-contracts';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AnalyticsModule } from '@modivara/analytics-api';
 import { CommerceModule } from '@modivara/commerce-api';
@@ -26,7 +27,8 @@ type Raw = { $executeRawUnsafe(sql: string): Promise<unknown>; auditLog: { findM
 let app: INestApplication;
 const get = <T>(token: string | (new (...a: never[]) => T)) => app.get<T>(token as never, { strict: false });
 const tickHospitality = () => get<{ tick(): Promise<number> }>(HOSPITALITY_OUTBOX).tick();
-const audit = () => get<Raw>(CORE_PRISMA).auditLog.findMany({ orderBy: { occurredAt: 'asc' } });
+// Provisionar ya escribe otras filas (user.created, organization.created…): solo las acciones de plataforma de hospitality.
+const audit = () => get<Raw>(CORE_PRISMA).auditLog.findMany({ where: { action: { in: [...PLATFORM_ACTIONS] } }, orderBy: { occurredAt: 'asc' } });
 
 beforeAll(async () => {
   app = (await Test.createTestingModule({ imports: [HostModule] }).compile()).createNestApplication();

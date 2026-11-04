@@ -9,7 +9,7 @@ let host: Awaited<ReturnType<typeof startHost>>;
 beforeAll(async () => { host = await startHost(); });
 afterAll(() => host.app.close());
 
-const outbox = () => host.hospitalityDb.$queryRawUnsafe<Array<{ attempts: number; dispatched_at: Date | null }>>('SELECT attempts, dispatched_at FROM outbox_events');
+const outbox = () => host.hospitalityDb.$queryRawUnsafe<Array<{ attempts: number; dispatched_at: Date | null }>>("SELECT attempts, dispatched_at FROM outbox_events WHERE event_type LIKE 'hospitality.service_call.%'");
 const facts = () => host.analyticsDb.$queryRawUnsafe<Array<{ press_count: number; completed_at: Date | null }>>('SELECT press_count, completed_at FROM service_call_facts');
 
 describe('F5-09 aislamiento operativo con analytics fallando', () => {
