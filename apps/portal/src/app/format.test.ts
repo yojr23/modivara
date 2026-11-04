@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dayKey, dayStart, fmtWhen } from './format';
+import { addDays, dayKey, dayStart, fmtWhen } from './format';
 
 // Zona del local distinta a la del sistema: Bogotá (UTC−5, sin horario de verano) y Tokio (UTC+9).
 afterEach(() => vi.useRealTimers());
@@ -24,5 +24,11 @@ describe('fechas en la zona del local', () => {
     expect(fmtWhen('2026-11-02T02:10:00Z', 'America/Bogota')).toBe('Ayer 21:10');
     expect(fmtWhen('2026-11-03T02:10:00Z', 'Asia/Tokyo')).toBe('Hoy 11:10');
     expect(fmtWhen('2026-11-02T02:10:00Z', 'Asia/Tokyo')).toBe('Ayer 11:10');
+  });
+
+  it('addDays cruza meses y el cambio de horario sin saltarse días', () => {
+    expect(addDays('2026-11-01', -1, 'America/Bogota')).toBe('2026-10-31');
+    expect(addDays('2026-03-08', 1, 'America/New_York')).toBe('2026-03-09');
+    expect(addDays('2026-11-01', 1, 'America/New_York')).toBe('2026-11-02'); // fin de horario de verano (día de 25 h)
   });
 });

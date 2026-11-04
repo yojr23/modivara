@@ -4,7 +4,7 @@ import { History as HistoryIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/ui/Button';
 import { StatusBadge, type CallStatus } from '@/ui/StatusBadge';
-import { fmtSeconds, fmtWhen, startOfDay } from './format';
+import { addDays, dayKey, dayStart, fmtSeconds, fmtWhen } from './format';
 import { Bone, EmptyState, ErrorState, OfflineBanner, Page, useApp, useEscape } from './ui';
 
 // F3-14 — historial de llamados: rango por días (atajos o fechas), mesa y estado; lista con cursor y detalle con la línea de tiempo.
@@ -17,14 +17,11 @@ const COLS = 'md:grid-cols-[minmax(0,1.5fr)_1fr_.8fr_.9fr_1fr_1fr_.7fr_9rem]';
 /** [texto, días atrás del «desde», días atrás del «hasta»]. */
 const SHORTCUTS = [['Hoy', 0, 0], ['Ayer', 1, 1], ['7 días', 6, 0]] as const;
 
-// ponytail: fechas en la zona del navegador (= la del local, como format.ts); usar `location.timezone` si difieren.
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const dayStart = (s: string, plus = 0) => { const [y, m, d] = s.split('-').map(Number); return new Date(y!, m! - 1, d! + plus); };
-const daysAgo = (n: number) => { const d = startOfDay(new Date()); d.setDate(d.getDate() - n); return ymd(d); };
+const daysAgo = (n: number, tz: string) => addDays(dayKey(Date.now(), tz), -n, tz);
 const secs = (a: string | null, b: string) => (a ? (new Date(a).getTime() - new Date(b).getTime()) / 1000 : null);
 const where = (c: ServiceCallDto) => { const [zone, ...rest] = c.table_display_name.split(' · '); return rest.length ? { label: rest.join(' · '), zone } : { label: zone!, zone: null }; };
 
-function Detail({ locationId, call, onClose }: { locationId: string; call: ServiceCallDto; onClose: () => void }) {
+function Detail({ locationId, tz, call, onClose }: { locationId: string; tz: string; call: ServiceCallDto; onClose: () => void }) {
   useEscape(onClose);
   const q = useCallDetail(locationId, call.id);
   const { label, zone } = where(call);
@@ -40,7 +37,7 @@ function Detail({ locationId, call, onClose }: { locationId: string; call: Servi
         </div>
         <StatusBadge status={BADGE[call.status]} />
         <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div><dt className="text-muted">Llegó</dt><dd className="font-semibold">{fmtWhen(call.created_at)}</dd></div>
+          <div><dt className="text-muted">Llegó</dt><dd className="font-semibold">{fmtWhen(call.created_at, tz)}</dd></div>
           <div><dt className="text-muted">Pulsaciones</dt><dd className="font-semibold tabular-nums">{call.press_count}</dd></div>
           <div><dt className="text-muted">Espera hasta «En atención»</dt><dd className="font-semibold">{fmtSeconds(secs(call.acknowledged_at, call.created_at))}</dd></div>
           <div><dt className="text-muted">Duración total</dt><dd className="font-semibold">{fmtSeconds(secs(call.completed_at, call.created_at))}</dd></div>
@@ -55,7 +52,7 @@ function Detail({ locationId, call, onClose }: { locationId: string; call: Servi
                   <li key={i} className="relative text-sm">
                     <span aria-hidden className="absolute -left-[21px] top-1.5 size-2.5 rounded-full bg-line-strong" />
                     <p className="font-semibold">{ACTION[t.action] ?? t.action}</p>
-                    <p className="text-muted">{fmtWhen(t.occurred_at)} · {t.actor_name ?? (t.action === 'create' ? 'Botón' : '—')}</p>
+                    <p className="text-muted">{fmtWhen(t.occurred_at, tz)} · {t.actor_name ?? (t.action === 'create' ? 'Botón' : '—')}</p>
                   </li>
                 ))}
               </ol>
@@ -69,8 +66,9 @@ function Detail({ locationId, call, onClose }: { locationId: string; call: Servi
 export default function History() {
   const { location } = useApp();
   const l = location.id;
-  const [from, setFrom] = useState(daysAgo(0));
-  const [to, setTo] = useState(daysAgo(0));
+  const tz = location.timezone;
+  const [from, setFrom] = useState(() => daysAgo(0, tz));
+  const [to, setTo] = useState(() => daysAgo(0, tz));
   const [tableId, setTableId] = useState('');
   const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number][0]>('all');
   const [open, setOpen] = useState<ServiceCallDto | null>(null);
@@ -80,7 +78,7 @@ export default function History() {
   // `from` inclusivo y `to` exclusivo: «hasta» es un día completo, así que el límite es el inicio del día siguiente.
   const h = useCallHistory(l, {
     status, ...(tableId && { table_id: tableId }),
-    ...(validRange && { from: dayStart(from).toISOString(), to: dayStart(to, 1).toISOString() }),
+    ...(validRange && { from: new Date(dayStart(from, tz)).toISOString(), to: new Date(dayStart(addDays(to, 1, tz), tz)).toISOString() }),
   });
   const items = h.data?.pages.flatMap((p) => p.items) ?? [];
   const field = 'mt-1 block h-10 rounded-md border border-line-strong bg-surface px-2 text-sm text-fg';
@@ -91,7 +89,7 @@ export default function History() {
       <div className="space-y-4 p-4 md:p-6">
         <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => e.preventDefault()} aria-label="Filtros">
           <div role="group" aria-label="Atajos de fecha" className="flex gap-1">
-            {SHORTCUTS.map(([text, a, b]) => <Button key={text} variant="secondary" size="sm" className="h-10" onClick={() => { setFrom(daysAgo(a)); setTo(daysAgo(b)); }}>{text}</Button>)}
+            {SHORTCUTS.map(([text, a, b]) => <Button key={text} variant="secondary" size="sm" className="h-10" onClick={() => { setFrom(daysAgo(a, tz)); setTo(daysAgo(b, tz)); }}>{text}</Button>)}
           </div>
           <label className="text-sm text-muted">Desde<input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={field} /></label>
           <label className="text-sm text-muted">Hasta<input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={field} /></label>
@@ -122,9 +120,9 @@ export default function History() {
                   const w = where(c);
                   return (
                     <li key={c.id}>
-                      <button type="button" onClick={() => setOpen(c)} aria-label={`${w.label}, ${fmtWhen(c.created_at)}. Tomó ${c.acknowledged_by_name ?? 'nadie'}, cerró ${c.completed_by_name ?? 'nadie'}. Abrir detalle`} className={`grid w-full gap-x-3 gap-y-1 rounded-lg border border-line bg-surface p-3 text-left text-sm hover:bg-sunken md:items-center md:rounded-none md:border-0 md:bg-transparent ${COLS}`}>
+                      <button type="button" onClick={() => setOpen(c)} aria-label={`${w.label}, ${fmtWhen(c.created_at, tz)}. Tomó ${c.acknowledged_by_name ?? 'nadie'}, cerró ${c.completed_by_name ?? 'nadie'}. Abrir detalle`} className={`grid w-full gap-x-3 gap-y-1 rounded-lg border border-line bg-surface p-3 text-left text-sm hover:bg-sunken md:items-center md:rounded-none md:border-0 md:bg-transparent ${COLS}`}>
                         <span><b className="block font-semibold">{w.label}</b>{w.zone && <span className="text-muted">{w.zone}</span>}</span>
-                        <span>{fmtWhen(c.created_at)}</span>
+                        <span>{fmtWhen(c.created_at, tz)}</span>
                         <span><i className="not-italic text-muted md:hidden">Espera: </i>{fmtSeconds(secs(c.acknowledged_at, c.created_at))}</span>
                         <span><i className="not-italic text-muted md:hidden">Duración: </i>{fmtSeconds(secs(c.completed_at, c.created_at))}</span>
                         <span><i className="not-italic text-muted md:hidden">Tomó: </i>{c.acknowledged_by_name ?? '—'}</span>
@@ -140,7 +138,7 @@ export default function History() {
             </>
           )}
       </div>
-      {open && <Detail locationId={l} call={open} onClose={() => setOpen(null)} />}
+      {open && <Detail locationId={l} tz={tz} call={open} onClose={() => setOpen(null)} />}
     </Page>
   );
 }

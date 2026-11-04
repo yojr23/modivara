@@ -1,7 +1,6 @@
 import type { Unit } from '@modivara/commerce-contracts';
 
-// Formato común de las pantallas (es-CO). Las fechas de inventario van en la zona del local (`location.timezone`); el resto, en la del navegador.
-// ponytail: tablero e historial de llamados siguen en la zona del navegador; pasarles `tz` si se administra un local remoto.
+// Formato común de las pantallas (es-CO). Las fechas van en la zona del local (`location.timezone`); el tablero en vivo usa tiempos relativos.
 
 /** Cantidad NUMERIC(12,3) del contrato («12.000», «-1.500»). */
 export const dec = (n: number) => n.toFixed(3);
@@ -19,8 +18,6 @@ export function fmtSeconds(s: number | null) {
   const m = Math.floor(s / 60);
   return m ? `${m} min ${String(Math.round(s % 60)).padStart(2, '0')} s` : `${Math.round(s)} s`;
 }
-
-export const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 const dayFmt = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric' });
 const hourFmt = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', hour12: false });
@@ -46,6 +43,9 @@ export function dayStart(day: string, tz?: string) {
   const utc = Date.parse(`${day}T00:00:00Z`);
   return utc - offset(utc - offset(utc));
 }
+
+/** Día «YYYY-MM-DD» a `n` días de `day` (n negativo = atrás), sin saltos por horario de verano: parte del mediodía. */
+export const addDays = (day: string, n: number, tz?: string) => dayKey(dayStart(day, tz) + (n * 24 + 12) * 3_600_000, tz);
 
 /** «Hoy 21:40», «Ayer 19:05», «lun, 20 oct 18:30» en la zona `tz` (la del local; sin `tz`, la del navegador). */
 export function fmtWhen(isoOrMs: string | number, tz?: string) {
