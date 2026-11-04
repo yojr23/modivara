@@ -3,7 +3,7 @@ import { LayoutRevisionConflictError, NotFoundError, ValidationError } from '../
 import { type LayoutContent, SpaceLayout, validateLayoutContent } from '../domain/layouts/space-layout.js';
 import type { DiningTable } from '../domain/tables/dining-table.js';
 import type { DiningTableRepository, LayoutNotifier, LayoutRepository, ZoneRepository } from './ports/index.js';
-import { type ActorContext, owned, requireActiveLocation, scopeOf, type TenantContext } from './support.js';
+import { type ActorContext, type FailureLog, logRealtimeFailure, owned, requireActiveLocation, scopeOf, type TenantContext } from './support.js';
 
 /** La zona del espacio debe ser del local y estar activa; `null` (espacio por defecto) no necesita zona. */
 async function requireSpace(zones: ZoneRepository, ctx: TenantContext, zoneId: string | null): Promise<void> {
@@ -94,6 +94,7 @@ export class PublishLayout {
     private readonly core: CoreAccessPort,
     private readonly layouts: LayoutRepository,
     private readonly notifier: LayoutNotifier,
+    private readonly log: FailureLog = console,
   ) {}
 
   /** Todo en UNA transacción con el borrador bloqueado: dos publicaciones de la misma revisión → una gana y la otra recibe el conflicto. */
@@ -112,8 +113,9 @@ export class PublishLayout {
     });
     try {
       await this.notifier.layoutPublished({ ...space, version: published.version });
-    } catch {
-      // ponytail: ya se publicó; un fallo del aviso no debe fallar la petición (los tableros releen al reconectar). Sin logger todavía.
+    } catch (e) {
+      // Ya se publicó: un fallo del aviso no falla la petición (los tableros releen los planos al reconectar), pero se registra.
+      logRealtimeFailure(this.log, 'realtime.layout.publish_notify_failed', input, `${input.zoneId ?? 'sin_zona'}@v${published.version}`, e);
     }
     return published;
   }
