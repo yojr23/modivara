@@ -97,6 +97,15 @@ describe('límite por IP del login', () => {
       await limited.app.close();
     }
   });
+
+  it('SEC-05: los logins correctos desde la misma IP no cuentan', async () => {
+    const limited = await createTestApp({ unlimited: false });
+    try {
+      for (let i = 0; i < 35; i++) expect((await limited.http().post('/api/v1/auth/login').send(good)).status).toBe(200);
+    } finally {
+      await limited.app.close();
+    }
+  });
 });
 
 describe('GET /me y POST /auth/logout', () => {
