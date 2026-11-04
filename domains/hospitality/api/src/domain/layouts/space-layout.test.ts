@@ -86,6 +86,23 @@ describe('SpaceLayout', () => {
     expect(() => d.publish(4, 'u3', now)).toThrow(InvalidStateError);
   });
 
+  it('OBJ-01: lo que entra y sale del agregado es una copia; mutarlo no cambia el plano', () => {
+    const input = [table()];
+    const d = SpaceLayout.createDraft({ organizationId: uid(), locationId: uid(), zoneId: null, createdBy: 'u', now, ...canvas, elements: input });
+    (input[0] as { x: number }).x = 9999;
+    (d.elements[0] as { x: number }).x = 9999;
+    d.elements.push(table());
+    const props = d.toProps();
+    (props.elements[0] as { x: number }).x = 9999;
+    props.createdAt.setFullYear(1999);
+    const restored = SpaceLayout.restore(props);
+    props.elements.length = 0;
+    expect(d.elements).toHaveLength(1);
+    expect(d.elements[0]).toMatchObject({ x: 10 });
+    expect(d.toProps().createdAt).toEqual(now);
+    expect(restored.elements).toHaveLength(1);
+  });
+
   it('tableIds lista solo las mesas', () => {
     const t = table();
     const d = SpaceLayout.createDraft({ organizationId: uid(), locationId: uid(), zoneId: null, createdBy: 'u', now, ...canvas, elements: [t, { id: uid(), type: 'bar', ...box }] });

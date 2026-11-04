@@ -58,7 +58,9 @@ export function validateLayoutContent({ canvasWidth, canvasHeight, elements }: L
 }
 
 export class SpaceLayout {
-  private constructor(private readonly props: SpaceLayoutProps) {}
+  private readonly props: SpaceLayoutProps;
+  // Copia profunda en cada borde (entrada y salida): nadie fuera del agregado comparte sus elementos ni fechas.
+  private constructor(props: SpaceLayoutProps) { this.props = structuredClone(props); }
 
   static createDraft(input: LayoutContent & { organizationId: string; locationId: string; zoneId: string | null; createdBy: string; now: Date }): SpaceLayout {
     validateLayoutContent(input);
@@ -83,7 +85,7 @@ export class SpaceLayout {
   }
 
   static restore(props: SpaceLayoutProps): SpaceLayout {
-    return new SpaceLayout({ ...props });
+    return new SpaceLayout(props);
   }
 
   get id() { return this.props.id; }
@@ -93,7 +95,7 @@ export class SpaceLayout {
   get version() { return this.props.version; }
   get status() { return this.props.status; }
   get revision() { return this.props.revision; }
-  get elements() { return this.props.elements; }
+  get elements() { return structuredClone(this.props.elements); }
 
   /** Ids de las mesas dibujadas. */
   get tableIds(): string[] {
@@ -104,7 +106,7 @@ export class SpaceLayout {
   replaceContent(content: LayoutContent, by: string, now: Date): void {
     if (this.props.status !== 'draft') throw new InvalidStateError('Only a draft can be edited');
     validateLayoutContent(content);
-    Object.assign(this.props, content, { revision: this.props.revision + 1, updatedAt: now, updatedBy: by });
+    Object.assign(this.props, structuredClone(content), { revision: this.props.revision + 1, updatedAt: now, updatedBy: by });
   }
 
   /** Copia con otro conjunto de elementos (lectura filtrada de un publicado); no se persiste. */
@@ -117,5 +119,5 @@ export class SpaceLayout {
     Object.assign(this.props, { status: 'published', version, publishedAt: now, publishedBy: by, updatedAt: now, updatedBy: by });
   }
 
-  toProps(): SpaceLayoutProps { return { ...this.props, elements: [...this.props.elements] }; }
+  toProps(): SpaceLayoutProps { return structuredClone(this.props); }
 }
