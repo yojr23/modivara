@@ -1,0 +1,19 @@
+# Producción en un VPS: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d`, con DOMAIN en .env
+# y el DNS del dominio apuntando al VPS (puertos 80 y 443 abiertos). El simulador no arranca (perfil `demo`).
+services:
+  caddy:
+    environment:
+      DOMAIN: ${DOMAIN:?definir en .env (p. ej. app.modivara.com)}
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes: !override
+      - ./infra/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # certificados: sin volumen se piden de nuevo en cada reinicio
+    depends_on: !override [api, web]
+
+  button-sim:
+    profiles: [demo]
+
+volumes:
+  caddy-data:

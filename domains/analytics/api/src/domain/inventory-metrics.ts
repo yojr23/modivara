@@ -72,6 +72,10 @@ export function computeInventoryMetrics(
     byPeriod.set(b.label, p);
   }
 
+  // Un producto = una unidad. Con varios, sumar cantidades mezclaría botellas, kg y litros: solo conteos.
+  const oneProduct = new Set(movements.map((m) => m.snapshot.productId)).size <= 1;
+  const qty = (milli: bigint) => (oneProduct ? formatMilli(milli) : null);
+
   return {
     timezone: ctx.timeZone,
     from: ctx.range.from.toISOString(),
@@ -79,7 +83,7 @@ export function computeInventoryMetrics(
     group_by: ctx.groupBy,
     by_direction: MOVEMENT_DIRECTIONS.map((direction) => {
       const d = byDirection.get(direction)!;
-      return { direction, movement_count: d.count, total_delta: formatMilli(d.total) };
+      return { direction, movement_count: d.count, total_delta: qty(d.total) };
     }),
     by_reason: [...byReason.values()]
       .map((r) => ({
@@ -87,7 +91,7 @@ export function computeInventoryMetrics(
         reason_id: r.sample.snapshot.reasonId,
         reason_name: r.sample.snapshot.reasonName,
         movement_count: r.count,
-        total_delta: formatMilli(r.total),
+        total_delta: qty(r.total),
       }))
       .sort((a, b) => a.direction.localeCompare(b.direction) || a.reason_name.localeCompare(b.reason_name)),
     by_period: [...byPeriod.values()]
@@ -96,9 +100,9 @@ export function computeInventoryMetrics(
         bucket_start: p.start.toISOString(),
         bucket_label: p.label,
         movement_count: p.count,
-        in_delta: formatMilli(p.totals.in!),
-        out_delta: formatMilli(p.totals.out!),
-        adjust_delta: formatMilli(p.totals.adjust!),
+        in_delta: qty(p.totals.in!),
+        out_delta: qty(p.totals.out!),
+        adjust_delta: qty(p.totals.adjust!),
       })),
     by_product: [...byProduct].map(([product_id, v]) => ({
       product_id,

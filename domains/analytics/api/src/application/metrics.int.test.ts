@@ -109,15 +109,17 @@ describe('métricas de inventario en PostgreSQL', () => {
     const m = inventoryMetricsSchema.parse(await stock.execute({ ...input, query: { ...day, group_by: 'day' } }));
 
     const reason = (id: string) => m.by_reason.find((r) => r.reason_id === id)!;
-    expect(reason(compra)).toMatchObject({ direction: 'in', movement_count: 2, total_delta: '15.000' });
-    expect(reason(venta)).toMatchObject({ direction: 'out', movement_count: 2, total_delta: '-5.500' });
-    expect(reason(ajuste)).toMatchObject({ direction: 'adjust', movement_count: 1, total_delta: '-1.000' });
-    expect(Object.fromEntries(m.by_direction.map((d) => [d.direction, d.total_delta]))).toEqual({ in: '15.000', out: '-5.500', adjust: '-1.000' });
+    // Ron y Cerveza juntos: solo conteos (ARC-05); las cantidades salen filtrando por producto.
+    expect(reason(compra)).toMatchObject({ direction: 'in', movement_count: 2, total_delta: null });
+    expect(reason(venta)).toMatchObject({ direction: 'out', movement_count: 2, total_delta: null });
+    expect(reason(ajuste)).toMatchObject({ direction: 'adjust', movement_count: 1, total_delta: null });
     expect(m.by_period).toHaveLength(1);
-    expect(m.by_period[0]).toMatchObject({ movement_count: 5, in_delta: '15.000', out_delta: '-5.500', adjust_delta: '-1.000' });
+    expect(m.by_period[0]).toMatchObject({ movement_count: 5, in_delta: null, out_delta: null, adjust_delta: null });
     const byProduct = Object.fromEntries(m.by_product.map((x) => [x.product_id, x]));
     expect(byProduct[p1]).toMatchObject({ movement_count: 4, out_count: 2, in_delta: '10.000', out_delta: '-5.500' });
     expect(byProduct[p2]).toMatchObject({ movement_count: 1, out_count: 0, in_delta: '5.000', out_delta: '0.000' });
+    const ron = await stock.execute({ ...input, query: { ...day, group_by: 'day', product_id: p1 } });
+    expect(Object.fromEntries(ron.by_direction.map((d) => [d.direction, d.total_delta]))).toEqual({ in: '10.000', out: '-5.500', adjust: '-1.000' });
     expect(Object.fromEntries(m.balances.map((b) => [b.product_name, b.balance]))).toEqual({ Ron: '3.500', Cerveza: '4.000' });
 
     const only = await stock.execute({ ...input, query: { ...day, group_by: 'day', product_id: p2 } });

@@ -7,6 +7,8 @@ import type { Scope } from './repositories.js';
  * no es un UnitOfWork genérico ni expone repositorios.
  */
 export interface ButtonPressTx {
+  /** Bloquea la mesa (`FOR SHARE`) hasta el commit; false si ya está desactivada. Una desactivación simultánea espera o gana. */
+  lockActiveTable(tableId: string): Promise<boolean>;
   /** Última pulsación contada (call_created/repeat_press) de la misma señal: botón + tecla. */
   findLastPress(query: Scope & { deviceId: string; buttonKey: string | null }): Promise<DeviceEvent | null>;
   /**

@@ -142,6 +142,7 @@ export class InMemoryDiningTableRepository implements DiningTableRepository {
   }
   async listByLocation(scope: Scope) { return this.store.all().filter((t) => inScope(t, scope)); }
   async save(table: DiningTable) { this.store.put(table); }
+  withLock<T>(_key: ById, work: (tables: DiningTableRepository) => Promise<T>): Promise<T> { return work(this); }
 }
 
 export class InMemoryDeviceRepository implements DeviceRepository {
@@ -238,6 +239,8 @@ export class InMemoryButtonPressStore implements ButtonPressStore {
     await previous;
     const undo: (() => void)[] = [];
     const tx: ButtonPressTx = {
+      // Sin concurrencia real en memoria: el caso de uso ya comprobó la mesa activa antes del bloqueo.
+      lockActiveTable: async () => true,
       findLastPress: async (query) => this.events.lastPress(query),
       upsertActiveCall: async (candidate, now) => {
         if (this.fail.upsert) throw this.fail.upsert;

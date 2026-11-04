@@ -31,8 +31,10 @@ export class AuthController {
   @HttpCode(200)
   async doLogin(@Body() body: unknown, @Req() req: HttpRequest, @Res({ passthrough: true }) res: HttpResponse): Promise<LoginResponse> {
     const input = parseWith(loginRequestSchema, body);
-    this.limiter.hit(req.ip ?? 'unknown');
+    const ip = req.ip ?? 'unknown';
+    this.limiter.hit(ip);
     const out = await this.login.execute({ ...input, ip: req.ip, userAgent: String(req.headers['user-agent'] ?? '') || null });
+    this.limiter.refund(ip);
     res.cookie(SESSION_COOKIE, out.token, sessionCookieOptions(out.expiresAt));
     return { actor: toSessionActor(out.actor, out), expires_at: out.expiresAt.toISOString() };
   }

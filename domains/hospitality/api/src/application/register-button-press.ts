@@ -77,6 +77,11 @@ export class RegisterButtonPress implements IoTInputPort {
     const zone = table.zoneId ? await this.zones.findById({ ...scopeOf(press), id: table.zoneId }) : null;
 
     const { outcome, created, call } = await this.store.withDeviceLock(device.id, async (tx) => {
+      if (!(await tx.lockActiveTable(table.id))) {
+        const event = deviceEvent('unassigned_device', device.id, null);
+        await tx.saveDeviceEvent(event);
+        return { outcome: outcomeOf(event), created: false, call: null };
+      }
       const last = await tx.findLastPress({ ...scopeOf(press), deviceId: device.id, buttonKey: press.buttonKey });
       // OPEN: ¿la señal es solo el botón (DATA-001 §3 literal) o botón + tecla? Se usa botón + tecla.
       if (isDebounced(last?.receivedAt ?? null, now)) {
