@@ -215,7 +215,7 @@ export default function Users() {
         </label>
         {warn && <p role="alert" className="flex items-start gap-3 rounded-md border border-danger/40 bg-surface p-3 text-sm">{warn}<button type="button" className="ml-auto underline" onClick={() => setWarn('')}>Cerrar aviso</button></p>}
         {q.isPending ? <div role="status" aria-label="Cargando usuarios" className="space-y-4">{Array.from({ length: 5 }, (_, i) => <Bone key={i} className="h-12 w-full" />)}</div>
-          : q.isError ? <ErrorState what="los usuarios" onRetry={() => void q.refetch()} />
+          : q.isError ? <ErrorState what="los usuarios" onRetry={() => void q.refetch()} error={q.error} />
           : users.length === 0 ? <EmptyState Icon={UsersIcon} title={term ? 'Nadie coincide' : 'Aún no hay usuarios'} text={term ? 'Prueba con otro nombre o usuario.' : 'Crea el primero con «Nuevo usuario».'} />
           : (
             <ul className="space-y-2">

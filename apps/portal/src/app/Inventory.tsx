@@ -55,7 +55,7 @@ function useInventory() {
     today: todayQ.data ?? [],
     canWrite: can('commerce.stock.write'), canCatalog: can('commerce.catalog.manage'),
     loading: productsQ.isPending || placesQ.isPending || balancesQ.isPending || reasonsQ.isPending,
-    error: productsQ.isError || placesQ.isError || balancesQ.isError || reasonsQ.isError,
+    error: productsQ.error ?? placesQ.error ?? balancesQ.error ?? reasonsQ.error,
     retry: () => { void productsQ.refetch(); void placesQ.refetch(); void balancesQ.refetch(); void reasonsQ.refetch(); void todayQ.refetch(); },
     reasonsFor: (d: Direction) => (reasonsQ.data ?? []).filter((r) => r.direction === d && r.active),
     balance: (id: string) => balances.get(id) ?? 0,
@@ -249,7 +249,7 @@ function HistoryView({ inv }: { inv: Inv }) {
         <Field label="Desde" className="w-auto"><input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={cn(input, 'w-auto')} /></Field>
         <Field label="Hasta" className="w-auto"><input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={cn(input, 'w-auto')} /></Field>
       </div>
-      {q.isPending ? <RowBones n={5} /> : q.isError ? <ErrorState what="el historial" onRetry={() => void q.refetch()} /> : (
+      {q.isPending ? <RowBones n={5} /> : q.isError ? <ErrorState what="el historial" onRetry={() => void q.refetch()} error={q.error} /> : (
         <>
           <MovementList inv={inv} movements={rows} />
           {q.hasNextPage && <div className="text-center"><Button variant="secondary" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>{q.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}</Button></div>}
@@ -325,7 +325,7 @@ export default function Inventory() {
   } else if (inv.loading) {
     body = <div aria-busy aria-label="Cargando inventario" className="grid gap-6 p-4 md:p-8 lg:grid-cols-[minmax(0,1fr)_400px]"><div className="space-y-4"><Bone className="h-10 w-80" /><div className="grid grid-cols-3 gap-2">{Array.from({ length: 9 }, (_, i) => <Bone key={i} className="h-16" />)}</div><Bone className="h-12" /></div><RowBones n={6} /></div>;
   } else if (inv.error) {
-    body = <ErrorState what="el inventario" onRetry={inv.retry} />;
+    body = <ErrorState what="el inventario" onRetry={inv.retry} error={inv.error} />;
   } else if (!product) {
     body = <EmptyState Icon={Package} title="Aún no hay productos" text="Crea los productos que controlas (botellas, insumos) y registra su stock inicial como una entrada."
       action={inv.canCatalog && <Button onClick={() => setCreating(true)}><PackagePlus aria-hidden className="size-4" />Crear el primer producto</Button>} />;

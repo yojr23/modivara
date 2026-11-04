@@ -90,7 +90,7 @@ function ConfirmGateway({ l, gateway, onClose, onDone }: { l: string; gateway: G
   );
 }
 
-function Gateways({ l, toast }: { l: string; toast: (t: string) => void }) {
+function Gateways({ l, tz, toast }: { l: string; tz: string; toast: (t: string) => void }) {
   const q = platform.useGateways(l);
   const create = platform.useCreateGateway(l);
   const [name, setName] = useState('');
@@ -122,7 +122,7 @@ function Gateways({ l, toast }: { l: string; toast: (t: string) => void }) {
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       {created && <NewKey gateway={created} onClose={() => setCreated(null)} onCopy={toast} />}
       {q.isPending ? <Loading what="gateways" />
-        : q.isError ? <ErrorState what="los gateways" onRetry={() => void q.refetch()} />
+        : q.isError ? <ErrorState what="los gateways" onRetry={() => void q.refetch()} error={q.error} />
         : q.data.length === 0 ? <EmptyState Icon={Radio} title="Este local no tiene gateways" text="Crea el primero: sin gateway los botones no pueden reportar." />
         : (
           <ul aria-label="Gateways" className="space-y-2">
@@ -130,7 +130,7 @@ function Gateways({ l, toast }: { l: string; toast: (t: string) => void }) {
               <Row key={g.id}>
                 <b className="min-w-0 flex-1 basis-40 truncate font-semibold">{g.name}</b>
                 <span className={g.connected ? 'font-semibold' : 'font-semibold text-muted'}>{g.connected ? 'Conectado' : 'Sin señal'}</span>
-                <span className="text-muted">{g.last_seen_at ? `Última señal: ${fmtWhen(g.last_seen_at)}` : 'Nunca ha dado señal'}</span>
+                <span className="text-muted">{g.last_seen_at ? `Última señal: ${fmtWhen(g.last_seen_at, tz)}` : 'Nunca ha dado señal'}</span>
                 <Button size="sm" variant="ghost" className="text-danger" aria-label={`Desactivar ${g.name}`} onClick={() => setClosing(g)}>Desactivar</Button>
               </Row>
             ))}
@@ -211,14 +211,14 @@ function Devices({ l, toast }: { l: string; toast: (t: string) => void }) {
       </form>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       {q.isPending ? <Loading what="botones" />
-        : q.isError ? <ErrorState what="los botones" onRetry={() => void q.refetch()} />
+        : q.isError ? <ErrorState what="los botones" onRetry={() => void q.refetch()} error={q.error} />
         : q.data.length === 0 ? <EmptyState Icon={ToyBrick} title="Este local no tiene botones" text="Créalos aquí o registra los detectados sin asignar." />
         : <ul aria-label="Botones" className="space-y-2">{q.data.map((d) => <DeviceRow key={d.id} l={l} d={d} tableName={d.table_id ? names.get(d.table_id) : undefined} toast={toast} />)}</ul>}
     </div>
   );
 }
 
-function UnknownRow({ l, code, count, last, toast }: { l: string; code: string; count: number; last: string; toast: (t: string) => void }) {
+function UnknownRow({ l, tz, code, count, last, toast }: { l: string; tz: string; code: string; count: number; last: string; toast: (t: string) => void }) {
   const create = platform.useCreateDevice(l);
   const assign = platform.useAssignDevice(l);
   const [tableId, setTableId] = useState('');
@@ -240,7 +240,7 @@ function UnknownRow({ l, code, count, last, toast }: { l: string; code: string; 
   }
   return (
     <Row>
-      <span className="min-w-0 flex-1 basis-40"><b className="block truncate font-semibold">{code}</b><span className="text-muted">{count === 1 ? '1 pulsación' : `${count} pulsaciones`} · última {fmtWhen(last)}</span></span>
+      <span className="min-w-0 flex-1 basis-40"><b className="block truncate font-semibold">{code}</b><span className="text-muted">{count === 1 ? '1 pulsación' : `${count} pulsaciones`} · última {fmtWhen(last, tz)}</span></span>
       <TableSelect l={l} label={`Mesa de ${code}`} value={tableId} onChange={setTableId} />
       <Button size="sm" variant="secondary" aria-label={`Registrar y asignar ${code}`} disabled={!tableId || create.isPending || assign.isPending} onClick={go}>Registrar y asignar</Button>
       {error && <p role="alert" className="basis-full text-danger">{error}</p>}
@@ -249,15 +249,15 @@ function UnknownRow({ l, code, count, last, toast }: { l: string; code: string; 
 }
 
 // ponytail: ventana por defecto de la API (7 días); sin selector de fechas hasta que haga falta.
-function Unknown({ l, toast }: { l: string; toast: (t: string) => void }) {
+function Unknown({ l, tz, toast }: { l: string; tz: string; toast: (t: string) => void }) {
   const q = platform.useUnknownDevices(l);
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">Códigos que pulsaron sin estar registrados en este local, de los últimos 7 días.</p>
       {q.isPending ? <Loading what="detectados" />
-        : q.isError ? <ErrorState what="los detectados" onRetry={() => void q.refetch()} />
+        : q.isError ? <ErrorState what="los detectados" onRetry={() => void q.refetch()} error={q.error} />
         : q.data.length === 0 ? <EmptyState Icon={Radio} title="Nada sin asignar" text="Cuando un botón no registrado pulse, aparecerá aquí." />
-        : <ul aria-label="Detectados sin asignar" className="space-y-2">{q.data.map((u) => <UnknownRow key={u.device_code} l={l} code={u.device_code} count={u.count} last={u.last_seen_at} toast={toast} />)}</ul>}
+        : <ul aria-label="Detectados sin asignar" className="space-y-2">{q.data.map((u) => <UnknownRow key={u.device_code} l={l} tz={tz} code={u.device_code} count={u.count} last={u.last_seen_at} toast={toast} />)}</ul>}
     </div>
   );
 }
@@ -314,7 +314,7 @@ export default function Console() {
         {org && <p role="status" className="text-sm"><Cable aria-hidden className="mr-1 inline size-4 align-text-bottom" />Estás actuando en <b className="font-semibold">{org.name}</b>: lo que hagas aquí afecta a ese negocio.</p>}
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
-        {orgs.isError ? <ErrorState what="los negocios" onRetry={() => void orgs.refetch()} />
+        {orgs.isError ? <ErrorState what="los negocios" onRetry={() => void orgs.refetch()} error={orgs.error} />
           : !org ? <EmptyState Icon={Cable} title="Elige un negocio" text="Con un negocio elegido podrás gestionar los gateways y botones de sus locales." />
           : !place ? <EmptyState Icon={Radio} title="Este negocio no tiene locales activos" text="Crea un local para poder registrar gateways y botones." />
           : (
@@ -322,7 +322,7 @@ export default function Console() {
               <Segmented label="Sección" options={TABS} value={tab} onChange={setTab} />
               {/* `key` por local: al cambiar de local no sobreviven formularios ni la clave de un gateway recién creado. */}
               <div key={place.id}>
-                {tab === 'gateways' ? <Gateways l={place.id} toast={toast.show} /> : tab === 'botones' ? <Devices l={place.id} toast={toast.show} /> : <Unknown l={place.id} toast={toast.show} />}
+                {tab === 'gateways' ? <Gateways l={place.id} tz={place.timezone} toast={toast.show} /> : tab === 'botones' ? <Devices l={place.id} toast={toast.show} /> : <Unknown l={place.id} tz={place.timezone} toast={toast.show} />}
               </div>
             </>
           )}
