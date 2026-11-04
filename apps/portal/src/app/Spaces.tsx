@@ -1,6 +1,6 @@
 import { useServiceCallMetrics } from '@modivara/analytics-web';
 import { Check, LogOut, Pencil, Plus, Send, SquareDashed, TriangleAlert, ZoomIn, ZoomOut } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
@@ -206,10 +206,21 @@ function Activity({ ed, heat, range, setRange, loading }: { ed: Ed; heat: (id: s
 function SpaceTitle({ ed }: { ed: Ed }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
+  const closed = useRef(false); // evita doble confirmación: Enter desmonta el campo y el navegador puede disparar blur
   if (editing) {
+    const close = (save: boolean) => {
+      if (closed.current) return;
+      closed.current = true;
+      if (save) ed.renameSpace(name); // ignora vacío o sin cambio
+      setEditing(false);
+    };
     return (
-      <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); ed.renameSpace(name); setEditing(false); }}>
-        <input autoFocus aria-label="Nombre del espacio" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} onBlur={() => setEditing(false)} className="h-10 rounded-md border border-line-strong px-2 text-xl font-bold" />
+      <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); close(true); }}>
+        <input
+          autoFocus aria-label="Nombre del espacio" value={name} maxLength={60} onChange={(e) => setName(e.target.value)}
+          onBlur={() => close(true)} onKeyDown={(e) => e.key === 'Escape' && close(false)}
+          className="h-10 rounded-md border border-line-strong px-2 text-xl font-bold"
+        />
         <Button size="sm" type="submit" onMouseDown={(e) => e.preventDefault()}>Guardar</Button>
       </form>
     );
@@ -217,7 +228,7 @@ function SpaceTitle({ ed }: { ed: Ed }) {
   return (
     <h1 className="flex items-center gap-2 text-2xl font-bold">
       {ed.space.name}
-      {ed.zoneId && <Button size="sm" variant="ghost" aria-label="Cambiar el nombre del espacio" onClick={() => { setName(ed.space.name); setEditing(true); }}><Pencil aria-hidden className="size-4" /></Button>}
+      {ed.zoneId && <Button size="sm" variant="ghost" aria-label="Cambiar el nombre del espacio" onClick={() => { setName(ed.space.name); closed.current = false; setEditing(true); }}><Pencil aria-hidden className="size-4" /></Button>}
     </h1>
   );
 }
