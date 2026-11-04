@@ -22,7 +22,7 @@ export class GetServiceCallMetrics {
 
     const { query } = input;
     const range = resolveRange(query, new Date(), location.timezone);
-    // ponytail: carga en memoria todos los facts del rango; techo = volumen del piloto. Mover la agregación a SQL si crece.
+    // ponytail: carga en memoria todos los facts del rango; techo = MAX_CUSTOM_DAYS (366 días) x volumen del piloto. Pasar a agregados SQL si p95 > 1 s o un rango supera ~100k facts.
     const facts = await this.facts.findCreatedBetween({
       organizationId: input.organizationId,
       locationId: input.locationId,
