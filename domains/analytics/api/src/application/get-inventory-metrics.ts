@@ -27,7 +27,7 @@ export class GetInventoryMetrics {
       productId: query.product_id,
       stockLocationId: query.stock_location_id,
     };
-    // ponytail: carga en memoria todos los facts del rango; techo = volumen del piloto. Mover la agregación a SQL si crece.
+    // ponytail: carga en memoria todos los facts del rango; techo = MAX_CUSTOM_DAYS (366 días) x volumen del piloto. Pasar a agregados SQL si p95 > 1 s o un rango supera ~100k facts.
     const [movements, latest] = await Promise.all([
       this.facts.findOccurredBetween({ ...scope, range }),
       this.facts.findLatestPerPlaceAndProduct(scope),

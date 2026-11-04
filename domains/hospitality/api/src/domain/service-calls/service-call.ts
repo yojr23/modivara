@@ -103,7 +103,18 @@ export class ServiceCall extends AggregateRoot {
   }
 
   static restore(props: ServiceCallProps): ServiceCall {
-    return new ServiceCall({ ...props }, props.status);
+    const d = (v: Date) => new Date(v);
+    return new ServiceCall(
+      {
+        ...props,
+        createdAt: d(props.createdAt),
+        lastPressAt: d(props.lastPressAt),
+        acknowledgedAt: props.acknowledgedAt && d(props.acknowledgedAt),
+        completedAt: props.completedAt && d(props.completedAt),
+        updatedAt: d(props.updatedAt),
+      },
+      props.status,
+    );
   }
 
   get id() { return this.props.id; }

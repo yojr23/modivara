@@ -120,6 +120,15 @@ describe(`F3-04 concurrencia (N=${N})`, () => {
     expect(await db.outboxEvent.count({ where: { eventType: 'hospitality.service_call.acknowledged' } })).toBe(1);
   });
 
+  it('el mismo usuario reconociendo dos veces a la vez: ambos reciben in_progress y queda una sola transición', async () => {
+    const s = await setup(1);
+    const id = (await press.registerPress(s.signal('btn-1'))).serviceCallId!;
+    const both = await Promise.all([acknowledge.execute(action(id)), acknowledge.execute(action(id))]);
+    expect(both.map((c) => c.status)).toEqual(['in_progress', 'in_progress']);
+    expect(await db.serviceCallTransition.count({ where: { action: 'acknowledge' } })).toBe(1);
+    expect(await db.outboxEvent.count({ where: { eventType: 'hospitality.service_call.acknowledged' } })).toBe(1);
+  });
+
   it('dos usuarios con la misma lectura: el segundo guardado recibe el conflicto con el estado actual', async () => {
     const s = await setup(1);
     const id = (await press.registerPress(s.signal('btn-1'))).serviceCallId!;

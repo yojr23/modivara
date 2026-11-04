@@ -65,6 +65,30 @@ describe('ServiceCall', () => {
     expect(() => c.complete('u', at(3))).toThrow(InvalidTransitionError);
   });
 
+  it('transiciones ilegales: no mutan ni dejan eventos ni transiciones', () => {
+    const c = newCall();
+    c.pullEvents();
+    c.pullTransitions();
+    expect(() => c.complete('u', at(1))).toThrow(InvalidTransitionError); // sin reconocer
+    c.acknowledge('u', at(2));
+    expect(() => c.acknowledge('u', at(3))).toThrow(InvalidTransitionError); // doble ack
+    expect(c.status).toBe('in_progress');
+    expect(c.acknowledgedAt).toEqual(at(2));
+    expect(c.pullTransitions().map((t) => t.action)).toEqual(['acknowledge']);
+    expect(c.pullEvents()).toHaveLength(1);
+  });
+
+  it('restore copia las fechas recibidas', () => {
+    const c = newCall();
+    c.acknowledge('u', at(5));
+    const props = c.toProps();
+    const restored = ServiceCall.restore(props);
+    props.createdAt.setTime(0);
+    props.acknowledgedAt!.setTime(0);
+    expect(restored.createdAt).toEqual(t0);
+    expect(restored.acknowledgedAt).toEqual(at(5));
+  });
+
   it('pullEvents devuelve y vacía los pendientes; restore fija el estado cargado', () => {
     const c = newCall();
     expect(c.pullEvents()).toHaveLength(1);

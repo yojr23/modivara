@@ -1,10 +1,10 @@
 import { Inject, Module, type DynamicModule, type OnModuleDestroy } from '@nestjs/common';
 import { CORE_ACCESS_PORT, type IntegrationEvent, type IntegrationEventSubscriber } from '@modivara/core-contracts';
 import {
-  AnalyticsEventSubscriber, buildEventRegistry, GetInventoryMetrics, GetServiceCallMetrics, ProjectEvent, RebuildProjections, type EventRegistry,
+  AnalyticsEventSubscriber, buildEventRegistry, GetInventoryMetrics, GetServiceCallMetrics, RebuildProjections, type EventRegistry,
 } from './application/index.js';
 import {
-  createAnalyticsPrisma, PrismaProcessedEventStore, PrismaProjectionTransaction, PrismaServiceCallFactRepository, PrismaStockMovementFactRepository, type AnalyticsPrisma,
+  createAnalyticsPrisma, PrismaProjectionTransaction, PrismaServiceCallFactRepository, PrismaStockMovementFactRepository, type AnalyticsPrisma,
 } from './infrastructure/prisma/index.js';
 import { MetricsController } from './presentation/index.js';
 
@@ -14,7 +14,6 @@ export const ANALYTICS_PRISMA = 'ANALYTICS_PRISMA';
 export const ANALYTICS_EVENT_SUBSCRIBER = 'ANALYTICS_EVENT_SUBSCRIBER';
 export const SERVICE_CALL_FACTS = 'ANALYTICS_SERVICE_CALL_FACTS';
 export const STOCK_MOVEMENT_FACTS = 'ANALYTICS_STOCK_MOVEMENT_FACTS';
-export const PROCESSED_EVENTS = 'ANALYTICS_PROCESSED_EVENTS';
 export const PROJECTION_TRANSACTION = 'ANALYTICS_PROJECTION_TRANSACTION';
 export const EVENT_REGISTRY = 'ANALYTICS_EVENT_REGISTRY';
 
@@ -27,8 +26,7 @@ const CORE = CORE_ACCESS_PORT;
 
 /** Casos de uso: token = la clase, deps = tokens de puertos en el orden de su constructor. */
 const useCases = [
-  [ProjectEvent, [EVENT_REGISTRY, PROCESSED_EVENTS]],
-  [AnalyticsEventSubscriber, [ProjectEvent]],
+  [AnalyticsEventSubscriber, [PROJECTION_TRANSACTION]],
   [GetServiceCallMetrics, [SERVICE_CALL_FACTS, CORE]],
   [GetInventoryMetrics, [STOCK_MOVEMENT_FACTS, CORE]],
   [RebuildProjections, [PROJECTION_TRANSACTION]],
@@ -57,7 +55,6 @@ export class AnalyticsModule implements OnModuleDestroy {
         repo(SERVICE_CALL_FACTS, (p) => new PrismaServiceCallFactRepository(p)),
         repo(STOCK_MOVEMENT_FACTS, (p) => new PrismaStockMovementFactRepository(p)),
         repo(PROJECTION_TRANSACTION, (p) => new PrismaProjectionTransaction(p)),
-        repo(PROCESSED_EVENTS, (p) => new PrismaProcessedEventStore(p)),
         {
           provide: EVENT_REGISTRY,
           inject: [SERVICE_CALL_FACTS, STOCK_MOVEMENT_FACTS],

@@ -120,6 +120,20 @@ describe('F3-08 acknowledge / complete', () => {
     expect(serviceCallSchema.parse(done.body)).toMatchObject({ status: 'completed', completed_by: staff2.actor.actorUserId });
   });
 
+  it('ack repetido del mismo actor (sin llave, también en paralelo) devuelve el estado vigente; ack de completado -> 409', async () => {
+    const id = await seedCall(orgA, locA, null, new Date('2026-10-17T13:00:00Z'));
+    const ack = () => t.as(staff).post(`${base}/service-calls/${id}/acknowledge`);
+    const [a, b] = await Promise.all([ack(), ack()]);
+    expect([a.status, b.status]).toEqual([200, 200]);
+    expect(serviceCallSchema.parse(a.body).status).toBe('in_progress');
+    expect(serviceCallSchema.parse((await ack()).body).acknowledged_by).toBe(staff.actor.actorUserId);
+    await t.as(staff).post(`${base}/service-calls/${id}/complete`);
+    const late = await ack();
+    expect(late.status).toBe(409);
+    expect(callConflictSchema.parse(late.body).current.status).toBe('completed');
+    expect(t.repos.calls.transitions.filter((x) => x.serviceCallId === id).map((x) => x.action)).toEqual(['create', 'acknowledge', 'complete']);
+  });
+
   it('repetir la misma acción (con Idempotency-Key) devuelve el mismo resultado sin nueva transición', async () => {
     const id = await seedCall(orgA, locA, null, new Date('2026-10-17T12:00:00Z'));
     const key = { 'Idempotency-Key': newId() };
