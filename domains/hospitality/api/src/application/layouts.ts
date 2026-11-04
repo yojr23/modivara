@@ -1,5 +1,6 @@
 import type { CoreAccessPort } from '@modivara/core-contracts';
 import { LayoutRevisionConflictError, NotFoundError, ValidationError } from '../domain/errors.js';
+import { assertPublishable } from '../domain/layouts/layout-geometry.js';
 import { type LayoutContent, SpaceLayout, validateLayoutContent } from '../domain/layouts/space-layout.js';
 import type { DiningTable } from '../domain/tables/dining-table.js';
 import type { DiningTableRepository, LayoutNotifier, LayoutRepository, ZoneRepository } from './ports/index.js';
@@ -105,6 +106,7 @@ export class PublishLayout {
       const draft = await tx.lockDraft(space);
       if (!draft || draft.revision !== input.revision) throw new LayoutRevisionConflictError(draft);
       validateLayoutContent(draft.toProps());
+      assertPublishable(draft.toProps());
       assertPlaceable(draft, await tx.lockTables(scopeOf(input), draft.tableIds));
       draft.publish(await tx.nextVersion(space), input.actorUserId, new Date());
       await tx.savePublished(draft);
