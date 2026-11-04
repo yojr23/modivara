@@ -55,3 +55,11 @@ export function fmtWhen(isoOrMs: string | number, tz?: string) {
   const prefix = day === today ? 'Hoy' : day === dayKey(dayStart(today, tz) - 1, tz) ? 'Ayer' : dtf(tz, { weekday: 'short', day: 'numeric', month: 'short' }).format(ms);
   return `${prefix} ${dtf(tz, { hour: '2-digit', minute: '2-digit', hour12: false }).format(ms)}`;
 }
+
+/** «hace 40 s», «hace 5 min», «hace 3 h», «hace 2 d» desde un instante hasta `now` (ms). */
+export function agoLabel(from: number, now: number) {
+  const s = Math.max(0, Math.floor((now - from) / 1000));
+  if (s < 60) return `hace ${s} s`;
+  if (s < 3600) return `hace ${Math.floor(s / 60)} min`;
+  return s < 86_400 ? `hace ${Math.floor(s / 3600)} h` : `hace ${Math.floor(s / 86_400)} d`;
+}
