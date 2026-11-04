@@ -88,3 +88,19 @@ describe('canSeeCall', () => {
   it('sin permiso no ve', () => expect(canSeeCall(viewer({ permissions: new Set() }), call)).toBe(false));
   it('otro local no ve', () => expect(canSeeCall(viewer({ locationId: uid() }), call)).toBe(false));
 });
+
+describe('ServiceCall: fechas sin aliasing (OBJ-06)', () => {
+  it('mutar la fecha de un getter o de toProps no altera el agregado', () => {
+    const c = newCall();
+    c.acknowledge('u', at(5));
+    c.createdAt.setTime(0);
+    c.acknowledgedAt!.setTime(0);
+    const props = c.toProps();
+    props.updatedAt.setTime(0);
+    props.lastPressAt.setTime(0);
+    expect(c.createdAt).toEqual(t0);
+    expect(c.acknowledgedAt).toEqual(at(5));
+    expect(c.updatedAt).toEqual(at(5));
+    expect(c.lastPressAt).toEqual(t0);
+  });
+});
