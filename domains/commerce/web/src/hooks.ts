@@ -32,15 +32,21 @@ export const useBalances = (l: string, f: StockFilters = {}) =>
   useQuery({ queryKey: [...commerceKeys.balances(l), f], queryFn: () => api.listBalances(l, f), retry });
 export const useMovements = (l: string, f: MovementFilters = {}) =>
   useQuery({ queryKey: [...commerceKeys.movements(l), f], queryFn: () => api.listMovements(l, f), retry });
-/** Historial paginado por cursor `(occurred_at, id)`: `fetchNextPage` trae la siguiente tanda con los mismos filtros. */
-export const useMovementPages = (l: string, f: Omit<MovementFilters, 'cursor'> & { limit: number }) =>
-  useInfiniteQuery({
+/**
+ * Historial paginado por cursor `(occurred_at, id)`: `fetchNextPage` trae la siguiente tanda con los mismos filtros.
+ * Pide `limit + 1` (tope del contrato: 200): la fila extra solo avisa que hay más y no se muestra.
+ */
+export const useMovementPages = (l: string, f: Omit<MovementFilters, 'cursor'> & { limit: number }) => {
+  const size = Math.min(f.limit, 199);
+  return useInfiniteQuery({
     queryKey: [...commerceKeys.movements(l), 'pages', f],
-    queryFn: ({ pageParam }) => api.listMovements(l, { ...f, cursor: pageParam }),
+    queryFn: ({ pageParam }) => api.listMovements(l, { ...f, limit: size + 1, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => (last.length < f.limit ? undefined : movementCursor(last[last.length - 1]!)),
+    getNextPageParam: (last) => (last.length > size ? movementCursor(last[size - 1]!) : undefined),
+    select: (d) => ({ ...d, pages: d.pages.map((p) => p.slice(0, size)) }),
     retry,
   });
+};
 
 export const useCreateProduct = (l: string) => mutation((v: CreateProductDto) => api.createProduct(l, v), () => [commerceKeys.products(l)]);
 export const useUpdateProduct = (l: string) =>

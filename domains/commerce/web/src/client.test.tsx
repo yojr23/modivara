@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   ApiRequestError, InvalidResponseError, NetworkError, commerceApi, newIdempotencyKey, stockErrorState, toErrorState, toStockErrorState,
-  useProducts, useRegisterMovement,
+  useMovementPages, useProducts, useRegisterMovement,
 } from './index.js';
 
 const L = '11111111-1111-4111-8111-111111111111';
@@ -115,4 +115,20 @@ it('un saldo insuficiente en la mutación queda tipificado en el error del hook'
   const { result } = renderHook(() => useRegisterMovement(L), { wrapper });
   await act(() => result.current.mutateAsync({ input: out }).catch(() => undefined));
   await waitFor(() => expect(stockErrorState(result.current.error)).toBe('insufficient_stock'));
+});
+
+it('el historial pide limit+1: la fila extra avisa que hay más y no se muestra; sin extra no hay «cargar más»', async () => {
+  const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ ...movement, id: `66666666-6666-4666-8666-66666666666${i}` }));
+  const f = stub(() => json(rows(3)));
+  const { wrapper } = setup();
+  const { result } = renderHook(() => useMovementPages(L, { limit: 2 }), { wrapper });
+  await waitFor(() => expect(result.current.data).toBeDefined());
+  expect(String(f.mock.calls[0]![0])).toContain('limit=3');
+  expect(result.current.data!.pages[0]).toHaveLength(2);
+  expect(result.current.hasNextPage).toBe(true);
+
+  stub(() => json(rows(2))); // última página exacta: no hay más
+  const b = renderHook(() => useMovementPages(L, { limit: 2 }), { wrapper: setup().wrapper });
+  await waitFor(() => expect(b.result.current.data).toBeDefined());
+  expect(b.result.current.hasNextPage).toBe(false);
 });
