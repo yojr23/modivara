@@ -1,6 +1,7 @@
 import { DuplicateError } from '../../domain/errors.js';
 import { DiningTable, type DiningTableProps } from '../../domain/tables/dining-table.js';
 import type { ById, DiningTableRepository, Scope } from '../../application/ports/index.js';
+import type { HospitalityPrisma } from './client.js';
 import { mapUnique, type Db } from './db.js';
 
 const toDomain = (r: DiningTableProps) => DiningTable.restore(r);
@@ -39,5 +40,13 @@ export class PrismaDiningTableRepository implements DiningTableRepository {
         })),
       () => new DuplicateError('table'),
     );
+  }
+
+  /** Solo con el cliente raíz (abre su propia transacción). */
+  withLock<T>({ id, organizationId, locationId }: ById, work: (tables: DiningTableRepository) => Promise<T>): Promise<T> {
+    return (this.db as HospitalityPrisma).$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM dining_tables WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid AND location_id = ${locationId}::uuid FOR UPDATE`;
+      return work(new PrismaDiningTableRepository(tx));
+    });
   }
 }

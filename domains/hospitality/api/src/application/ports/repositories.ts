@@ -66,6 +66,8 @@ export interface DiningTableRepository {
   findActiveByLabel(query: Scope & { zoneId: string | null; label: string }): Promise<DiningTable | null>;
   listByLocation(scope: Scope): Promise<DiningTable[]>;
   save(table: DiningTable): Promise<void>;
+  /** Bloquea la mesa (`FOR UPDATE`) hasta el commit de `work`, que guarda con el repositorio que recibe. */
+  withLock<T>(key: ById, work: (tables: DiningTableRepository) => Promise<T>): Promise<T>;
 }
 
 export interface DeviceRepository {

@@ -9,6 +9,11 @@ import { persistTransitionsAndOutbox, toServiceCall } from './service-call-persi
 class PrismaButtonPressTx implements ButtonPressTx {
   constructor(private readonly tx: Prisma.TransactionClient) {}
 
+  async lockActiveTable(tableId: string) {
+    const rows = await this.tx.$queryRaw<unknown[]>`SELECT id FROM dining_tables WHERE id = ${tableId}::uuid AND deactivated_at IS NULL FOR SHARE`;
+    return rows.length > 0;
+  }
+
   async findLastPress({ organizationId, locationId, deviceId, buttonKey }: Scope & { deviceId: string; buttonKey: string | null }) {
     const r = await this.tx.deviceEvent.findFirst({
       where: { organizationId, locationId, deviceId, buttonKey, result: { in: ['call_created', 'repeat_press'] } },

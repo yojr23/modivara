@@ -4,10 +4,12 @@ import { AcknowledgeCall } from '../../application/acknowledge-call.js';
 import { CompleteCall } from '../../application/complete-call.js';
 import type { NormalizedPress } from '../../application/ports/index.js';
 import { RegisterButtonPress } from '../../application/register-button-press.js';
+import { DeactivateTable } from '../../application/zones-and-tables.js';
 import { Device } from '../../domain/devices/device.js';
 import { DeviceAssignment } from '../../domain/devices/device-assignment.js';
 import { Gateway } from '../../domain/devices/gateway.js';
-import { ConcurrencyConflictError, InvalidTransitionError } from '../../domain/errors.js';
+import { ConcurrencyConflictError, InvalidTransitionError, TableInUseError } from '../../domain/errors.js';
+import { ServiceCall } from '../../domain/service-calls/service-call.js';
 import { DiningTable } from '../../domain/tables/dining-table.js';
 import { FakeCoreAccess, RecordingNotifications } from '../../testing/in-memory.js';
 import { hospitalityPrismaForTests, resetHospitality, tenant } from '../../testing/integration.js';
@@ -154,5 +156,32 @@ describe(`F3-04 concurrencia (N=${N})`, () => {
     expect(error).toBeInstanceOf(ConcurrencyConflictError);
     expect((error as ConcurrencyConflictError).current?.status).toBe('completed');
     expect(await db.serviceCallTransition.count({ where: { action: 'acknowledge' } })).toBe(1);
+  });
+});
+
+describe('ARC-03 desactivar mesa con una pulsación en curso', () => {
+  it('la desactivación espera la pulsación, ve su llamado y falla; ya desactivada, la mesa no acepta llamados', async () => {
+    const tables = new PrismaDiningTableRepository(db);
+    const table = DiningTable.create({ ...t, label: '9', createdBy: waiter, now: new Date() });
+    await tables.save(table);
+    const deactivate = new DeactivateTable(core, tables, new PrismaDeviceAssignmentRepository(db), calls);
+    const store = new PrismaButtonPressStore(db);
+    const input = { ...t, actorUserId: waiter, tableId: table.id };
+    let tried!: Promise<unknown>;
+    const { call } = await store.withDeviceLock(newId(), async (tx) => {
+      expect(await tx.lockActiveTable(table.id)).toBe(true);
+      tried = deactivate.execute(input).catch((e: unknown) => e);
+      await new Promise((r) => setTimeout(r, 200)); // sin el bloqueo, la desactivación terminaría aquí sin ver el llamado
+      const candidate = ServiceCall.create({
+        ...t, table: { id: table.id, label: '9', zoneId: null, zoneName: null }, callType: 'attention', deviceEventId: newId(), correlationId: newId(), now: new Date(),
+      });
+      return tx.upsertActiveCall(candidate, new Date());
+    });
+    expect(await tried).toBeInstanceOf(TableInUseError);
+
+    await acknowledge.execute(action(call.id));
+    await complete.execute(action(call.id));
+    await deactivate.execute(input);
+    expect(await store.withDeviceLock(newId(), (tx) => tx.lockActiveTable(table.id))).toBe(false);
   });
 });
