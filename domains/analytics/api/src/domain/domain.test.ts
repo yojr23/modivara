@@ -209,6 +209,13 @@ describe('inventario', () => {
     expect(m.by_period.every((p) => p.movement_count > 0 || (p.in_delta === '0.000' && p.out_delta === '0.000'))).toBe(true);
     expect(moved[0]).toMatchObject({ movement_count: 4, in_delta: '0.300', out_delta: '-0.050', adjust_delta: '-1.000' });
   });
+  it('ARC-05: con varios productos (unidades distintas) no suma cantidades, solo cuenta', () => {
+    const facts = [mov('in', '12', '12', '2026-10-19T10:00:00Z'), mov('in', '2.5', '2.5', '2026-10-19T10:05:00Z', { product: 2 })];
+    const m = computeInventoryMetrics(facts, latestPerPlaceAndProduct(facts), { timeZone: TZ, groupBy: 'day', range });
+    expect(m.by_direction[0]).toEqual({ direction: 'in', movement_count: 2, total_delta: null });
+    expect(m.by_reason[0]!.total_delta).toBeNull();
+    expect(m.by_period.find((p) => p.movement_count > 0)).toMatchObject({ movement_count: 2, in_delta: null });
+  });
   it('desempata movimientos simultáneos de forma determinista', () => {
     const a = mov('in', '1', '1', '2026-10-19T10:00:00Z');
     const b = mov('in', '1', '2', '2026-10-19T10:00:00Z');

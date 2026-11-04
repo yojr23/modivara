@@ -42,18 +42,21 @@ export type ServiceCallMetrics = z.infer<typeof serviceCallMetricsSchema>;
 
 const direction = z.enum(['in', 'out', 'adjust']);
 
-/** Métricas de inventario. `*_delta` va con signo (salidas negativas); `balance` es el último saldo conocido. */
+/**
+ * Métricas de inventario. `*_delta` va con signo (salidas negativas); `balance` es el último saldo conocido.
+ * `*_delta` es null si el resultado mezcla productos: botellas, kg y litros no se suman (solo `movement_count`).
+ */
 export const inventoryMetricsSchema = z.object({
   timezone: z.string(),
   from: instant,
   to: instant,
   group_by: groupBySchema,
-  by_direction: z.array(z.object({ direction, movement_count: count, total_delta: decimal })),
+  by_direction: z.array(z.object({ direction, movement_count: count, total_delta: decimal.nullable() })),
   by_reason: z.array(
-    z.object({ direction, reason_id: z.uuid(), reason_name: z.string(), movement_count: count, total_delta: decimal }),
+    z.object({ direction, reason_id: z.uuid(), reason_name: z.string(), movement_count: count, total_delta: decimal.nullable() }),
   ),
   by_period: z.array(
-    z.object({ ...periodBucket, movement_count: count, in_delta: decimal, out_delta: decimal, adjust_delta: decimal }),
+    z.object({ ...periodBucket, movement_count: count, in_delta: decimal.nullable(), out_delta: decimal.nullable(), adjust_delta: decimal.nullable() }),
   ),
   balances: z.array(
     z.object({ stock_location_id: z.uuid(), product_id: z.uuid(), product_name: z.string(), balance: decimal, as_of: instant }),
