@@ -57,7 +57,7 @@ it('un 401 de cualquier consulta limpia la sesión y redirige', async () => {
 
 it('la portada pide el negocio, valida el slug y lleva a su login', async () => {
   const { router } = mount('/', async () => json({ code: 'unauthorized' }, 401));
-  const input = await screen.findByLabelText(/Nombre de tu negocio/);
+  const input = await screen.findByLabelText(/Identificador de tu negocio/);
   fireEvent.change(input, { target: { value: 'Mal Slug' } });
   fireEvent.submit(input.closest('form')!);
   expect(await screen.findByRole('alert')).toBeTruthy();

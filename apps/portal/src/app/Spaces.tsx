@@ -99,7 +99,7 @@ function Todo({ ed }: { ed: Ed }) {
         <CheckRow ok={ed.hits.size === 0} warn>{ed.hits.size ? 'Hay elementos encimados (no impide publicar)' : 'Nada encimado'}</CheckRow>
         {ed.areas.length > 0 && <CheckRow ok={!ed.areaOverlap}>{ed.areaOverlap ? 'Hay áreas encimadas: sepáralas' : 'Áreas sin encimarse'}</CheckRow>}
         {ed.areas.length > 0 && <CheckRow ok={ed.withoutArea.length === 0} warn>{ed.withoutArea.length ? `Sin área: ${ed.withoutArea.join(', ')}` : 'Cada mesa tiene área'}</CheckRow>}
-        <CheckRow ok={!ed.dirty} warn>{ed.dirty ? 'Cambios sin guardar' : 'Borrador guardado'}</CheckRow>
+        <CheckRow ok={!ed.dirty} warn>{ed.dirty ? 'Cambios sin guardar' : 'Nada pendiente de guardar'}</CheckRow>
       </ul>
       <p className="mt-6 text-sm text-muted">Toca una mesa para cambiar su nombre o su forma. Arrástrala para moverla; el tirador de arriba la gira.</p>
     </section>

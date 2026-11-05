@@ -113,7 +113,8 @@ function CallsOnPlan({ range }: { range: RangePreset }) {
   const rows = all.data.by_table.filter((r) => !inArea || inArea.has(r.table_id));
   const title = table ? label(table) : area ? area.name : 'Todo el local';
   const totals = space ? areaTotals(space.areas, space.elements, (id) => counts.get(id) ?? 0) : new Map();
-  const where = table ? all.data.by_table.find((r) => r.table_id === table)?.zone_name ?? '' : area ? space?.name : LEAD[range];
+  // Con varios espacios el plano muestra uno solo y el resumen suma todos: se dice explícitamente.
+  const where = table ? all.data.by_table.find((r) => r.table_id === table)?.zone_name ?? '' : area ? space?.name : spaces.length > 1 ? `${LEAD[range]}, todos los espacios` : LEAD[range];
 
   return (
     <div className="grid min-h-0 lg:h-[calc(100dvh-73px)] lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -145,9 +146,9 @@ function CallsOnPlan({ range }: { range: RangePreset }) {
           ) : !d ? <FigureBones /> : (
             <div className="grid grid-cols-2 gap-6">
               <Figure label="Llamados" value={fmtNum(d.totals.calls)} />
-              <Figure label="Mediana hasta «En atención»" value={fmtSeconds(d.time_to_acknowledge.median_seconds)} />
-              <Figure label="Mediana hasta «Atendida»" value={fmtSeconds(d.time_to_complete.median_seconds)} />
-              <Figure label="Con pulsaciones repetidas" value={`${pct(d.totals.calls_with_repeated_presses, d.totals.calls)} %`} />
+              <Figure label="Mediana hasta «En atención»" value={fmtSeconds(d.time_to_acknowledge.median_seconds)} context="De la pulsación a que alguien la marcó en el tablero" />
+              <Figure label="Mediana hasta «Atendida»" value={fmtSeconds(d.time_to_complete.median_seconds)} context="De la pulsación a que la marcaron atendida" />
+              <Figure label="Con pulsaciones repetidas" value={`${pct(d.totals.calls_with_repeated_presses, d.totals.calls)} %`} context={`Llamados en que la mesa pulsó más de una vez, de ${fmtNum(d.totals.calls)}`} />
             </div>
           )}
           {d && !area && (
