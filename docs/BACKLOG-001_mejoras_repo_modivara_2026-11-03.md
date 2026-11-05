@@ -268,3 +268,24 @@ Mismo método que la ronda 2: 7 subagentes (Sonnet), uno por rama `ronda3/<tema>
 
 **Pendiente tras la ronda 3:** SEC-04 (transporte físico: decidir ADR-004), SEC-09 (aplicar el plan de OPERACION-001 §8), copia de backups fuera del VPS y alertas, QA-02 (E2E en base desechable), QA-03 (hardware), QA-08 (eslint/componentes), QA-10 (carga), UX-02/UX-05 (editor responsive y prueba con personal), ARC-06/DAT-08 (decidir en ADR-004), MOD-07, DOC-01 (visibilidad del repo), botones sin batería/RSSI (no existe el dato).
 
+
+### M.7 Auditoría visual de capturas por rol (04/11/2026, rama `ronda4/auditoria-visual` desde `main`)
+
+Fuente: auditoría externa sobre `docs/pantallazos/` (V01…V12). La auditoría dice «43 capturas» y luego «34 PNG»: en el repo había 34.
+
+| ID | Resultado | Commit | Qué se hizo / por qué no |
+|---|---|---|---|
+| V01 | Cubierto | `2cb422d` | `screens.spec.ts` pulsa los 15 botones de Bar Demo, Barra toma 3 y captura el tablero recién pulsado y con el reloj del navegador adelantado 6 min (`docs/pantallazos/llamados/`). Falta 409, desconexión y dos personas a la vez en pantalla (los cubren `service-call.spec.ts` y `diagnostics.spec.ts`, sin captura). |
+| V02 | Cubierto (decisión vigente) | `2cb422d` | Barra y mesero comparten el rol `staff`: misma pantalla por diseño. Captura 390×844 del mesero: sin plano, cada llamado con su botón en la cola. Falta la prueba con teléfono real y personal (UX-05). |
+| V03 | Arreglado | `6c8559d` | Registro e historial se desplazan por separado en pantallas anchas; filtros fijos. Causa extra: los `sr-only` (absolutos) de cada fila escapaban del contenedor con scroll y estiraban la página. Captura: 4843 → 864 px. |
+| V04 | Arreglado | `6c8559d` | Íconos +/− (`CirclePlus`/`CircleMinus`) en vez de flechas; el motivo sigue escrito al lado. |
+| V05 | Arreglado | `6c8559d` | Sin motivo preelegido en entradas y salidas («Elige el motivo»; con un solo motivo se preelige). `inventory.spec.ts` comprueba el aviso. |
+| V06 | Arreglado en parte | `930035a` | «¿Qué falta?» dice «Nada pendiente de guardar». La cabecera («Sin borrador» / «Borrador guardado (revisión n)») sale de `editor-kit.tsx`, que construye el responsable. |
+| V07 | Arreglado | `930035a` | Con varios espacios el resumen dice «…, todos los espacios». |
+| V08 | Arreglado | `930035a` | Cada mediana y el % de pulsaciones repetidas llevan su definición y denominador; la nota al pie sigue aclarando que no miden la llegada a la mesa. |
+| V09 | Pendiente | — | Editor en tablet: toca `editor-kit.tsx` (UX-02). |
+| V10 | Arreglado | `6c8559d` | Con más de un lugar activo, el subtítulo es un selector y el registro, los saldos y el historial usan el lugar elegido. |
+| V11 | Arreglado | `930035a` | «Identificador de tu negocio», con dónde aparece. |
+| V12 | No se hace | — | La propia auditoría lo deja para cuando haya volumen (20 botones en el piloto). |
+
+**Verificación:** `pnpm typecheck`, `check:separability`, unitarias del portal 108/108, E2E de inventario, lugares, métricas, espacios, login y pantallazos 23/23 sobre la demo con el `web` de esta rama.
