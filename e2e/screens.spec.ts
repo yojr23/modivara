@@ -1,8 +1,9 @@
 import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { LoginPage, pageAs } from './pages';
-import { ROOT, USERS } from './support/env';
+import { BoardPage, LoginPage, pageAs } from './pages';
+import { apiAs, closeActiveCalls, json, locationOf, press, tableId } from './support/api';
+import { ROOT, USERS, authFile } from './support/env';
 
 // Pantallazos de todas las vistas que ve cada usuario de demo, en docs/pantallazos/ (versionados; ver su README).
 // Las vistas salen del menú «Módulos» que el portal arma con los permisos del usuario, más las pestañas de cada pantalla.
@@ -65,3 +66,45 @@ for (const user of USERS) {
     }
   });
 }
+
+// Tablero con llamados (los pantallazos de arriba lo muestran vacío): las 15 mesas de Bar Demo pulsan, Barra toma 3.
+// La espera se adelanta con el reloj del navegador (`setFixedTime`) para ver «más de 2 min» y «más de 5 min» sin esperar.
+// Escritorio para Barra y celular 390×844 para el mesero; al final se cierran los llamados.
+test('tablero con llamados activos, en escritorio y en celular', async ({ browser }) => {
+  const dir = join(OUT, 'llamados');
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const admin = await apiAs(['bar-demo', 'admin']);
+  const barra = await apiAs(['bar-demo', 'barra']);
+  const loc = await locationOf(admin);
+  const mesas = Array.from({ length: 15 }, (_, i) => i + 1);
+  const ids = await Promise.all(mesas.map((n) => tableId(admin, loc, `Mesa ${n}`)));
+  for (const t of ids) await closeActiveCalls(admin, loc, t);
+  try {
+    const calls: string[] = [];
+    for (const n of mesas) {
+      const r = await press('bar-demo', `btn-${String(n).padStart(2, '0')}`);
+      expect(r.result).toBe('call_created');
+      calls.push(r.service_call_id!);
+    }
+    for (const n of [2, 9, 14]) await json(barra, 'POST', `/locations/${loc}/service-calls/${calls[n - 1]}/acknowledge`);
+
+    const desk = new BoardPage(await pageAs(browser, ['bar-demo', 'barra']));
+    await desk.goto('bar-demo');
+    await expect(desk.queueCard('Mesa 15')).toBeVisible();
+    await shot(desk.page, join(dir, 'barra-escritorio.png'));
+    await desk.page.clock.setFixedTime(Date.now() + 6 * 60_000);
+    await expect(desk.planTable('Mesa 1')).toHaveAccessibleName(/más de 5 min/);
+    await shot(desk.page, join(dir, 'barra-escritorio-6-min.png'));
+
+    const ctx = await browser.newContext({ storageState: authFile(['bar-demo', 'mesero1']), viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const phone = new BoardPage(await ctx.newPage());
+    await phone.page.clock.setFixedTime(Date.now() + 3 * 60_000);
+    await phone.goto('bar-demo');
+    await expect(phone.queueCard('Mesa 15')).toBeVisible();
+    await phone.page.screenshot({ path: join(dir, 'mesero-celular.png'), animations: 'disabled' });
+    await shot(phone.page, join(dir, 'mesero-celular-completo.png'));
+  } finally {
+    for (const t of ids) await closeActiveCalls(admin, loc, t);
+  }
+});
