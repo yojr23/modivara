@@ -1,7 +1,7 @@
 # Pantallazos por usuario
 
 Generados por `e2e/screens.spec.ts` contra la demo de Docker (`pnpm exec playwright test e2e/screens.spec.ts`; se reescriben en cada corrida).
-Para capturas limpias, correrla sobre una demo recién sembrada (`docker compose down -v`, `up`, seeds; ver `README.md`) antes que el resto de los E2E, que dejan productos y lugares «E2E …». El «Gateway E2E» de la consola lo crea `e2e/global-setup.ts`.
+Para capturas limpias, correrla sobre una demo recién sembrada (`scripts/demo-reset.sh`) antes que el resto de los E2E, que dejan productos y lugares «E2E …». El «Gateway E2E» de la consola lo crea `e2e/global-setup.ts`.
 Cada carpeta muestra solo las vistas del menú que el portal le arma a ese usuario según sus permisos, más las pestañas de cada pantalla y el historial completo de inventario (`*-inventario-historial.png`). Todo con datos reales de la API sobre la demo sembrada.
 
 No hay un rol «cajero»: los roles por local son `admin`, `staff` e `inventory` (`core-contracts/permissions.ts`). Barra y meseros comparten el rol `staff` y, por eso, la misma pantalla; en celular el plano se oculta y cada llamado lleva su botón en la cola.
