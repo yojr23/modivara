@@ -3,10 +3,11 @@
 Prueban el portal de punta a punta contra la demo de Docker: navegador real (el Chrome instalado, `channel: 'chrome'`), API real, Socket.IO y base sembrada.
 
 ```bash
-docker compose up --build -d   # stack completo en http://localhost
-pnpm seed                      # o el comando de seed del README dentro del contenedor api
+scripts/demo-reset.sh          # BORRA la base de la demo y la recrea: up --build, los cuatro seeds, clave del simulador en .env, planos
 pnpm test:e2e                  # informe en e2e/report (pnpm exec playwright show-report e2e/report)
 ```
+
+A mano: `docker compose up --build -d`, los seeds del README dentro del contenedor `api`, copiar la clave `SIM_GATEWAY_KEY=…` que imprime `seed-hospitality` al `.env` (si no, el tablero avisa «Sin señal de botones») y `pnpm seed:planos-demo`.
 
 - **Credenciales:** `SEED_PASSWORD` del entorno o de `.env` (la misma del seed). Otra URL: `E2E_BASE_URL=http://... pnpm test:e2e`.
 - **Sesiones:** `global-setup.ts` inicia sesión una vez por usuario y guarda las cookies en `e2e/.auth/` (fuera de git). La API limita a 30 logins FALLIDOS por IP cada 15 min (los correctos no cuentan, SEC-05); el bloqueo por cuenta (5 fallos) lo prueba `auth.spec.ts`. Si se agota: esperar o `docker compose restart api`.

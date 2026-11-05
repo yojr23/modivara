@@ -26,7 +26,10 @@ async function ensureGateway(slug: string) {
   await root.put(`${API}/platform/acting-organization`, { data: { organization_id: me.organization.id } });
   const gw = await root.post(`${API}/platform/locations/${me.locations[0].id}/gateways`, { data: { name: 'Gateway E2E' } });
   if (!gw.ok()) throw new Error(`No se pudo crear el gateway de prueba: ${gw.status()}`);
-  writeFileSync(file, JSON.stringify(await gw.json()));
+  const created = await gw.json();
+  writeFileSync(file, JSON.stringify(created));
+  // Primer latido: sin él, el tablero lo muestra «sin señal» en una demo recién sembrada (MOD-05).
+  await (await request.newContext()).post(`${API}/gateways/heartbeat`, { headers: { 'x-gateway-key': created.key }, data: {} });
   await root.put(`${API}/platform/acting-organization`, { data: { organization_id: null } });
 }
 

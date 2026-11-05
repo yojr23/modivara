@@ -28,6 +28,8 @@ cp .env.example .env        # ajustar contraseñas locales
 docker compose up --build
 ```
 
+Demo completa en un paso (borra la base de la demo): `scripts/demo-reset.sh` levanta todo, corre los cuatro seeds de abajo, escribe en `.env` la clave nueva del gateway de Bar Demo, reinicia el simulador y carga `seed:planos-demo`. Requiere `infra/mosquitto/passwd` (ver «Usuarios del broker MQTT»).
+
 ### Usuarios del broker MQTT
 
 Sin anónimos. El hash de cada usuario queda en `infra/mosquitto/passwd` (ignorado por git); la contraseña aleatoria se imprime **una sola vez**. El mismo script crea y rota, y recarga el broker si está corriendo:
