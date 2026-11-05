@@ -289,3 +289,5 @@ Fuente: auditoría externa sobre `docs/pantallazos/` (V01…V12). La auditoría 
 | V12 | No se hace | — | La propia auditoría lo deja para cuando haya volumen (20 botones en el piloto). |
 
 **Verificación:** `pnpm typecheck`, `check:separability`, unitarias del portal 108/108, E2E de inventario, lugares, métricas, espacios, login y pantallazos 23/23 sobre la demo con el `web` de esta rama.
+
+**Siembra y corrida completa (`7ab5c7f`, `a1c9b54`):** `scripts/demo-reset.sh` recrea la demo (base nueva, cuatro seeds, clave del simulador en `.env`, planos de demo); el tablero de Bar Demo ya no avisa «Sin señal» (Pisos sí: su gateway no tiene simulador, a propósito). Sobre la demo recién sembrada: pantallazos 8/8 primero (capturas sin datos «E2E …») y luego el resto de los E2E, **33/33**.
