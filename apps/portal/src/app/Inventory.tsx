@@ -2,7 +2,7 @@ import type { MovementDto, ProductDto, Unit } from '@modivara/commerce-contracts
 import {
   newIdempotencyKey, stockErrorState, useAdjustToCount, useBalances, useCreateProduct, useMovementPages, useMovements, useProducts, useReasons, useRegisterMovement, useStockLocations,
 } from '@modivara/commerce-web';
-import { ArrowDownToLine, ArrowUpFromLine, CircleAlert, Minus, Package, PackagePlus, Plus, Scale, type LucideIcon } from 'lucide-react';
+import { CircleAlert, CircleMinus, CirclePlus, Minus, Package, PackagePlus, Plus, Scale, type LucideIcon } from 'lucide-react';
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
@@ -11,12 +11,14 @@ import InventorySettings from './InventorySettings';
 import { Bone, EmptyState, ErrorState, Modal, Page, Segmented, useApp, useToast } from './ui';
 
 // F4-09 — inventario, versión «registro rápido» (PLAN-002): tipo, producto, cantidad y motivo a la vista; lo registrado hoy al lado.
-// Cada envío lleva su `Idempotency-Key` (reintentar tras un error reenvía la misma). Saldos y movimientos del lugar de stock por defecto.
+// Cada envío lleva su `Idempotency-Key` (reintentar tras un error reenvía la misma). Saldos y movimientos del lugar de stock elegido
+// (el por defecto si hay uno solo).
 
 type Direction = MovementDto['direction'];
+// Íconos de signo (+/−), no flechas: una flecha hacia arriba junto a «−3 botellas» se leía al revés.
 const DIR: Record<Direction, { label: string; verb: string; Icon: LucideIcon; mark: string }> = {
-  in: { label: 'Entrada', verb: 'Registrar entrada', Icon: ArrowDownToLine, mark: 'text-series-in' },
-  out: { label: 'Salida', verb: 'Registrar salida', Icon: ArrowUpFromLine, mark: 'text-series-out' },
+  in: { label: 'Entrada', verb: 'Registrar entrada', Icon: CirclePlus, mark: 'text-series-in' },
+  out: { label: 'Salida', verb: 'Registrar salida', Icon: CircleMinus, mark: 'text-series-out' },
   adjust: { label: 'Ajuste por conteo', verb: 'Ajustar al conteo', Icon: Scale, mark: 'text-muted' },
 };
 const DIR_OPTIONS = [['out', 'Salida'], ['in', 'Entrada'], ['adjust', 'Ajuste por conteo']] as const;
@@ -34,7 +36,9 @@ function useInventory() {
   const toast = useToast();
   const productsQ = useProducts(l);
   const placesQ = useStockLocations(l);
-  const place = placesQ.data?.find((p) => p.is_default && p.active) ?? placesQ.data?.find((p) => p.active);
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const places = (placesQ.data ?? []).filter((p) => p.active);
+  const place = places.find((p) => p.id === placeId) ?? places.find((p) => p.is_default) ?? places[0];
   const balancesQ = useBalances(l, { stockLocationId: place?.id });
   // «Hoy» es el día del local (DAT-07), no el del navegador.
   const tz = location.timezone;
@@ -51,7 +55,7 @@ function useInventory() {
   const categories = [...new Set(products.map((p) => p.category ?? NO_CATEGORY))].sort((a, b) => (a === NO_CATEGORY ? 1 : b === NO_CATEGORY ? -1 : a.localeCompare(b)));
 
   return {
-    me, tz, toast, place, products, categories, reasonName, fresh,
+    me, tz, toast, place, places, setPlaceId, products, categories, reasonName, fresh,
     today: todayQ.data ?? [],
     canWrite: can('commerce.stock.write'), canCatalog: can('commerce.catalog.manage'),
     loading: productsQ.isPending || placesQ.isPending || balancesQ.isPending || reasonsQ.isPending,
@@ -145,7 +149,9 @@ function Quantity({ value, onChange, unit, label }: { value: string; onChange: (
 function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductDto; direction: Direction }) {
   const reasons = inv.reasonsFor(direction);
   const [qty, setQty] = useState('');
-  const [reasonId, setReasonId] = useState(reasons[0]?.id ?? '');
+  // Sin motivo preelegido si hay de dónde elegir: aceptar el primero de la lista registraba motivos equivocados.
+  // El ajuste no muestra selector (tiene un solo motivo, «Corrección de conteo»).
+  const [reasonId, setReasonId] = useState(direction === 'adjust' || reasons.length === 1 ? reasons[0]?.id ?? '' : '');
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showNote, setShowNote] = useState(false);
@@ -156,6 +162,7 @@ function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductD
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (!reasonId) return setError('Elige el motivo.');
     const err = await inv.register({ productId: product.id, direction, reasonId, quantity: qty === '' ? NaN : n, note, key });
     setError(err);
     if (!err) { setQty(''); setNote(''); setKey(newIdempotencyKey()); }
@@ -174,7 +181,8 @@ function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductD
       </Field>
       {direction !== 'adjust' && (
         <Field label="Motivo">
-          <select value={reasonId} onChange={(e) => setReasonId(e.target.value)} className={input}>
+          <select value={reasonId} onChange={(e) => { setReasonId(e.target.value); setError(null); }} className={input}>
+            {!reasonId && <option value="" disabled>Elige el motivo</option>}
             {reasons.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </Field>
@@ -239,8 +247,8 @@ function HistoryView({ inv }: { inv: Inv }) {
   });
   const rows = q.data?.pages.flat() ?? [];
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-end gap-3">
         <select aria-label="Producto" value={productId} onChange={(e) => setProductId(e.target.value)} className={cn(input, 'w-auto')}>
           <option value="">Todos los productos</option>
           {inv.products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -249,12 +257,14 @@ function HistoryView({ inv }: { inv: Inv }) {
         <Field label="Desde" className="w-auto"><input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={cn(input, 'w-auto')} /></Field>
         <Field label="Hasta" className="w-auto"><input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={cn(input, 'w-auto')} /></Field>
       </div>
-      {q.isPending ? <RowBones n={5} /> : q.isError ? <ErrorState what="el historial" onRetry={() => void q.refetch()} error={q.error} /> : (
-        <>
-          <MovementList inv={inv} movements={rows} />
-          {q.hasNextPage && <div className="text-center"><Button variant="secondary" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>{q.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}</Button></div>}
-        </>
-      )}
+      <div className="relative min-h-0 flex-1 space-y-4 overflow-y-auto">
+        {q.isPending ? <RowBones n={5} /> : q.isError ? <ErrorState what="el historial" onRetry={() => void q.refetch()} error={q.error} /> : (
+          <>
+            <MovementList inv={inv} movements={rows} />
+            {q.hasNextPage && <div className="text-center"><Button variant="secondary" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>{q.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}</Button></div>}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -331,8 +341,8 @@ export default function Inventory() {
       action={inv.canCatalog && <Button onClick={() => setCreating(true)}><PackagePlus aria-hidden className="size-4" />Crear el primer producto</Button>} />;
   } else {
     body = (
-      <div className="anim-rise grid lg:min-h-[calc(100dvh-73px)] lg:grid-cols-[minmax(0,1fr)_420px]">
-        <section aria-labelledby="compose" className="p-4 md:p-8">
+      <div className="anim-rise grid lg:h-[calc(100dvh-73px)] lg:grid-cols-[minmax(0,1fr)_420px]">
+        <section aria-labelledby="compose" className="relative p-4 md:p-8 lg:overflow-y-auto">
           <h2 id="compose" className="sr-only">Registrar movimiento</h2>
           {inv.canWrite && <div className="mb-6"><Segmented label="Tipo de movimiento" options={DIR_OPTIONS} value={direction} onChange={setDirection} /></div>}
           <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -361,25 +371,35 @@ export default function Inventory() {
             <div className="max-w-md xl:sticky xl:top-6 xl:self-start">
               <p className="mb-3 font-display text-xl font-bold">{product.name}</p>
               {inv.canWrite
-                ? <MovementForm key={`${product.id}-${direction}`} inv={inv} product={product} direction={direction} />
+                ? <MovementForm key={`${inv.place?.id}-${product.id}-${direction}`} inv={inv} product={product} direction={direction} />
                 : <p className="text-muted">Saldo: <span className="font-semibold text-fg">{fmtQty(inv.balance(product.id), product.unit)}</span>. Tu rol solo permite consultar.</p>}
             </div>
           </div>
         </section>
 
-        <aside aria-labelledby="feed" className="border-line bg-surface p-5 lg:border-l">
-          <div className="mb-2 flex items-baseline justify-between">
+        {/* En pantallas anchas cada columna se desplaza sola: el historial largo no aleja el registro (auditoría V03). */}
+        <aside aria-labelledby="feed" className="border-line bg-surface p-5 lg:flex lg:min-h-0 lg:flex-col lg:border-l">
+          <div className="mb-2 flex shrink-0 items-baseline justify-between">
             <h2 id="feed" className="text-lg font-bold">{all ? 'Historial' : 'Hoy'}</h2>
             <Button size="sm" variant="ghost" onClick={() => setAll(!all)}>{all ? 'Ver solo hoy' : 'Ver historial'}</Button>
           </div>
-          {all ? <HistoryView inv={inv} /> : today.length ? <MovementList inv={inv} movements={today} dense /> : <p className="py-8 text-center text-sm text-muted">Hoy no se ha registrado nada.</p>}
+          {all ? <HistoryView inv={inv} /> : (
+            <div className="relative min-h-0 flex-1 overflow-y-auto">
+              {today.length ? <MovementList inv={inv} movements={today} dense /> : <p className="py-8 text-center text-sm text-muted">Hoy no se ha registrado nada.</p>}
+            </div>
+          )}
         </aside>
       </div>
     );
   }
 
   return (
-    <Page id="inventario" title="Inventario" subtitle={inv.place ? `Lugar de stock ${inv.place.name}` : undefined}
+    <Page id="inventario" title="Inventario"
+      subtitle={inv.places.length > 1 && view === 'registro'
+        ? <select aria-label="Lugar de stock" value={inv.place?.id} onChange={(e) => inv.setPlaceId(e.target.value)} className="-ml-1 rounded bg-transparent px-1 font-semibold text-fg">
+          {inv.places.map((p) => <option key={p.id} value={p.id}>Lugar de stock {p.name}</option>)}
+        </select>
+        : inv.place ? `Lugar de stock ${inv.place.name}` : undefined}
       actions={(canSettings || inv.canCatalog) && (
         <div className="flex flex-wrap items-center gap-2 md:ml-auto">
           {canSettings && <Segmented label="Vista" options={[['registro', 'Registro'], ['ajustes', can('commerce.reasons.manage') ? 'Lugares y motivos' : 'Lugares de stock']] as const} value={view} onChange={setView} />}

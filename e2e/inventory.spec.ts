@@ -17,11 +17,13 @@ test.describe('inventario', () => {
     await inv.createProduct(name);
     await expect(page.getByRole('button', { name: 'Nuevo producto' })).toBeFocused(); // el <dialog> devuelve el foco a su disparador
     await expect(inv.type('Entrada')).toHaveAttribute('aria-pressed', 'true'); // tras crear, toca su stock inicial
-    await inv.register('10', 'Registrar entrada');
+    await inv.register('10', 'Registrar entrada', 'Compra');
     await expect(page.getByText(`Entrada registrada: +10 botellas de ${name}. Saldo: 10 botellas`)).toBeVisible();
 
     await inv.type('Salida').click();
-    await inv.register('25', 'Registrar salida');
+    await inv.register('3', 'Registrar salida');
+    await expect(page.getByRole('alert')).toHaveText('Elige el motivo.'); // no hay motivo preelegido
+    await inv.register('25', 'Registrar salida', 'Venta');
     await expect(page.getByRole('alert')).toContainText(`No alcanza: hay 10 botellas de ${name}`);
     await inv.register('3', 'Registrar salida');
     await expect(page.getByText(`Salida registrada: −3 botellas de ${name}. Saldo: 7 botellas`)).toBeVisible();

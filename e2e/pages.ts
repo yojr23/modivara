@@ -64,7 +64,9 @@ export class InventoryPage {
     await expect(dialog).toBeHidden();
   }
 
-  async register(quantity: string, button: RegExp | string) {
+  /** Entradas y salidas piden elegir el motivo (no viene preelegido); el ajuste no lo pide. */
+  async register(quantity: string, button: RegExp | string, reason?: string) {
+    if (reason) await this.page.getByRole('combobox', { name: 'Motivo' }).selectOption({ label: reason });
     await this.page.getByRole('spinbutton', { name: /^Cantidad/ }).fill(quantity);
     await this.page.getByRole('button', { name: button }).click();
   }
