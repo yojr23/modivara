@@ -3,9 +3,26 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, pruebas]
 
 jobs:
+  # Flujo de ramas: todo entra a `pruebas` por PR y a `main` solo llega `pruebas` (de este repo, no de un fork).
+  # El ruleset de `main` exige este check. Valores por env, no interpolados en el script.
+  origen:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$BASE" = main ] && { [ "$HEAD" != pruebas ] || [ "$HEAD_REPO" != "$REPO" ]; }; then
+            echo "::error::A main solo se abre PR desde pruebas; abre este PR contra pruebas."
+            exit 1
+          fi
   check:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
