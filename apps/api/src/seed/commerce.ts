@@ -8,11 +8,13 @@ import type { Unit } from '@modivara/commerce-contracts';
 import { BUSINESSES, MODULES, SUPERADMIN } from './core.js';
 
 // DATA-001 §7: «unos 10 productos con stock inicial y motivos sembrados». OPEN: el documento no fija cuáles ni cuánto stock; es un surtido de bar inventado.
+/** Días de historial de demo (`seed:history`, F5-10), terminando ayer: dos meses. */
+export const HISTORY_DAYS = 60;
 /**
- * La entrada inicial se fecha 15 días atrás para que anteceda al historial de demo (`seed:history`, 14 días que terminan ayer) y el
- * saldo actual sea siempre el del último movimiento. OPEN: sembrar sin historial deja el stock inicial con esa fecha pasada.
+ * La entrada inicial se fecha `HISTORY_DAYS + 1` días atrás para que anteceda al historial de demo y el saldo actual sea siempre el del
+ * último movimiento. OPEN: sembrar sin historial deja el stock inicial con esa fecha pasada.
  */
-export const INITIAL_STOCK_AT = (): Date => new Date(Date.now() - 15 * 86_400_000);
+export const INITIAL_STOCK_AT = (): Date => new Date(Date.now() - (HISTORY_DAYS + 1) * 86_400_000);
 
 export const BAR_PRODUCTS: ReadonlyArray<{ name: string; unit: Unit; category: string; stock: string }> = [
   { name: 'Cerveza', unit: 'bottle', category: 'Cervezas', stock: '48' },

@@ -4,11 +4,10 @@ import { BootstrapPlatform, ProvisionOrganization } from '@modivara/core-api';
 import { DEMO_CALL_PROFILE, SeedCallHistory } from '@modivara/hospitality-api';
 import { GetBalances, ListMovementReasons, ListMovements, ListProducts, EnsureDefaultStockLocation, RegisterMovement, type StockContext } from '@modivara/commerce-api';
 import { BUSINESSES, MODULES, SUPERADMIN } from './core.js';
-import { BAR_PRODUCTS, seedKey } from './commerce.js';
+import { BAR_PRODUCTS, HISTORY_DAYS as DAYS, seedKey } from './commerce.js';
 
-// F5-10: historial de 14 días que terminan ayer para Bar Demo y Bar Demo Pisos. Cada dominio escribe lo suyo con fechas pasadas y outbox v1;
+// F5-10: historial de `HISTORY_DAYS` días (dos meses) que terminan ayer para Bar Demo y Bar Demo Pisos. Cada dominio escribe lo suyo con fechas pasadas y outbox v1;
 // analytics lo recibe por los pollers de la API (o `analytics:rebuild`), nunca se inserta en analytics.
-const DAYS = 14;
 const ALREADY_SEEDED = new Error('already seeded');
 
 /**
