@@ -161,6 +161,22 @@ export class StockMovement extends AggregateRoot {
     }
   }
 
+  /** ¿Una repetición con la misma clave pide lo mismo? `count` se compara por lo contado, que es el `balance_after` del original. */
+  isReplayOf(change: MovementChange, reasonId: string): boolean {
+    const { direction, delta, balanceAfter } = this.props;
+    if (reasonId !== this.props.reasonId) return false;
+    switch (change.kind) {
+      case 'in':
+        return direction === 'in' && delta.equals(change.quantity);
+      case 'out':
+        return direction === 'out' && delta.equals(change.quantity.negate());
+      case 'adjust':
+        return direction === 'adjust' && delta.equals(change.delta);
+      case 'count':
+        return direction === 'adjust' && balanceAfter.equals(change.counted);
+    }
+  }
+
   get id() { return this.props.id; }
   get organizationId() { return this.props.organizationId; }
   get locationId() { return this.props.locationId; }

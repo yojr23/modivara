@@ -3,7 +3,7 @@ import {
   newIdempotencyKey, stockErrorState, useAdjustToCount, useBalances, useCreateProduct, useMovementPages, useMovements, useProducts, useReasons, useRegisterMovement, useStockLocations,
 } from '@modivara/commerce-web';
 import { CircleAlert, CircleMinus, CirclePlus, Minus, Package, PackagePlus, Plus, Scale, type LucideIcon } from 'lucide-react';
-import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen } from './format';
@@ -94,6 +94,7 @@ function useInventory() {
         return s === 'insufficient_stock' ? `No alcanza el saldo de ${p.name}: alguien registró una salida antes. Revisa el saldo y vuelve a intentar.`
           : s === 'validation' ? 'El servidor rechazó la cantidad: usa hasta 3 decimales.'
           : s === 'forbidden' ? 'Tu rol no permite registrar movimientos en este local.'
+          : s === 'idempotency_key_reused' ? 'Ese registro ya se guardó con otros datos. Revisa el historial antes de volver a intentarlo.'
           : 'No se pudo registrar. Revisa la conexión y vuelve a intentar (no se duplica).';
       }
     },
@@ -155,7 +156,8 @@ function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductD
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showNote, setShowNote] = useState(false);
-  const [key, setKey] = useState(newIdempotencyKey);
+  // Una clave por intención: reintentar lo mismo no duplica; cambiar cantidad, tipo o motivo es otro movimiento (la API rechaza la misma clave con otros datos).
+  const key = useMemo(() => newIdempotencyKey(), [product.id, direction, reasonId, qty]);
   const bal = inv.balance(product.id);
   const n = Number(qty);
   const diff = direction === 'adjust' && qty !== '' ? n - bal : null;
@@ -165,7 +167,7 @@ function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductD
     if (!reasonId) return setError('Elige el motivo.');
     const err = await inv.register({ productId: product.id, direction, reasonId, quantity: qty === '' ? NaN : n, note, key });
     setError(err);
-    if (!err) { setQty(''); setNote(''); setKey(newIdempotencyKey()); }
+    if (!err) { setQty(''); setNote(''); }
   }
 
   if (!reasons.length) return <Problem text="No hay motivos activos para este tipo de movimiento. Pide a quien administra que los cree." />;

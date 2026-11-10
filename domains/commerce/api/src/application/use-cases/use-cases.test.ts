@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SEEDED_MOVEMENT_REASONS } from '@modivara/commerce-contracts';
-import { ConflictError, InsufficientStockError, InvalidQuantityError, LocationUnavailableError, NotFoundError, ReasonDirectionMismatchError } from '../../domain/index.js';
+import { ConflictError, IdempotencyKeyReusedError, InsufficientStockError, InvalidQuantityError, LocationUnavailableError, NotFoundError, ReasonDirectionMismatchError } from '../../domain/index.js';
 import { newId } from '@modivara/core-contracts';
 import { Quantity, StockMovement } from '../../domain/index.js';
 import { LOC, ORG, OTHER_LOC, OTHER_ORG, setup, USER } from '../../testing/fixtures.js';
@@ -153,6 +153,24 @@ describe('movimientos', () => {
     expect(second.movement.id).toBe(first.movement.id);
     expect((await s.h.getBalances.execute({ organizationId: ORG, locationId: LOC }))[0]?.quantity.toString()).toBe('7.000');
     expect(s.h.ledger.outbox).toHaveLength(outboxSize);
+  });
+
+  it('la misma clave con otra cantidad, dirección o motivo se rechaza en vez de devolver el original', async () => {
+    const s = await stocked('5');
+    const key = s.idem();
+    await s.h.registerMovement.execute({ ...s.target, direction: 'in', reasonId: s.compra.id, quantity: '2', idempotencyKey: key });
+    for (const other of [
+      { direction: 'in' as const, reasonId: s.compra.id, quantity: '3' },
+      { direction: 'out' as const, reasonId: s.venta.id, quantity: '2' },
+    ]) {
+      await expect(s.h.registerMovement.execute({ ...s.target, ...other, idempotencyKey: key })).rejects.toBeInstanceOf(IdempotencyKeyReusedError);
+    }
+    const count = await s.h.adjustToCount.execute({ ...s.target, reasonId: s.conteo.id, countedQuantity: '4', idempotencyKey: s.idem() });
+    const again = await s.h.adjustToCount.execute({ ...s.target, reasonId: s.conteo.id, countedQuantity: '4', idempotencyKey: count.movement.idempotencyKey });
+    expect(again.replayed).toBe(true);
+    await expect(
+      s.h.adjustToCount.execute({ ...s.target, reasonId: s.conteo.id, countedQuantity: '9', idempotencyKey: count.movement.idempotencyKey }),
+    ).rejects.toBeInstanceOf(IdempotencyKeyReusedError);
   });
 
   it('rechaza cantidades mal formadas', async () => {
