@@ -21,7 +21,7 @@ const LEAD: Record<RangePreset, string> = { today: 'Hoy', yesterday: 'Ayer', las
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 const CALLS_NOTE = '«En atención» y «Atendida» son los momentos en que alguien del personal lo registró en el tablero; no miden la llegada a la mesa. Las áreas suman los llamados de las mesas que hoy están dentro de cada una.';
 const MIXED_UNITS_NOTE = 'Las cantidades se muestran por producto porque cada uno tiene su unidad (botellas, kg); para todo el local se cuentan movimientos.';
-const periodData = (by: { bucket_start: string; calls: number }[], g: 'hour' | 'day') => by.map((p) => ({ label: bucketLabel(p.bucket_start, g), value: p.calls }));
+const periodData = (by: { bucket_start: string; calls: number }[], g: 'hour' | 'day', tz: string) => by.map((p) => ({ label: bucketLabel(p.bucket_start, g, tz), value: p.calls }));
 
 function Section({ title, aside, children, className }: { title: string; aside?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -153,7 +153,7 @@ function CallsOnPlan({ range }: { range: RangePreset }) {
           )}
           {d && !area && (
             <Section title={d.group_by === 'hour' ? 'Por hora' : 'Por día'}>
-              <Columns data={periodData(d.by_period, d.group_by)} caption={`Llamados de ${title}`} unit={['llamado', 'llamados']} height={120} labelEvery={d.group_by === 'hour' ? 4 : d.by_period.length > 7 ? 5 : 1} current={range === 'yesterday' ? undefined : d.by_period.length - 1} />
+              <Columns data={periodData(d.by_period, d.group_by, location.timezone)} caption={`Llamados de ${title}`} unit={['llamado', 'llamados']} height={120} labelEvery={d.group_by === 'hour' ? 4 : d.by_period.length > 7 ? 5 : 1} current={range === 'yesterday' ? undefined : d.by_period.length - 1} />
             </Section>
           )}
           {!table && (
@@ -209,7 +209,7 @@ function StockByProduct({ range }: { range: RangePreset }) {
           <Figure label="Salidas por día" value={d ? fmtQty(Math.round((outQty / Math.max(1, days)) * 10) / 10, unit) : '—'} context="Promedio del período" />
         </div>
         <Section title="Entradas y salidas" aside={`En ${unitWord(unit, 2)}`}>
-          {d ? <InOutColumns data={d.by_period.map((b) => ({ label: bucketLabel(b.bucket_start, d.group_by), in: Number(b.in_delta) + Math.max(0, Number(b.adjust_delta)), out: Number(b.out_delta) + Math.min(0, Number(b.adjust_delta)) }))} caption={`Entradas y salidas de ${p.name}`} height={130} labelEvery={d.by_period.length > 7 ? 4 : 1} /> : <ChartBones />}
+          {d ? <InOutColumns data={d.by_period.map((b) => ({ label: bucketLabel(b.bucket_start, d.group_by, location.timezone), in: Number(b.in_delta) + Math.max(0, Number(b.adjust_delta)), out: Number(b.out_delta) + Math.min(0, Number(b.adjust_delta)) }))} caption={`Entradas y salidas de ${p.name}`} height={130} labelEvery={d.by_period.length > 7 ? 4 : 1} /> : <ChartBones />}
         </Section>
         <Section title="Últimos movimientos">
           <ul className="divide-y divide-line text-sm">

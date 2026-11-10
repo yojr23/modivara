@@ -19,10 +19,6 @@ export function fmtSeconds(s: number | null) {
   return m ? `${m} min ${String(Math.round(s % 60)).padStart(2, '0')} s` : `${Math.round(s)} s`;
 }
 
-const dayFmt = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric' });
-const hourFmt = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', hour12: false });
-/** Rótulo de una cubeta de métricas desde su inicio (la API manda `bucket_label` en ISO): «vie 24» o «21 h». */
-export const bucketLabel = (start: string, groupBy: 'hour' | 'day') => (groupBy === 'day' ? dayFmt.format(new Date(start)) : `${hourFmt.format(new Date(start))} h`);
 const fmts = new Map<string, Intl.DateTimeFormat>();
 const dtf = (tz: string | undefined, o: Intl.DateTimeFormatOptions, locale = 'es-CO') => {
   const k = `${locale}|${tz}|${JSON.stringify(o)}`;
@@ -30,6 +26,10 @@ const dtf = (tz: string | undefined, o: Intl.DateTimeFormatOptions, locale = 'es
   if (!f) fmts.set(k, (f = new Intl.DateTimeFormat(locale, { ...o, timeZone: tz })));
   return f;
 };
+
+/** Rótulo de una cubeta de métricas desde su inicio (la API agrupa en la zona del local): «vie 24» o «21 h». */
+export const bucketLabel = (start: string, groupBy: 'hour' | 'day', tz?: string) =>
+  groupBy === 'day' ? dtf(tz, { weekday: 'short', day: 'numeric' }).format(new Date(start)) : `${dtf(tz, { hour: 'numeric', hour12: false }).format(new Date(start))} h`;
 
 /** Día calendario «YYYY-MM-DD» de un instante en la zona `tz` (el local; sin `tz`, el navegador). */
 export const dayKey = (ms: number, tz?: string) => dtf(tz, { year: 'numeric', month: '2-digit', day: '2-digit' }, 'en-CA').format(ms);
