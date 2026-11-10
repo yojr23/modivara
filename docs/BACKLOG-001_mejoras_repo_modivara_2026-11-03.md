@@ -291,3 +291,25 @@ Fuente: auditoría externa sobre `docs/pantallazos/` (V01…V12). La auditoría 
 **Verificación:** `pnpm typecheck`, `check:separability`, unitarias del portal 108/108, E2E de inventario, lugares, métricas, espacios, login y pantallazos 23/23 sobre la demo con el `web` de esta rama.
 
 **Siembra y corrida completa (`7ab5c7f`, `a1c9b54`):** `scripts/demo-reset.sh` recrea la demo (base nueva, cuatro seeds, clave del simulador en `.env`, planos de demo); el tablero de Bar Demo ya no avisa «Sin señal» (Pisos sí: su gateway no tiene simulador, a propósito). Sobre la demo recién sembrada: pantallazos 8/8 primero (capturas sin datos «E2E …») y luego el resto de los E2E, **33/33**.
+
+### M.8 Corte del 09/11/2026 (integración de la ronda 4, CI, Dependabot y auditoría)
+
+**Integración:** `ronda4/auditoria-visual` (M.7) entró en `main` por fast-forward (`0349945`). Se creó `pruebas`; `main` y `pruebas` quedan protegidas por ruleset (solo PR).
+
+**CI (QA-01):** nunca había pasado en GitHub. Causa: `docker compose` interpola todo el archivo y sin `.env` falla `SIM_GATEWAY_KEY:?` de `button-sim`, aunque `test:integration` solo levanta `db-test`. Arreglo: `cp .env.example .env` en el workflow (`3bf5633`). Reproducido y verificado en un clon limpio: 775/775.
+
+**Dependabot (SEC-08):** aplicadas a mano en un solo commit con el lockfile regenerado (`0349945`): `@nestjs/core` y `platform-express` 12.3.2, `@tanstack/react-query` 5.105.0, `vite` 8.3.5; acciones `checkout` 7, `setup-node` 7, `pnpm/action-setup` 5 (`3bf5633`). Descartadas: `node` 26 (Dockerfile) y `@types/node` 26, porque Node va fijo a 24 en CI, `.nvmrc` y `Dockerfile`; sus mayores quedan ignoradas (`723ffbd`).
+
+**Auditoría (seguridad, bugs silenciosos, diseño, ponytail):**
+
+| # | Hallazgo | Resultado |
+|---|---|---|
+| A1 | `bucketLabel` rotulaba las cubetas de métricas en la zona del navegador, mientras la API agrupa en la del local: desde otra zona, días y horas corridos sin aviso. | Arreglado: usa `location.timezone` (`format.ts`, `Metrics.tsx`) con prueba en `format.test.ts`. |
+| A2 | La misma `idempotency_key` de stock con otra cantidad, dirección o motivo devolvía el movimiento original como repetición, en silencio. | Arreglado: `StockMovement.isReplayOf` y 409 `idempotency_key_reused` si los datos difieren (`count` se compara por lo contado = `balance_after`). El formulario de inventario genera una clave por intención (producto, tipo, motivo y cantidad) y explica el 409. |
+| A3 | El commit `00a079f` dice «409 si tiene botones», pero solo bloquea el último gateway activo del local con botones asignados. | Decisión del responsable (`OPEN` en `gateways.ts`); anotado en STATUS-001 §3. |
+| A4 | `RealtimeBroadcaster` revalida sesión y permisos por token en cada aviso (varias consultas por evento). | Sin cambio: suficiente para el piloto; cachear si crece. STATUS-001 §3. |
+| A5 | Unas 30 ramas locales y 10 worktrees sin commits fuera de `main`. | Borrados en local. |
+| A6 | Revisado sin hallazgos: sesión y bloqueo de login, límite por IP detrás de Caddy (`trust proxy`), CSRF por `Origin`, Socket.IO (handshake y revalidación), SQL crudo (todo parametrizado), XSS (sin `innerHTML`; el simulador escapa), outbox (`SKIP LOCKED`, tope de intentos, timeout con `AbortSignal`), libro de stock (bloqueo de saldo y comprobación contra el dominio), ingesta de pulsaciones (bloqueo por botón y mesa, debounce, `press_id`). `pnpm audit`: sin vulnerabilidades. | — |
+
+**Verificación:** unitarias de commerce y portal, typecheck; CI del PR.
+

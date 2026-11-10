@@ -55,7 +55,9 @@ export class MovementRecorder {
         const existing = await tx.findByIdempotencyKey({ organizationId, idempotencyKey: target.idempotencyKey });
         if (existing) {
           // La clave es única por negocio, no por local: un movimiento de otro destino es ajeno y no se revela.
-          if (existing.locationId !== locationId || existing.stockLocationId !== stockLocation.id || existing.productId !== product.id) {
+          // Misma clave con otra cantidad, dirección o motivo es un error del cliente, no una repetición: no se devuelve el original en silencio.
+          const sameTarget = existing.locationId === locationId && existing.stockLocationId === stockLocation.id && existing.productId === product.id;
+          if (!sameTarget || !existing.isReplayOf(change, reason.id)) {
             throw new IdempotencyKeyReusedError('Idempotency key already used by another movement');
           }
           return { movement: existing, replayed: true };
