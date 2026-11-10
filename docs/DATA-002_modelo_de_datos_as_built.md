@@ -601,6 +601,7 @@ FKs: `(stock_location_id, location_id) → stock_locations(id, location_id) ON D
 Índices:
 - `ix_stock_movements_product` (stock_location_id, product_id, occurred_at DESC)
 - `uq_stock_movements_idempotency` ÚNICO (organization_id, idempotency_key)
+  Repetir una clave con los mismos datos devuelve el movimiento original (`replayed`); con otro destino, cantidad, dirección o motivo responde 409 `idempotency_key_reused` (regla de aplicación, `StockMovement.isReplayOf`).
 
 CHECK:
 - `ck_stock_movements_delta`: ( (direction = 'in' AND delta > 0) OR (direction = 'out' AND delta < 0) OR (direction = 'adjust' AND delta <> 0) )
