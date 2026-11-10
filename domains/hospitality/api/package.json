@@ -28,7 +28,7 @@
     "@nestjs/websockets": "12.2.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
-    "cookie": "1.0.2",
+    "cookie": "2.0.2",
     "mqtt": "5.16.1",
     "pg": "8.23.1",
     "reflect-metadata": "0.2.2",
