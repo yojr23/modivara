@@ -1,5 +1,5 @@
 # Una sola imagen de build para el monorepo; un target por app (api, web, button-sim).
-FROM node:24.22.0-alpine3.24 AS base
+FROM node:24.22.2-alpine3.24 AS base
 RUN corepack enable
 WORKDIR /repo
 
