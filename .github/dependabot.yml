@@ -4,6 +4,7 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly }
+    target-branch: pruebas
     open-pull-requests-limit: 5
     ignore: # Node va fijo a 24 en CI, .nvmrc y Dockerfile; el salto de mayor se hace a mano en los tres a la vez.
       - dependency-name: "@types/node"
@@ -11,9 +12,11 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    target-branch: pruebas
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+    target-branch: pruebas
     ignore:
       - dependency-name: node
         update-types: ["version-update:semver-major"]
