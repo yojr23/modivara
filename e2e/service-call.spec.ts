@@ -65,9 +65,10 @@ test('repetir la pulsación no duplica el llamado: la inmediata se descarta y la
   await board.goto('bar-demo');
 
   expect((await press('bar-demo', 'btn-05')).result).toBe('call_created');
-  await expect(board.queueCard('Mesa 5')).toBeVisible();
   // Dentro de la ventana de 3 s la segunda pulsación se descarta (debounce); después cuenta como repetición del mismo llamado.
+  // Va antes de esperar al tablero: con la suite cargada, esa espera puede pasar de 3 s.
   expect((await press('bar-demo', 'btn-05')).result).toBe('debounced');
+  await expect(board.queueCard('Mesa 5')).toBeVisible();
   await expect.poll(async () => (await press('bar-demo', 'btn-05')).result, { intervals: [1_000], timeout: 10_000 }).toBe('repeat_press');
   await board.open('Mesa 5');
   await expect(page.getByText('Pulsó 2 veces')).toBeVisible();

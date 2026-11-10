@@ -313,3 +313,18 @@ Fuente: auditoría externa sobre `docs/pantallazos/` (V01…V12). La auditoría 
 
 **Verificación:** unitarias de commerce y portal, typecheck; CI del PR.
 
+### M.9 Demo de dos meses, turno en vivo y revisión de funcionamiento (10/11/2026, rama `e2e/demo-2-meses` desde `pruebas`)
+
+**Siembra:** `HISTORY_DAYS = 60` (`apps/api/src/seed/commerce.ts`): Bar Demo 1689 llamados y 1015 movimientos, Pisos 857 y 1035; analytics = dominios (2546 llamados, 2070 movimientos) tras drenar el outbox. `seed-history.int.test.ts` adaptado (last_30_days ve 29 días con llamados; ~4,7 min).
+
+**Turno en vivo:** `e2e/live.spec.ts` y `e2e/gateway-signal.spec.ts`; `screens.spec.ts` captura con un turno abierto. Capturas en `docs/pantallazos/en-vivo/` y por usuario. Backend vigilado en vivo (`docker compose logs -f` de api, mqtt y button-sim) durante las corridas.
+
+| # | Hallazgo | Resultado |
+|---|---|---|
+| R1 | En escritorio, la tarjeta de la cola de una mesa **sin ubicar en el plano** quedaba aplastada por su botón «Marcar en atención» (ancho 0): no se leía la mesa («1» en vez de «11») ni la espera. | Arreglado (`Board.tsx`, `047ea16`): esa tarjeta envuelve y el botón baja a su fila. |
+| R2 | El outbox ordenaba por `(next_attempt_at, id)`: los eventos de una misma transacción (seed de historial) salían en orden de UUIDv7, que no ordena dentro del milisegundo; 2323 eventos llegaban a analytics antes que su «created», se rechazaban y se reintentaban (un WARN cada uno). | Arreglado (`outbox-poller.ts`): `ORDER BY next_attempt_at, occurred_at, id`, con prueba de integración. |
+| R3 | Datos de demo: Bar Demo tiene botones para las mesas 1–15, pero el plano aprobado no ubica las mesas 11 y 12 y dibuja la 16 y la 17 (sin botón). Una pulsación de la 11 o la 12 solo se ve en la cola y no suma al «n esperando» de ningún espacio. | Sin cambio: el plano es el diseño aprobado por el responsable (no se reemplaza sin avisar). Decidir si se ubican la 11/12 o se quitan sus botones. |
+| R4 | Mosquitto avisa que `infra/mosquitto/acl` es legible por todos y que `passwd` no es de root («versiones futuras se negarán a cargarlo»). | Pendiente (SEC-04/SEC-09): ajustar permisos al montar o copiar en la imagen. |
+| R5 | El «Gateway E2E» de `global-setup` solo da una señal de vida: en corridas largas el tablero de Bar Demo muestra «Sin señal de botones» por él. | Correcto según MOD-05; `gateway-signal.spec.ts` le da señal durante la prueba. |
+| R6 | Verificado en vivo sin hallazgos: llamados por HTTP y MQTT llegan a dos tableros sin recargar; repetición tras el debounce («Pulsó 2 veces»); tomar y cerrar desde escritorio y celular se ve en el otro; colores a más de 2 y 5 min; aviso de gateway sin señal que aparece y se va solo; métricas de hoy por el outbox en segundos; venta registrada con su aviso y saldo. Sin errores del backend en las corridas. | — |
+
