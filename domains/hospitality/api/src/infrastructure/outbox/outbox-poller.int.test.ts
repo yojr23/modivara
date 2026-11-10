@@ -52,6 +52,19 @@ describe('OutboxPoller', () => {
     expect(await db.outboxEvent.count()).toBe(1);
   });
 
+  it('eventos de la misma transacción salen en el orden en que ocurrieron, aunque sus ids UUIDv7 queden al revés', async () => {
+    // Como en el seed de historial: «created» y «acknowledged» del mismo llamado en una transacción (mismo next_attempt_at).
+    const base = { eventVersion: 1, organizationId: t.organizationId, locationId: t.locationId, aggregateId: newId(), correlationId: newId(), payload: {} };
+    const at = new Date();
+    await db.outboxEvent.createMany({ data: [
+      { ...base, id: '01a00000-0000-7000-8000-000000000002', eventType: 'hospitality.service_call.created', occurredAt: new Date(at.getTime() - 60_000), nextAttemptAt: at },
+      { ...base, id: '01a00000-0000-7000-8000-000000000001', eventType: 'hospitality.service_call.acknowledged', occurredAt: at, nextAttemptAt: at },
+    ] });
+    const { seen, subscriber } = recorder();
+    await new OutboxPoller(db, [subscriber], FAST).tick();
+    expect(seen.map((e) => e.event_type)).toEqual(['hospitality.service_call.created', 'hospitality.service_call.acknowledged']);
+  });
+
   it('solo entrega a quien dice manejar el tipo; con cero suscriptores igual marca despachado', async () => {
     await publishCall();
     const { seen, subscriber } = recorder({ handles: (type) => type === 'otro.tipo' });

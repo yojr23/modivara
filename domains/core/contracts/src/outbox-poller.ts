@@ -105,6 +105,7 @@ export function retryFailed(db: OutboxSql, eventId?: string): Promise<number> {
  * (procesos o instancias) nunca entreguen el mismo evento a la vez, y lo ya entregado no se revierte por lo que falle después. Si el proceso
  * cae a mitad de una entrega, la transacción se revierte y el evento se vuelve a entregar al reiniciar, por eso los suscriptores deduplican por `event_id`.
  * Tras `maxAttempts` fallos marca `failed_at` y no lo vuelve a tomar. Nunca borra filas. Con cero suscriptores marca igual `dispatched_at`.
+ * Orden: los de una misma transacción comparten `next_attempt_at` y se desempatan por `occurred_at` (UUIDv7 no ordena dentro del milisegundo).
  */
 export class OutboxPoller {
   private readonly options: OutboxPollerOptions;
@@ -166,7 +167,7 @@ export class OutboxPoller {
           SELECT id, event_type, event_version, occurred_at, organization_id, location_id, aggregate_id, correlation_id, causation_id, payload, attempts
           FROM outbox_events
           WHERE dispatched_at IS NULL AND failed_at IS NULL AND next_attempt_at <= now()
-          ORDER BY next_attempt_at, id
+          ORDER BY next_attempt_at, occurred_at, id
           LIMIT 1
           FOR UPDATE SKIP LOCKED`;
         if (!row) return false;
