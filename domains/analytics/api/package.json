@@ -24,7 +24,7 @@
     "@modivara/commerce-contracts": "workspace:*",
     "@modivara/core-contracts": "workspace:*",
     "@modivara/hospitality-contracts": "workspace:*",
-    "@nestjs/common": "12.2.0",
+    "@nestjs/common": "12.4.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "pg": "8.23.1",
