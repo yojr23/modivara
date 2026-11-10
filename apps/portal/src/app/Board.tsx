@@ -326,7 +326,8 @@ export default function Board() {
               const tone = b.tone(c);
               const on = selected === c.table_id;
               return (
-                <li key={c.id} className={cn('anim-rise flex shrink-0 flex-wrap items-center gap-3 p-2.5 pr-3 md:w-64 md:flex-nowrap', card(tone), on && 'ring-2 ring-focus')}>
+                // Sin ubicar, la acción va en la tarjeta también en escritorio: baja a su propia fila para no aplastar mesa y espera.
+                <li key={c.id} className={cn('anim-rise flex shrink-0 flex-wrap items-center gap-3 p-2.5 pr-3 md:w-64', b.placed(c.table_id) && 'md:flex-nowrap', card(tone), on && 'ring-2 ring-focus')}>
                   <button type="button" onClick={() => { setSelected(c.table_id); setTimeout(() => document.getElementById(SHEET_ID)?.focus()); }} className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     aria-label={`${b.label(c.table_id)}, ${c.status === 'pending' ? `esperando ${fmt(b.waited(c))}` : b.taker(c).replace(/^L/, 'l')}, ${b.where(c)}`}>
                     <span className="font-display text-3xl leading-none font-extrabold tabular-nums">{shortLabel(b.label(c.table_id))}</span>
@@ -336,7 +337,7 @@ export default function Board() {
                     </span>
                   </button>
                   {/* En celular no hay plano y una mesa sin ubicar no tiene hoja: la acción va en la fila. */}
-                  <Action b={b} c={c} primary={c.id === b.focus?.id} size={b.placed(c.table_id) ? 'md' : 'sm'} className={b.placed(c.table_id) ? 'basis-full md:hidden' : 'basis-full md:basis-auto'} />
+                  <Action b={b} c={c} primary={c.id === b.focus?.id} size={b.placed(c.table_id) ? 'md' : 'sm'} className={b.placed(c.table_id) ? 'basis-full md:hidden' : 'order-last basis-full'} />
                   <span title={TONE_TEXT[tone]} className={cn('hidden size-8 shrink-0 place-items-center rounded-full md:grid', CHIP[tone])}>
                     {tone === 'attending' ? <HandHelping aria-hidden className="size-4" /> : <BellRing aria-hidden className="size-4" />}
                     <span className="sr-only">{TONE_TEXT[tone]}</span>
