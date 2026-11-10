@@ -12,9 +12,29 @@ const TABS = ['Vista', 'Sección', 'Qué medir'];
 
 async function shot(page: Page, file: string) {
   await expect(page.locator('[aria-busy="true"], .skeleton')).toHaveCount(0);
+  await page.mouse.move(0, 0);
   await page.waitForLoadState('networkidle');
   await page.screenshot({ path: file, fullPage: true, animations: 'disabled' });
 }
+
+// Turno abierto mientras se capturan las vistas: sin esto el tablero, el historial y «Hoy» salen vacíos. Cinco mesas pulsan y Barra toma
+// dos; el último test de este archivo cierra todo (y también este afterAll, por si se corre un test suelto).
+const OPEN_SHIFT = { pressed: [2, 5, 9, 12, 13], taken: [5, 13] };
+test.beforeAll(async () => {
+  const admin = await apiAs(['bar-demo', 'admin']);
+  const barra = await apiAs(['bar-demo', 'barra']);
+  const loc = await locationOf(admin);
+  for (const n of OPEN_SHIFT.pressed) {
+    await closeActiveCalls(admin, loc, await tableId(admin, loc, `Mesa ${n}`));
+    const r = await press('bar-demo', `btn-${String(n).padStart(2, '0')}`);
+    if (OPEN_SHIFT.taken.includes(n)) await json(barra, 'POST', `/locations/${loc}/service-calls/${r.service_call_id}/acknowledge`);
+  }
+});
+test.afterAll(async () => {
+  const admin = await apiAs(['bar-demo', 'admin']);
+  const loc = await locationOf(admin);
+  for (const n of OPEN_SHIFT.pressed) await closeActiveCalls(admin, loc, await tableId(admin, loc, `Mesa ${n}`));
+});
 
 test('portada y login de cada negocio', async ({ page }) => {
   mkdirSync(join(OUT, 'login'), { recursive: true });
@@ -67,7 +87,7 @@ for (const user of USERS) {
   });
 }
 
-// Tablero con llamados (los pantallazos de arriba lo muestran vacío): las 15 mesas de Bar Demo pulsan, Barra toma 3.
+// Tablero lleno: las 15 mesas de Bar Demo pulsan, Barra toma 3.
 // La espera se adelanta con el reloj del navegador (`setFixedTime`) para ver «más de 2 min» y «más de 5 min» sin esperar.
 // Escritorio para Barra y celular 390×844 para el mesero; al final se cierran los llamados.
 test('tablero con llamados activos, en escritorio y en celular', async ({ browser }) => {
