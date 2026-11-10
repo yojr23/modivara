@@ -21,7 +21,7 @@ pnpm check:separability   # cada dominio compila y pasa sus pruebas aislado (ADR
 pnpm --filter @modivara/portal dev
 ```
 
-`main` y `pruebas` solo cambian por PR (ruleset de GitHub: sin push directo, force-push ni borrado). Crea una rama desde `main`, abre el PR y fusiona con el CI en verde; los PR de Dependabot siguen el mismo camino.
+`main` y `pruebas` solo cambian por PR (ruleset de GitHub: sin push directo, force-push ni borrado). Todo trabajo va primero a `pruebas`: rama desde `pruebas` → PR a `pruebas` con el CI en verde. A `main` solo se abre PR desde `pruebas` (el check `origen` del CI lo exige y el ruleset de `main` pide `origen` y `check` en verde). Dependabot abre sus PR contra `pruebas`.
 
 ## Demo local con Docker
 

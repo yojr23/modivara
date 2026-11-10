@@ -7,7 +7,7 @@
 
 ## 0. Corte 09/11/2026
 
-- **Flujo de ramas:** `main` y `pruebas` están protegidas en GitHub (ruleset «main y pruebas: solo por PR»): todo cambio entra por PR, sin push directo, force-push ni borrado. No exige aprobaciones (un solo responsable).
+- **Flujo de ramas:** `main` y `pruebas` están protegidas en GitHub (ruleset «main y pruebas: solo por PR»): todo cambio entra por PR, sin push directo, force-push ni borrado. No exige aprobaciones (un solo responsable). Decisión del responsable (09/11): todo va primero a `pruebas` y solo `pruebas` abre PR a `main`; lo hace cumplir el job `origen` de `ci.yml`, exigido junto con `check` por un segundo ruleset sobre `main`. Dependabot apunta a `pruebas`.
 - **CI en verde por primera vez** (`0349945`). Nunca había pasado en GitHub: sin `.env`, `docker compose` fallaba al interpolar `SIM_GATEWAY_KEY:?` aunque solo levanta `db-test`; el workflow ahora copia `.env.example` antes de `test:integration`. Integración 775/775 en local y en un clon limpio. Playwright sigue fuera de CI (QA-02).
 - **Dependabot:** subidas menores aplicadas (Nest 12.3.2, react-query 5.105.0, vite 8.3.5, acciones checkout/setup-node 7 y pnpm/action-setup 5). Node se queda en 24 en CI, `.nvmrc` y `Dockerfile`; las mayores de `node` y `@types/node` se ignoran en `.github/dependabot.yml` y se suben a mano en los tres sitios a la vez.
 - **Auditoría del 09/11** (detalle en `BACKLOG-001` M.8): sin agujeros de seguridad nuevos; `pnpm audit` sin vulnerabilidades. Arreglados: rótulos de métricas en la zona del navegador y clave de idempotencia de stock reutilizada con otros datos.
