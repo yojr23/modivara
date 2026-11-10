@@ -25,6 +25,6 @@ USER node
 EXPOSE 4000
 CMD ["node", "src/main.ts"]
 
-FROM caddy:2.11.7 AS web
+FROM caddy:2.11.9 AS web
 COPY infra/caddy/web.Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /repo/apps/portal/dist /srv
