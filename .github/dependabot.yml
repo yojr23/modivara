@@ -5,9 +5,15 @@ updates:
     directory: /
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    ignore: # Node va fijo a 24 en CI, .nvmrc y Dockerfile; el salto de mayor se hace a mano en los tres a la vez.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
