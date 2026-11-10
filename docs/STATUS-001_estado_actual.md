@@ -1,9 +1,16 @@
 # STATUS-001 — Estado actual del proyecto
 
-> **Fuente única de «qué está hecho, en curso y próximo».** Corte: commit `197b260` de `main` (03/11/2026). Cuando otro documento diga algo distinto, vale este (y si este se equivoca, se corrige aquí).
+> **Fuente única de «qué está hecho, en curso y próximo».** Corte: commit `197b260` de `main` (03/11/2026); §0 y §2 al día con el corte del 09/11/2026 (`main` `0349945` + PR `fix/auditoria-11-09`). Cuando otro documento diga algo distinto, vale este (y si este se equivoca, se corrige aquí).
 > **Históricos (no se editan, no son estado):** `docs/HANDOFF.md` (sesión nocturna del 19/10), `docs/NOCHE-LOG.md` (bitácora de esa sesión y siguientes hasta el 28/10) y `docs/E2E-HALLAZGOS.md` (informe de la primera suite, 30/10). Sus «pendientes» ya no son vigentes; las excepciones están en «Pendiente» más abajo.
 > **Siguen siendo vivos pero solo para lo suyo:** `PLAN-001` (tareas y criterios; sus notas «Estado» son una bitácora por fecha), `PLAN-002` (diseño de pantallas), `docs/PORTAL.md` (mapa del frontend), `BACKLOG-001` (mejoras; sección M = traza), `DATA-001` (decisión) y `DATA-002` (as-built).
 > **Cómo se comprobó:** leyendo el repo en ese commit (rutas, specs, migraciones, `git merge-base --is-ancestor`). No se corrieron pruebas para escribir este documento; las cifras de pruebas son las que reporta la traza `BACKLOG-001 M.5` y se marcan como tales.
+
+## 0. Corte 09/11/2026
+
+- **Flujo de ramas:** `main` y `pruebas` están protegidas en GitHub (ruleset «main y pruebas: solo por PR»): todo cambio entra por PR, sin push directo, force-push ni borrado. No exige aprobaciones (un solo responsable).
+- **CI en verde por primera vez** (`0349945`). Nunca había pasado en GitHub: sin `.env`, `docker compose` fallaba al interpolar `SIM_GATEWAY_KEY:?` aunque solo levanta `db-test`; el workflow ahora copia `.env.example` antes de `test:integration`. Integración 775/775 en local y en un clon limpio. Playwright sigue fuera de CI (QA-02).
+- **Dependabot:** subidas menores aplicadas (Nest 12.3.2, react-query 5.105.0, vite 8.3.5, acciones checkout/setup-node 7 y pnpm/action-setup 5). Node se queda en 24 en CI, `.nvmrc` y `Dockerfile`; las mayores de `node` y `@types/node` se ignoran en `.github/dependabot.yml` y se suben a mano en los tres sitios a la vez.
+- **Auditoría del 09/11** (detalle en `BACKLOG-001` M.8): sin agujeros de seguridad nuevos; `pnpm audit` sin vulnerabilidades. Arreglados: rótulos de métricas en la zona del navegador y clave de idempotencia de stock reutilizada con otros datos.
 
 ## 1. Hecho
 
@@ -46,8 +53,7 @@ H1 a H10 tienen pantalla y, salvo H8, E2E según la tabla anterior; H8 (simulado
 
 ## 2. En curso
 
-- **Ronda 3.** Existen ramas y worktrees `ronda3/a11y`, `ronda3/analytics`, `ronda3/docs`, `ronda3/iot`, `ronda3/ops`, `ronda3/permisos`, `ronda3/seguimiento` y `backlog/ronda-3`. En este corte solo `ronda3/docs` (este documento, DATA-002 y ADR-004) tiene trabajo; las demás apuntan a `197b260` sin commits propios (`git log HEAD..<rama>` vacío), así que no se puede afirmar su alcance desde el repo. La traza oficial es `BACKLOG-001` sección M; añadir ahí la ronda 3 al integrarse.
-- Nada más en curso verificable.
+- Nada en curso. Las rondas 2, 3 y 4 (`ronda4/auditoria-visual`) están en `main`; ninguna rama del repositorio tiene commits fuera de `main` salvo las de Dependabot (comprobado con `git rev-list --count origin/main..<rama>` el 09/11/2026). La traza de cada ronda está en `BACKLOG-001` sección M (M.8: corte del 09/11).
 
 ## 3. Pendiente / siguiente
 
@@ -63,6 +69,7 @@ Lo que `BACKLOG-001 M.5` deja fuera de la ronda 2, sin cambios de estado desde e
 | Producto | MOD-05, MOD-07 |
 | Gobernanza | DOC-01 (visibilidad del repositorio: no verificable sin `gh`), DOC-02/03/04 (esta ronda) |
 | Fase 6 de PLAN-001 | Sin evidencia de cierre en el repo: F6-03 a F6-06 (parcial: cabeceras y límites de SEC-08/10), F6-09, F6-11 a F6-14. F6-07 (VPS): el compose de producción existe; que haya un despliegue real no es comprobable desde el repo. |
+| Auditoría 09/11 | Decidir qué es «gateway en uso» al desactivarlo (hoy: último gateway activo del local con botones asignados; `OPEN` en `gateways.ts`). Cada aviso en tiempo real revalida sesión y permisos de cada socket: suficiente para un bar, cachear si crece el número de locales (`realtime-broadcaster.ts`). |
 | Decisiones del responsable aún abiertas | Q-01 (hardware), Q-03 (criterios del piloto), hallazgo C de E2E-HALLAZGOS (admin que no puede desactivar un usuario sin local), E2E automático sobre base desechable (hallazgo F/K; hoy CI no corre Playwright), `// OPEN:` de `layout-geometry.ts` (solapes y rotación) |
 
 ## 4. Contradicciones encontradas entre documentos
