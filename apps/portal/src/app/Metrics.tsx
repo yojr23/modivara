@@ -20,7 +20,7 @@ const RANGE_OPTIONS = [['today', 'Hoy'], ['yesterday', 'Ayer'], ['last_7_days', 
 const LEAD: Record<RangePreset, string> = { today: 'Hoy', yesterday: 'Ayer', last_7_days: 'En los últimos 7 días', last_30_days: 'En los últimos 30 días', custom: 'En el período' };
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 const CALLS_NOTE = '«En atención» y «Atendida» son los momentos en que alguien del personal lo registró en el tablero; no miden la llegada a la mesa. Las áreas suman los llamados de las mesas que hoy están dentro de cada una.';
-const MIXED_UNITS_NOTE = 'Las cantidades se muestran por producto porque cada uno tiene su unidad (botellas, kg); para todo el local se cuentan movimientos.';
+const MIXED_UNITS_NOTE = 'Las cantidades se muestran por producto porque cada uno tiene su unidad (unidades, kg, litros…); para todo el local se cuentan movimientos.';
 const periodData = (by: { bucket_start: string; calls: number }[], g: 'hour' | 'day', tz: string) => by.map((p) => ({ label: bucketLabel(p.bucket_start, g, tz), value: p.calls }));
 
 function Section({ title, aside, children, className }: { title: string; aside?: ReactNode; children: ReactNode; className?: string }) {

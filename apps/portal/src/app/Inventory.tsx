@@ -6,7 +6,7 @@ import { CircleAlert, CircleMinus, CirclePlus, Minus, Package, PackagePlus, Plus
 import { useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen } from './format';
+import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen, unitWord } from './format';
 import InventorySettings from './InventorySettings';
 import { Bone, EmptyState, ErrorState, Modal, Page, Segmented, useApp, useToast } from './ui';
 
@@ -22,7 +22,7 @@ const DIR: Record<Direction, { label: string; verb: string; Icon: LucideIcon; ma
   adjust: { label: 'Ajuste por conteo', verb: 'Ajustar al conteo', Icon: Scale, mark: 'text-muted' },
 };
 const DIR_OPTIONS = [['out', 'Salida'], ['in', 'Entrada'], ['adjust', 'Ajuste por conteo']] as const;
-const UNITS: [Unit, string][] = [['bottle', 'Botellas'], ['unit', 'Unidades'], ['kg', 'Kilos'], ['g', 'Gramos'], ['l', 'Litros'], ['ml', 'Mililitros']];
+const UNITS: [Unit, string][] = [['unit', 'Unidades'], ['bottle', 'Botellas'], ['kg', 'Kilos'], ['g', 'Gramos'], ['l', 'Litros'], ['ml', 'Mililitros']];
 const NO_CATEGORY = 'Sin categoría';
 const step = (u: Unit) => (u === 'kg' || u === 'l' ? 0.5 : 1);
 const TODAY_LIMIT = 200; // tope de la API; un día de un local no se acerca
@@ -136,7 +136,7 @@ function Quantity({ value, onChange, unit, label }: { value: string; onChange: (
       <Button variant="secondary" aria-label="Menos" className="w-12 px-0" onClick={() => onChange(String(Math.max(0, n - s)))}><Minus aria-hidden className="size-4" /></Button>
       <div className="relative flex-1">
         <input aria-label={label} inputMode="decimal" type="number" min={0} step="any" value={value} onChange={(e) => onChange(e.target.value)} className={cn(input, 'pr-20 text-center font-display text-xl font-bold tabular-nums')} />
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted">{unit === 'bottle' ? 'botellas' : unit === 'unit' ? 'unidades' : unit}</span>
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted">{unitWord(unit, n)}</span>
       </div>
       <Button variant="secondary" aria-label="Más" className="w-12 px-0" onClick={() => onChange(String(n + s))}><Plus aria-hidden className="size-4" /></Button>
     </div>
@@ -275,7 +275,7 @@ function HistoryView({ inv }: { inv: Inv }) {
 function ProductDialog({ inv, onClose, onCreated }: { inv: Inv; onClose: () => void; onCreated: (p: ProductDto) => void }) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
-  const [unit, setUnit] = useState<Unit>('bottle');
+  const [unit, setUnit] = useState<Unit>('unit');
   const [sku, setSku] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -297,7 +297,7 @@ function ProductDialog({ inv, onClose, onCreated }: { inv: Inv; onClose: () => v
         <Field label="Nombre"><input value={name} onChange={(e) => { setName(e.target.value); setError(''); }} maxLength={120} className={input} /></Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Categoría">
-            <input list="categories" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={120} placeholder="Licores" className={input} />
+            <input list="categories" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={120} placeholder="Ej.: Insumos" className={input} />
             <datalist id="categories">{inv.categories.filter((c) => c !== NO_CATEGORY).map((c) => <option key={c} value={c} />)}</datalist>
           </Field>
           <Field label="Unidad" hint="No se puede cambiar después.">
@@ -339,7 +339,7 @@ export default function Inventory() {
   } else if (inv.error) {
     body = <ErrorState what="el inventario" onRetry={inv.retry} error={inv.error} />;
   } else if (!product) {
-    body = <EmptyState Icon={Package} title="Aún no hay productos" text="Crea los productos que controlas (botellas, insumos) y registra su stock inicial como una entrada."
+    body = <EmptyState Icon={Package} title="Aún no hay productos" text="Crea los productos que controlas y registra su stock inicial como una entrada."
       action={inv.canCatalog && <Button onClick={() => setCreating(true)}><PackagePlus aria-hidden className="size-4" />Crear el primer producto</Button>} />;
   } else {
     body = (
