@@ -145,6 +145,7 @@ function barApi(m: ReturnType<typeof me>, reqs: Req[], opts: { layouts?: unknown
   };
 }
 const posReqs = (reqs: Req[]) => reqs.filter((r) => r.url.includes('/pos/'));
+const hospitalityReqs = (reqs: Req[]) => reqs.filter((r) => /\/(tables|zones|layouts|service-calls|device-status)\b/.test(r.url));
 
 it('Tablero: «Venta» en la ficha de la mesa abre o recupera su venta (POST links con Idempotency-Key) y lleva a Ventas', async () => {
   const reqs: Req[] = [];
@@ -168,6 +169,31 @@ it('Tablero: sin el módulo pos o sin pos.sales.operate no hay «Venta» ni peti
     const sheet = await screen.findByRole('region', { name: 'Detalle de Mesa 3' });
     expect(within(sheet).queryByRole('button', { name: 'Venta' })).toBeNull();
     expect(posReqs(reqs)).toEqual([]);
+    cleanup();
+  }
+});
+
+it('Ventas «Por mesa»: con Hospitality lista las mesas sin plano publicado y tocar una abre su venta en Vender', async () => {
+  const reqs: Req[] = [];
+  const { router } = mount('/demo/app/ventas', barApi(me(['hospitality', 'pos'], ['hospitality.calls.read', 'pos.sales.read', 'pos.sales.operate']), reqs, { layouts: [] }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Por mesa' }));
+  const group = await screen.findByRole('group', { name: 'Salón principal' });
+  fireEvent.click(within(group).getByRole('button', { name: 'Mesa 3' }));
+  await waitFor(() => expect(router.state.location.search).toBe(`?venta=${SALE}`));
+  expect(screen.getByRole('button', { name: 'Vender' }).getAttribute('aria-pressed')).toBe('true');
+  expect(await screen.findByText('Toca un artículo para agregarlo.')).toBeTruthy(); // la venta de la mesa quedó en curso
+  const posts = reqs.filter((r) => r.method === 'POST');
+  expect(posts.map((r) => [r.url, r.body])).toEqual([[`/api/v1/locations/${L}/pos/links`, { provider: 'hospitality', resource_type: 'table', resource_id: T }]]);
+  expect(posts[0]!.key).toMatch(/^[0-9a-f-]{36}$/);
+});
+
+it('Ventas «Por mesa»: oculto en un negocio solo POS (sin peticiones a Hospitality) y sin hospitality.calls.read', async () => {
+  for (const m of [me(['pos'], ['pos.sales.read', 'pos.sales.operate', 'hospitality.calls.read']), me(['hospitality', 'pos'], ['pos.sales.read', 'pos.sales.operate'])]) {
+    const reqs: Req[] = [];
+    mount('/demo/app/ventas', barApi(m, reqs));
+    expect(await screen.findByRole('button', { name: 'Vender' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Por mesa' })).toBeNull();
+    if (!m.modules.includes('hospitality')) expect(hospitalityReqs(reqs)).toEqual([]);
     cleanup();
   }
 });

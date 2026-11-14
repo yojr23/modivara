@@ -2,6 +2,7 @@ import {
   MONEY_PATTERN, PAYMENT_METHODS, QUANTITY_PATTERN, QUANTITY_SCALE, UNITS, currencySchema, parseScaled,
   type PaymentMethod, type SaleDto, type SellableItemDto, type Unit,
 } from '@modivara/pos-contracts';
+import { useTables, useZones } from '@modivara/hospitality-web';
 import {
   newIdempotencyKey, posErrorState, useAddSaleLine, useCompleteSale, useCreateSellableItem, useDeactivateSellableItem, useOpenLinkedSale, useOpenSale,
   usePosSettings, useSale, useSales, useSellableItems, useUpdatePosSettings, useUpdateSellableItem, useVoidSale, useVoidSaleLine,
@@ -12,6 +13,7 @@ import { useSearchParams } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { fmtMoney, fmtWhen } from './format';
+import { DEFAULT_SPACE_NAME } from './plan';
 import { Bone, EmptyState, ErrorState, Modal, Page, Segmented, useApp, useToast } from './ui';
 
 // POS-23/24 — Ventas: vender (catálogo + ticket abierto), catálogo de artículos con la moneda del local e historial.
@@ -19,7 +21,7 @@ import { Bone, EmptyState, ErrorState, Modal, Page, Segmented, useApp, useToast 
 // desde otras pantallas. Tiempo real = refetch al mutar y al volver el foco (PLAN-POS-001 §P5).
 
 type Toast = ReturnType<typeof useToast>;
-type View = 'vender' | 'catalogo' | 'historial';
+type View = 'vender' | 'mesas' | 'catalogo' | 'historial';
 
 const UNIT_LABEL: Record<Unit, string> = { unit: 'Unidad', kg: 'Kilogramo (kg)', g: 'Gramo (g)', l: 'Litro (l)', ml: 'Mililitro (ml)', m: 'Metro (m)', h: 'Hora (h)' };
 const UNIT_SHORT: Record<Unit, [string, string]> = { unit: ['unidad', 'unidades'], kg: ['kg', 'kg'], g: ['g', 'g'], l: ['l', 'l'], ml: ['ml', 'ml'], m: ['m', 'm'], h: ['h', 'h'] };
@@ -350,6 +352,43 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
   );
 }
 
+/* ---------- Por mesa ---------- */
+
+/** POS-30: las mesas activas del local como entrada a su venta; sirve en celular, sin plano publicado y sin llamado activo. */
+function ByTable({ toast, onSale }: { toast: Toast; onSale: (saleId: string) => void }) {
+  const { location } = useApp();
+  const tablesQ = useTables(location.id);
+  const zonesQ = useZones(location.id);
+  const sale = useTableSale(toast, onSale, () => void tablesQ.refetch());
+  if (tablesQ.isPending) return <div aria-busy aria-label="Cargando mesas" className="p-4 md:p-8"><RowBones /></div>;
+  if (tablesQ.isError) return <ErrorState what="las mesas" error={tablesQ.error} onRetry={() => void tablesQ.refetch()} />;
+  const tables = tablesQ.data;
+  if (!tables.length) return <EmptyState title="Aún no hay mesas" text="Quien administra el local las crea en Espacios." />;
+  // Orden del tablero: el espacio por defecto primero y luego los pisos por posición; dentro de cada uno, el orden de la API.
+  const pos = new Map((zonesQ.data ?? []).map((z) => [z.id, z.position]));
+  const name = (z: string | null) => tables.find((t) => t.zone_id === z)?.zone_name ?? DEFAULT_SPACE_NAME;
+  const zones = [...new Set(tables.map((t) => t.zone_id))]
+    .sort((a, b) => (a === null ? -1 : b === null ? 1 : (pos.get(a) ?? 0) - (pos.get(b) ?? 0) || name(a).localeCompare(name(b))));
+  return (
+    <div className="anim-rise mx-auto max-w-4xl space-y-4 p-4 md:p-8">
+      <p className="text-sm text-muted">Toca una mesa para abrir su venta o seguir con la que ya tiene abierta.</p>
+      {zones.map((z) => (
+        <div key={z ?? ''}>
+          <p className="mb-1.5 text-xs text-muted">{name(z)}</p>
+          <div role="group" aria-label={name(z)} className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+            {tables.filter((t) => t.zone_id === z).map((t) => (
+              <button key={t.id} type="button" disabled={sale.busy} onClick={() => void sale.open(t.id)}
+                className="rounded-lg border border-line bg-surface px-3 py-3 text-left font-semibold transition-colors hover:border-line-strong active:bg-sunken disabled:opacity-50">
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ---------- Catálogo ---------- */
 
 function ItemDialog({ item, currency, categories, toast, onClose }: { item: SellableItemDto | null; currency?: string; categories: string[]; toast: Toast; onClose: () => void }) {
@@ -563,10 +602,13 @@ function SalesHistory() {
 }
 
 export default function Sales() {
-  const { can } = useApp();
+  const { me, can } = useApp();
   const toast = useToast();
+  const [, setParams] = useSearchParams();
   const views = ([
     ['vender', 'Vender', can('pos.sales.operate')],
+    // Composición: solo si el negocio también tiene Hospitality y el rol puede leer sus mesas.
+    ['mesas', 'Por mesa', can('pos.sales.operate') && me.modules.includes('hospitality') && can('hospitality.calls.read')],
     ['catalogo', 'Catálogo', can('pos.catalog.manage')],
     ['historial', 'Historial', true],
   ] as [View, string, boolean][]).filter((v) => v[2]).map(([v, text]) => [v, text] as const);
@@ -575,7 +617,9 @@ export default function Sales() {
   return (
     <Page id="ventas" title="Ventas"
       actions={views.length > 1 && <div className="md:ml-auto"><Segmented label="Vista" options={views} value={view} onChange={setView} /></div>}>
-      {view === 'vender' ? <Sell toast={toast} goCatalog={goCatalog} /> : view === 'catalogo' ? <Catalog toast={toast} /> : <SalesHistory />}
+      {view === 'vender' ? <Sell toast={toast} goCatalog={goCatalog} />
+        : view === 'mesas' ? <ByTable toast={toast} onSale={(id) => { setParams({ venta: id }, { replace: true }); setView('vender'); }} />
+        : view === 'catalogo' ? <Catalog toast={toast} /> : <SalesHistory />}
       {toast.node}
     </Page>
   );
