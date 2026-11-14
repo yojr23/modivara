@@ -20,7 +20,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 ### POS (`pos/mesas`)
 
 - [x] Codex gpt-6.1-terra sobre `c59f7d1` (doble toque): sin hallazgos.
-- [ ] E2E Playwright ampliado de POS e Inventario con casos borde.
+- [x] E2E Playwright ampliado (`4d039bb`, empujado): `e2e/pos-edge.spec.ts` (9) y `e2e/inventory-edge.spec.ts` (5), todos en verde: cantidades por unidad, venta vacía, anular línea, venta cobrada solo lectura, duplicados, inactivos, permisos de Caja/mesero/inventario, idempotencia, aislamiento entre negocios, historial paginado, `currency_mismatch` a 390 px y escritorio; stock insuficiente, conteo igual al saldo, permisos de inventario, replay de movimientos, aislamiento. Suite completa 54/55: falló `service-call.spec.ts:78` (reconexión tras reiniciar la API, timeout de 60 s mientras `db-test` se recreaba), pasa sola. No detecta el bug de la coma: Playwright llena «0.5» con punto.
 - [ ] Pruebas manuales en navegador (Brave + extensión Claude) de POS e Inventario: casos y casos borde.
 - [ ] Actualizar desde `pruebas` cuando entre PLAN-003 y abrir PR `pos/mesas → pruebas`.
 
