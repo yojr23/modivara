@@ -1,6 +1,6 @@
 import { AuthProvider } from '@modivara/core-web';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { routes } from '@/routes/routes';
@@ -67,3 +67,12 @@ it('una cantidad que no es número se explica y no se envía', async () => {
   expect(await screen.findByText(/Escribe la cantidad con números/)).toBeTruthy();
   expect(posts()).toEqual([]);
 });
+
+it('un movimiento de un producto que la caché no tiene relee los productos en vez de llamarlo desactivado', async () => {
+  const zapato = { ...limon, id: ID(8), name: 'Zapato 40', unit: 'unit' };
+  const viejo = { ...limon, id: ID(9), name: 'Viejo', active: false };
+  mount({ products: [[limon, viejo], [limon, viejo, zapato]], today: [{ ...movement(zapato.id, '2.000') }, { ...movement(viejo.id, '1.000'), id: ID(1) }] });
+  const feed = await screen.findByRole('complementary', {}, { timeout: 5000 });
+  await waitFor(() => expect(within(feed).getByText('Zapato 40')).toBeTruthy(), { timeout: 5000 });
+  expect(within(feed).getByText('Producto desactivado')).toBeTruthy();
+}, 15_000);

@@ -3,7 +3,7 @@ import {
   newIdempotencyKey, stockErrorState, useAdjustToCount, useBalances, useCreateProduct, useMovementPages, useMovements, useProducts, useReasons, useRegisterMovement, useStockLocations,
 } from '@modivara/commerce-web';
 import { CircleAlert, CircleMinus, CirclePlus, Minus, Package, PackagePlus, Plus, Scale, type LucideIcon } from 'lucide-react';
-import { useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen, parseDecimal, unitWord } from './format';
@@ -48,6 +48,7 @@ function useInventory() {
   const adjustM = useAdjustToCount(l);
   const createM = useCreateProduct(l);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const asked = useRef(new Set<string>());
 
   const products = (productsQ.data ?? []).filter((p) => p.active);
   const balances = new Map((balancesQ.data ?? []).map((b) => [b.product_id, Number(b.quantity)]));
@@ -64,6 +65,15 @@ function useInventory() {
     reasonsFor: (d: Direction) => (reasonsQ.data ?? []).filter((r) => r.direction === d && r.active),
     balance: (id: string) => balances.get(id) ?? 0,
     product: (id: string) => products.find((p) => p.id === id),
+    /** Activo o desactivado; undefined si la lista en caché no lo tiene (p. ej. creado en otra sesión). */
+    known: (id: string) => productsQ.data?.find((p) => p.id === id),
+    /** Relee los productos una vez por id desconocido, para no tomar por desactivado lo que solo es nuevo. */
+    refreshFor(ids: string[]) {
+      const pending = ids.filter((id) => !asked.current.has(id));
+      if (!pending.length) return;
+      for (const id of pending) asked.current.add(id);
+      void productsQ.refetch();
+    },
     busy: registerM.isPending || adjustM.isPending,
     /** Valida como la API y registra; devuelve el error en palabras del usuario o null si se registró. */
     async register(input: { productId: string; direction: Direction; reasonId: string; quantity: number; note: string; key: string }): Promise<string | null> {
@@ -217,16 +227,18 @@ function DirTag({ d, reason }: { d: Direction; reason?: string }) {
 
 /** Historial de movimientos: lo nuevo entra con un leve desplazamiento; cantidades con signo y saldo resultante. */
 function MovementList({ inv, movements, dense = false }: { inv: Inv; movements: MovementDto[]; dense?: boolean }) {
+  const unknown = [...new Set(movements.map((m) => m.product_id).filter((id) => !inv.known(id)))].join();
+  useEffect(() => { if (unknown) inv.refreshFor(unknown.split(',')); }, [unknown]);
   if (!movements.length) return <p className="py-6 text-center text-sm text-muted">Sin movimientos todavía.</p>;
   return (
     <ul className="divide-y divide-line">
       {movements.map((m) => {
-        const p = inv.product(m.product_id);
+        const p = inv.known(m.product_id);
         const unit = p?.unit ?? 'unit';
         return (
           <li key={m.id} className={cn('grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5', dense ? 'py-2.5' : 'py-3', inv.fresh.has(m.id) && 'anim-rise')}>
             <span className="min-w-0">
-              <span className="block truncate font-semibold">{p?.name ?? 'Producto desactivado'}</span>
+              <span className="block truncate font-semibold">{!p ? 'Producto' : p.active ? p.name : 'Producto desactivado'}</span>
               <span className="block text-muted"><DirTag d={m.direction} reason={inv.reasonName.get(m.reason_id)} /></span>
             </span>
             <span className="text-right font-semibold tabular-nums">{fmtSigned(m.delta, unit)}</span>
