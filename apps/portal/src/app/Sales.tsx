@@ -174,6 +174,8 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
   const saleId = params.get('venta');
   const saleQ = useSale(l, saleId);
   const sale = saleQ.data?.status === 'open' ? saleQ.data : undefined;
+  // `?venta=` elegida pero aún sin resolver (cargando o con error): tocar un artículo no debe abrir otra venta suelta.
+  const unresolved = !!saleId && !sale;
   const openM = useOpenSale(l);
   const addM = useAddSaleLine(l);
   const voidLineM = useVoidSaleLine(l);
@@ -220,6 +222,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
         ? `${item.name} se vende por unidad: escribe una cantidad entera mayor que cero.`
         : 'Escribe una cantidad mayor que cero, con hasta 3 decimales.');
     }
+    if (unresolved) return;
     const id = sale?.id ?? (await newSale());
     if (!id) return;
     const r = await run(`add:${id}:${item.id}:${quantity}`, (k) => addM.mutateAsync({ saleId: id, input: { sellable_item_id: item.id, quantity }, idempotencyKey: k }));
@@ -275,7 +278,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
                   <p className="mb-1.5 text-xs text-muted">{c}</p>
                   <div role="group" aria-label={c} className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
                     {shown.filter((i) => (i.category ?? NO_CATEGORY) === c).map((i) => (
-                      <button key={i.id} type="button" disabled={openM.isPending} onClick={() => void add(i)}
+                      <button key={i.id} type="button" disabled={openM.isPending || unresolved} onClick={() => void add(i)}
                         className="rounded-lg border border-line bg-surface px-3 py-2 text-left transition-colors hover:border-line-strong active:bg-sunken disabled:opacity-50">
                         <span className="block font-semibold">{i.name}</span>
                         <span className="text-sm text-muted tabular-nums">{fmtMoney(i.price, i.currency)}{i.unit !== 'unit' && ` / ${i.unit}`}</span>
@@ -310,7 +313,8 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
         )}
         <div className="min-h-0 flex-1 overflow-y-auto">
           {sale ? <Lines sale={sale} busy={voidLineM.isPending} onVoid={(lineId, name) => void run(`void-line:${lineId}`, (k) => voidLineM.mutateAsync({ saleId: sale.id, lineId, idempotencyKey: k })).then((r) => r && toast.show(`${name} anulado de la venta.`))} />
-            : saleId && saleQ.isPending ? <RowBones n={3} />
+            : saleId && saleQ.isError ? <ErrorState what="la venta" error={saleQ.error} onRetry={() => void saleQ.refetch()} />
+            : saleId ? <RowBones n={3} />
             : <p className="py-8 text-center text-sm text-muted">Toca un artículo para empezar una venta.</p>}
         </div>
         {problem && <div className="mt-3 shrink-0"><Problem text={problem} /></div>}

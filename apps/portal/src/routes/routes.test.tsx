@@ -198,6 +198,26 @@ it('Ventas «Por mesa»: oculto en un negocio solo POS (sin peticiones a Hospita
   }
 });
 
+it('Vender: con ?venta= aún sin resolver (cargando o con error) tocar un artículo no abre otra venta', async () => {
+  const S = ID(4);
+  const item = { id: ID(5), name: 'Café', sku: null, category: null, unit: 'unit', price: '5000.00', currency: 'COP', active: true };
+  const base = `/api/v1/locations/${ID(2)}/pos`;
+  const posts: string[] = [];
+  mount(`/demo/app/ventas?venta=${S}`, async (url, init) => {
+    if ((init?.method ?? 'GET') !== 'GET') posts.push(url);
+    if (url.endsWith('/me')) return json(me(['pos'], ['pos.sales.read', 'pos.sales.operate']));
+    if (url === `${base}/items`) return json([item]);
+    if (url === `${base}/sales/${S}`) return json({ code: 'internal' }, 500);
+    return json([]);
+  });
+  const cafe = await screen.findByRole('button', { name: /Café/ });
+  expect((cafe as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(cafe);
+  expect(await screen.findByText('No se pudo cargar la venta')).toBeTruthy();
+  expect((screen.getByRole('button', { name: /Café/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect(posts).toEqual([]);
+});
+
 it('la portada pide el negocio, valida el slug y lleva a su login', async () => {
   const { router } = mount('/', async () => json({ code: 'unauthorized' }, 401));
   const input = await screen.findByLabelText(/Identificador de tu negocio/);
