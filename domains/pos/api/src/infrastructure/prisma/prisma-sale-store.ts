@@ -67,12 +67,18 @@ export class PrismaSaleStore implements SaleStore {
       return { sale, replayed: false };
     } catch (e) {
       if (!isUniqueViolation(e)) throw e;
-      // Carrera perdida: la misma clave o el mismo recurso ya los tomó otra petición, que ya confirmó.
-      const replay = idem && (await this.replay(this.db, p.organizationId, idem));
+      // La misma clave o el mismo recurso ya los tomó otra petición, que ya confirmó.
+      const replay = idem && (await this.replay(this.db, p, idem));
       if (replay) return replay;
       const linked = link && (await this.findByActiveLink({ organizationId: p.organizationId, locationId: p.locationId, ...link }));
-      if (linked) return { sale: linked, replayed: true };
-      throw e;
+      if (!linked) throw e;
+      // La clave queda atada a la venta vinculada: un reintento tardío la devuelve aunque ya esté cerrada.
+      if (idem) {
+        await this.db.idempotencyKey.create({ data: { organizationId: p.organizationId, ...idem, saleId: linked.id } }).catch((err: unknown) => {
+          if (!isUniqueViolation(err)) throw err;
+        });
+      }
+      return { sale: linked, replayed: true };
     }
   }
 
@@ -84,7 +90,7 @@ export class PrismaSaleStore implements SaleStore {
           WHERE id = ${q.id}::uuid AND organization_id = ${q.organizationId}::uuid AND location_id = ${q.locationId}::uuid
           FOR UPDATE`;
         if (locked.length === 0) throw new NotFoundError('Sale');
-        const replay = await this.replay(tx, q.organizationId, idem);
+        const replay = await this.replay(tx, q, idem);
         if (replay) return replay;
 
         const sale = (await load(tx, q))!;
@@ -113,7 +119,7 @@ export class PrismaSaleStore implements SaleStore {
     } catch (e) {
       // La misma clave usada a la vez sobre otra venta: la otra confirmó primero; esta es un reuso.
       if (isUniqueViolation(e)) {
-        const replay = await this.replay(this.db, q.organizationId, idem);
+        const replay = await this.replay(this.db, q, idem);
         if (replay) return replay;
       }
       throw e;
@@ -143,15 +149,16 @@ export class PrismaSaleStore implements SaleStore {
     return rows.map(toSale);
   }
 
-  /** Clave ya usada: misma operación y petición → la venta en su estado actual; otra → `IdempotencyKeyReusedError`. */
-  private async replay(db: Db, organizationId: string, idem: IdempotencyKey): Promise<SaleWrite | null> {
-    const k = await db.idempotencyKey.findUnique({ where: { organizationId_key: { organizationId, key: idem.key } } });
+  /**
+   * Clave ya usada: misma operación y petición → la venta en su estado actual; otra → `IdempotencyKeyReusedError`.
+   * La venta se carga acotada al negocio y local de la petición (la FK compuesta ya impide claves de otro negocio).
+   */
+  private async replay(db: Db, scope: LocationScope, idem: IdempotencyKey): Promise<SaleWrite | null> {
+    const k = await db.idempotencyKey.findUnique({ where: { organizationId_key: { organizationId: scope.organizationId, key: idem.key } } });
     if (!k) return null;
-    if (k.operation !== idem.operation || k.fingerprint !== idem.fingerprint) {
-      throw new IdempotencyKeyReusedError('Idempotency key already used by another request');
-    }
-    const r = await db.sale.findUniqueOrThrow({ where: { id: k.saleId }, include: withLines });
-    return { sale: toSale(r), replayed: true };
+    const sale = k.operation === idem.operation && k.fingerprint === idem.fingerprint && (await load(db, { ...scope, id: k.saleId }));
+    if (!sale) throw new IdempotencyKeyReusedError('Idempotency key already used by another request');
+    return { sale, replayed: true };
   }
 }
 

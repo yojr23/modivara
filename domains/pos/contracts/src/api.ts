@@ -28,7 +28,7 @@ export const POS_API_PATHS = {
   links: '/locations/:locationId/pos/links',
 } as const;
 
-/** Obligatorio en toda mutación de una venta: un reintento o doble clic devuelve el mismo resultado. */
+/** Obligatorio en toda mutación de una venta (también `links`): un reintento o doble clic devuelve el mismo resultado. */
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key';
 export const idempotencyKeySchema = z.uuid();
 
@@ -120,7 +120,10 @@ export type AddSaleLineDto = z.infer<typeof addSaleLineSchema>;
 export const completeSaleSchema = z.object({ payment_method: paymentMethodSchema });
 export type CompleteSaleDto = z.infer<typeof completeSaleSchema>;
 
-/** Abre o recupera la venta vinculada a un recurso externo; el host valida el recurso con el adaptador del proveedor. */
+/**
+ * Abre o recupera la venta vinculada a un recurso externo; el host valida el recurso con el adaptador del proveedor.
+ * Exige `Idempotency-Key`: un reintento con la misma clave devuelve la misma venta aunque ya esté cerrada.
+ */
 export const openLinkedSaleSchema = z.object({ provider: slug, resource_type: slug, resource_id: z.uuid() });
 export type OpenLinkedSaleDto = z.infer<typeof openLinkedSaleSchema>;
 

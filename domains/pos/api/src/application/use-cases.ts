@@ -141,7 +141,9 @@ export class OpenSale {
 
 /**
  * Abre o recupera la venta atada a un recurso de otro producto (POS-15). El validador del proveedor lo registra el host;
- * proveedor desconocido o recurso inválido → `NotFoundError` (no revela qué proveedores existen).
+ * proveedor desconocido o recurso inválido → `NotFoundError` (no revela qué proveedores existen). La clave de idempotencia
+ * queda atada a la venta devuelta (nueva o ya vinculada): un reintento tardío, aunque esa venta ya esté cerrada y el recurso
+ * libre, devuelve la misma venta en vez de abrir otra.
  */
 export class OpenLinkedSale {
   constructor(
@@ -151,17 +153,16 @@ export class OpenLinkedSale {
     private readonly core: CoreAccessPort,
   ) {}
 
-  async execute(cmd: PosContext & { provider: string; resourceType: string; resourceId: string }): Promise<SaleWrite> {
+  async execute(cmd: PosContext & { provider: string; resourceType: string; resourceId: string; idempotencyKey: string }): Promise<SaleWrite> {
     await requireLocation(this.core, cmd);
+    const link = { provider: cmd.provider, resourceType: cmd.resourceType, resourceId: cmd.resourceId };
+    const idem = idempotency(cmd.idempotencyKey, 'open_linked_sale', cmd, link);
     const validator = this.validators.find((v) => v.provider === cmd.provider);
     if (!validator || !UUID.test(cmd.resourceId) || !(await validator.validate(cmd, cmd.resourceType, cmd.resourceId))) {
       throw new NotFoundError('External resource');
     }
-    const link = { provider: cmd.provider, resourceType: cmd.resourceType, resourceId: cmd.resourceId };
-    const linked = await this.sales.findByActiveLink({ organizationId: cmd.organizationId, locationId: cmd.locationId, ...link });
-    if (linked) return { sale: linked, replayed: true };
     const currency = await locationCurrency(this.settings, cmd);
-    return this.sales.open(Sale.open({ ...cmd, currency, id: newId(), now: new Date() }), null, link);
+    return this.sales.open(Sale.open({ ...cmd, currency, id: newId(), now: new Date() }), idem, link);
   }
 }
 

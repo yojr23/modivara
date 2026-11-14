@@ -91,6 +91,8 @@ model Sale {
   idempotencyKeys IdempotencyKey[]
 
   @@unique([id, locationId], map: "uq_sales_id_location")
+  /// Destino de la FK compuesta de idempotency_keys: una clave solo apunta a ventas de su negocio.
+  @@unique([id, organizationId], map: "uq_sales_id_organization")
   @@index([locationId, openedAt(sort: Desc), id(sort: Desc)], map: "ix_sales_history")
   @@map("sales")
 }
@@ -146,7 +148,7 @@ model IdempotencyKey {
   saleId         String   @map("sale_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  sale Sale @relation(fields: [saleId], references: [id])
+  sale Sale @relation(fields: [saleId, organizationId], references: [id, organizationId])
 
   @@id([organizationId, key])
   @@map("idempotency_keys")

@@ -208,18 +208,23 @@ describe('POS-15: vínculos externos genéricos', () => {
     const resourceId = newId();
     t.validator.known.add(`desk:${resourceId}`);
     const body = { provider: 'ext', resource_type: 'desk', resource_id: resourceId };
-    const first = await t.as(cashier).post(path(cafe, '/links'), body);
-    const again = await t.as(cashier).post(path(cafe, '/links'), body);
+    const link = (b: object, headers: Record<string, string> = key(), who = cashier) => t.as(who).post(path(cafe, '/links'), b, headers);
+    expect((await link(body, {})).status).toBe(400);
+    const firstKey = key();
+    const first = await link(body, firstKey);
+    const again = await link(body);
     expect([first.status, again.status]).toEqual([201, 200]);
     expect(result(again).sale.id).toBe(result(first).sale.id);
-    expect((await t.as(cashier).post(path(cafe, '/links'), { ...body, resource_id: newId() })).status).toBe(404);
-    expect((await t.as(cashier).post(path(cafe, '/links'), { ...body, provider: 'otro' })).status).toBe(404);
-    expect((await t.as(cashier).post(path(cafe, '/links'), { ...body, provider: 'Ext!' })).status).toBe(400);
-    expect((await t.as(staff).post(path(cafe, '/links'), body)).status).toBe(403);
+    expect((await link({ ...body, resource_id: newId() })).status).toBe(404);
+    expect((await link({ ...body, provider: 'otro' })).status).toBe(404);
+    expect((await link({ ...body, provider: 'Ext!' })).status).toBe(400);
+    expect((await link(body, key(), staff)).status).toBe(403);
 
-    // Cerrada la venta, el recurso queda libre: el siguiente vínculo abre otra.
+    // Anulada la venta: un reintento tardío con la misma clave la devuelve; una petición nueva abre otra.
     await t.as(admin).post(path(cafe, `/sales/${result(first).sale.id}/void`), undefined, key());
-    const next = await t.as(cashier).post(path(cafe, '/links'), body);
+    const late = await link(body, firstKey);
+    expect([late.status, result(late).sale.id, result(late).sale.status]).toEqual([200, result(first).sale.id, 'voided']);
+    const next = await link(body);
     expect(next.status).toBe(201);
     expect(result(next).sale.id).not.toBe(result(first).sale.id);
   });

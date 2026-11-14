@@ -47,11 +47,14 @@ export class InMemorySales implements SaleStore {
   readonly links: (ExternalLink & LocationScope & { saleId: string; active: boolean })[] = [];
 
   async open(sale: Sale, idem: IdempotencyKey | null, link?: ExternalLink) {
-    const replay = idem && this.replay(sale.organizationId, idem);
+    const replay = idem && this.replay(sale, idem);
     if (replay) return replay;
     if (link) {
       const linked = await this.findByActiveLink({ organizationId: sale.organizationId, locationId: sale.locationId, ...link });
-      if (linked) return { sale: linked, replayed: true };
+      if (linked) {
+        if (idem) this.keys.set(`${sale.organizationId}:${idem.key}`, { ...idem, saleId: linked.id });
+        return { sale: linked, replayed: true };
+      }
       this.links.push({ ...link, organizationId: sale.organizationId, locationId: sale.locationId, saleId: sale.id, active: true });
     }
     this.write(sale, idem);
@@ -61,7 +64,7 @@ export class InMemorySales implements SaleStore {
   async mutate(q: ScopedId, idem: IdempotencyKey, work: (sale: Sale) => void) {
     const sale = await this.findById(q);
     if (!sale) throw new NotFoundError('Sale');
-    const replay = this.replay(q.organizationId, idem);
+    const replay = this.replay(q, idem);
     if (replay) return replay;
     work(sale);
     this.write(sale, idem);
@@ -89,11 +92,14 @@ export class InMemorySales implements SaleStore {
       .map((p) => Sale.restore(p));
   }
 
-  private replay(organizationId: string, idem: IdempotencyKey) {
-    const k = this.keys.get(`${organizationId}:${idem.key}`);
+  private replay(scope: LocationScope, idem: IdempotencyKey) {
+    const k = this.keys.get(`${scope.organizationId}:${idem.key}`);
     if (!k) return null;
-    if (k.operation !== idem.operation || k.fingerprint !== idem.fingerprint) throw new IdempotencyKeyReusedError('Idempotency key reused');
-    return { sale: Sale.restore(this.rows.get(k.saleId)!), replayed: true };
+    const p = this.rows.get(k.saleId);
+    if (k.operation !== idem.operation || k.fingerprint !== idem.fingerprint || !p || !inScope(p, scope)) {
+      throw new IdempotencyKeyReusedError('Idempotency key reused');
+    }
+    return { sale: Sale.restore(p), replayed: true };
   }
 
   private write(sale: Sale, idem: IdempotencyKey | null) {

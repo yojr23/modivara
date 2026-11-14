@@ -57,7 +57,8 @@ export interface ExternalLink {
 export interface SaleStore {
   /**
    * Inserta la venta nueva (+ vínculo activo opcional) y su clave. Misma clave y misma petición → la venta original (`replayed`);
-   * misma clave con otra operación o petición → `IdempotencyKeyReusedError`; recurso ya vinculado → la venta vinculada (`replayed`).
+   * misma clave con otra operación o petición → `IdempotencyKeyReusedError`; recurso ya vinculado → la venta vinculada (`replayed`),
+   * y la clave queda atada a ella. La venta de una clave se busca siempre dentro del negocio y local de la petición.
    */
   open(sale: Sale, idem: IdempotencyKey | null, link?: ExternalLink): Promise<SaleWrite>;
   /**

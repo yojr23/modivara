@@ -62,7 +62,7 @@ describe('migración pos 0001', () => {
     await expect(line(s.id, i.id, { quantity: '0' })).rejects.toThrow();
     await expect(line(s.id, i.id, { unitPriceSnapshot: '-1' })).rejects.toThrow();
     await expect(line(s.id, i.id, { voidedAt: now })).rejects.toThrow();
-    await expect(line(s.id, i.id, { quantity: '0.001' })).resolves.toBeDefined();
+    await expect(line(s.id, i.id, { quantity: '0.001', unitSnapshot: 'g' })).resolves.toBeDefined();
   });
 
   it('estado coherente: abierta sin cierre, cerrada con cobro, anulada sin cobro', async () => {
@@ -103,7 +103,22 @@ describe('migración pos 0001', () => {
     const key = newId();
     await db.idempotencyKey.create({ data: { organizationId: t.organizationId, key, operation: 'open_sale', fingerprint: '{}', saleId: s.id } });
     await expect(db.idempotencyKey.create({ data: { organizationId: t.organizationId, key, operation: 'x', fingerprint: '{}', saleId: s.id } })).rejects.toThrow();
-    await expect(db.idempotencyKey.create({ data: { organizationId: other.organizationId, key, operation: 'x', fingerprint: '{}', saleId: s.id } })).resolves.toBeDefined();
+    const own = await sale({}, other);
+    await expect(db.idempotencyKey.create({ data: { organizationId: other.organizationId, key, operation: 'x', fingerprint: '{}', saleId: own.id } })).resolves.toBeDefined();
+  });
+
+  it('0002: una clave de idempotencia no apunta a una venta de otro negocio', async () => {
+    const s = await sale();
+    await expect(db.idempotencyKey.create({ data: { organizationId: other.organizationId, key: newId(), operation: 'x', fingerprint: '{}', saleId: s.id } }))
+      .rejects.toThrow();
+  });
+
+  it('0002: la unidad `unit` solo admite cantidades enteras; las demás, fracciones', async () => {
+    const i = await item('A');
+    const s = await sale();
+    await expect(line(s.id, i.id, { quantity: '0.5' })).rejects.toThrow();
+    await expect(line(s.id, i.id, { quantity: '2.000' })).resolves.toBeDefined();
+    await expect(line(s.id, i.id, { quantity: '0.5', unitSnapshot: 'kg' })).resolves.toBeDefined();
   });
 
   it('índice de outbox pendiente', async () => {

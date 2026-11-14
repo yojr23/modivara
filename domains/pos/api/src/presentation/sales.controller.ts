@@ -121,15 +121,16 @@ export class SalesController {
     return reply(await this.voidSale.execute({ ...contextOf(actor, locationId), saleId: idOf(saleId), idempotencyKey }), res);
   }
 
-  /** Sin `Idempotency-Key`: el vínculo activo por recurso ya hace idempotente repetir la petición. */
   @Post(P.links)
   @RequirePermission('pos.sales.operate')
   async link(
-    @CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Body() body: unknown, @Res({ passthrough: true }) res: StatusRes,
+    @CurrentActor() actor: RequestActor, @Param('locationId') locationId: string, @Headers('idempotency-key') key: string | undefined,
+    @Body() body: unknown, @Res({ passthrough: true }) res: StatusRes,
   ): Promise<SaleResultDto> {
+    const idempotencyKey = keyOf(key);
     const dto = openLinkedSaleSchema.parse(body);
     return reply(await this.openLinked.execute({
-      ...contextOf(actor, locationId), provider: dto.provider, resourceType: dto.resource_type, resourceId: dto.resource_id,
+      ...contextOf(actor, locationId), provider: dto.provider, resourceType: dto.resource_type, resourceId: dto.resource_id, idempotencyKey,
     }), res);
   }
 }

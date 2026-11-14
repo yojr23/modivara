@@ -232,23 +232,35 @@ describe('ventas vinculadas a un recurso externo (POS-15)', () => {
 
   it('abrir dos veces el mismo recurso devuelve la misma venta; cerrada, se abre una nueva', async () => {
     validator.known.add(`spot:${resourceId}`);
-    const first = await uc.openLinked.execute(linked);
-    const again = await uc.openLinked.execute(linked);
+    const firstKey = '01900000-0000-7000-8000-0000000000b1';
+    const otherKey = '01900000-0000-7000-8000-0000000000b2';
+    const first = await uc.openLinked.execute({ ...linked, idempotencyKey: firstKey });
+    const again = await uc.openLinked.execute({ ...linked, idempotencyKey: otherKey });
     expect(first.replayed).toBe(false);
     expect(again).toMatchObject({ replayed: true, sale: { id: first.sale.id } });
 
     const tinto = await item('Tinto', 'unit', '2500');
     await uc.add({ ...ctx, saleId: first.sale.id, sellableItemId: tinto.id, quantity: '1' });
     await uc.close({ ...ctx, saleId: first.sale.id, paymentMethod: 'cash' });
-    const next = await uc.openLinked.execute(linked);
+    // Reintentos tardíos (la venta ya cerrada y el recurso libre): la misma venta, sin abrir otra.
+    for (const idempotencyKey of [firstKey, otherKey]) {
+      expect(await uc.openLinked.execute({ ...linked, idempotencyKey })).toMatchObject({ replayed: true, sale: { id: first.sale.id, status: 'completed' } });
+    }
+    expect(sales.rows.size).toBe(1);
+    validator.known.add('spot:01900000-0000-7000-8000-0000000000ab');
+    await expect(uc.openLinked.execute({ ...linked, resourceId: '01900000-0000-7000-8000-0000000000ab', idempotencyKey: firstKey }))
+      .rejects.toThrow(IdempotencyKeyReusedError);
+
+    const next = await uc.openLinked.execute({ ...linked, idempotencyKey: '01900000-0000-7000-8000-0000000000b3' });
     expect(next.replayed).toBe(false);
     expect(next.sale.id).not.toBe(first.sale.id);
   });
 
   it('proveedor no registrado o recurso desconocido → no existe', async () => {
-    await expect(uc.openLinked.execute(linked)).rejects.toThrow(NotFoundError);
+    const idempotencyKey = '01900000-0000-7000-8000-0000000000c1';
+    await expect(uc.openLinked.execute({ ...linked, idempotencyKey })).rejects.toThrow(NotFoundError);
     validator.known.add(`spot:${resourceId}`);
-    await expect(uc.openLinked.execute({ ...linked, provider: 'other' })).rejects.toThrow(NotFoundError);
+    await expect(uc.openLinked.execute({ ...linked, provider: 'other', idempotencyKey })).rejects.toThrow(NotFoundError);
     expect(sales.rows.size).toBe(0);
   });
 });

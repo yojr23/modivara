@@ -136,14 +136,20 @@ describe('concurrencia e idempotencia (POS-18)', () => {
       const resourceId = newId();
       w.validator.known.add(`spot:${resourceId}`);
       const cmd = { ...w.actor, provider: 'ext', resourceType: 'spot', resourceId };
-      const results = await Promise.all([w.openLinked.execute(cmd), w.openLinked.execute(cmd), w.openLinked.execute(cmd)]);
+      const keys = [newId(), newId(), newId()];
+      const results = await Promise.all(keys.map((idempotencyKey) => w.openLinked.execute({ ...cmd, idempotencyKey })));
       expect(new Set(results.map((r) => r.sale.id)).size).toBe(1);
       expect(results.filter((r) => !r.replayed)).toHaveLength(1);
 
       const saleId = results[0]!.sale.id;
       await w.voidSale.execute({ ...w.actor, saleId, idempotencyKey: newId() });
       expect(await db.saleExternalLink.findFirst({ where: { saleId } })).toMatchObject({ active: false, releasedAt: expect.any(Date) });
-      const next = await w.openLinked.execute(cmd);
+      // Reintento tardío de cualquiera de las tres peticiones: la venta original (anulada), sin abrir otra.
+      for (const idempotencyKey of keys) {
+        expect(await w.openLinked.execute({ ...cmd, idempotencyKey })).toMatchObject({ replayed: true, sale: { id: saleId, status: 'voided' } });
+      }
+      expect(await db.sale.count({ where: { organizationId: w.t.organizationId } })).toBe(1);
+      const next = await w.openLinked.execute({ ...cmd, idempotencyKey: newId() });
       expect(next.replayed).toBe(false);
       expect(next.sale.id).not.toBe(saleId);
     }
