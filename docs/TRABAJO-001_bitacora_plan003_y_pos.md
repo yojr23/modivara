@@ -26,7 +26,8 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 
 ### PLAN-003 (`test/plan-003-modularidad`)
 
-- [~] MOD-09 línea base (build, typecheck, separabilidad, unit, integración).
+- [x] MOD-09 línea base sobre `18289d6` (Node 24.22.0, pnpm 10.18.3): build, typecheck, separabilidad, unit e integración (51 archivos, 775 pruebas) en verde. E2E se corre al final contra esta rama.
+- [~] Subramas en paralelo: `p3/a1-host` (worktree `p3-a1`: MOD-10…15, 26, 23 mínimo) y `p3/a2a3-portal` (worktree `p3-a2`: MOD-25, 52, 53, 60, 61, 74). Se integran en `test/plan-003-modularidad`. Bloqueo de `db-test`: directorio `scratchpad/dbtest.lock` (mkdir/rmdir).
 - [ ] A0 MOD-00…05: ADR-006 copiado igual que en `pos/mesas` (Propuesto) [!] aprobación del responsable; MOD-01…05 documentales.
 - [ ] A1 MOD-10 `core-api` sin `hospitality-contracts`.
 - [ ] A1 MOD-11 `check:separability` falla ante dependencia inversa.
@@ -55,4 +56,9 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 
 ## Hallazgos y decisiones
 
+- [ ] **Por corregir (responsable, 14/11):** en Bar Demo el plano publicado no pinta las mesas 11 y 12, pero sí llegan llamados de ellas (cola/historial). Revisar `seed:planos-demo` frente a las mesas activas (posible efecto de la limpieza de mesas duplicadas del 14/11).
+- [~] **Hallazgo navegador (14/11):** la venta abierta desde «Venta» en la ficha de la mesa no muestra a qué mesa pertenece («Venta en curso», «Historial» y lista de abiertas sin «Mesa 3»). En el bar, `caja1` (rol Caja) no tiene «Por mesa» (exige `hospitality.calls.read`) y no puede saber qué venta abierta es de qué mesa. Arreglo en curso: el validador del host devuelve una etiqueta y POS la guarda en el vínculo (`label` genérico), la venta la expone y el portal la muestra. ¿Dar «Por mesa» a Caja? Decisión del responsable.
+- [x] **Caso base del bar en navegador (14/11, admin):** botón simulado → llamado en mesa 3 → «Marcar en atención» → «Venta» desde la ficha → artículos (unidad y kg; 0,75 kg × $60.000,50 = $45.000,38 redondeo correcto) → 1,5 unidades rechazado → anular línea → cobro con tarjeta $16.000 → el llamado sigue «en atención» hasta «Finalizar» (independientes) → «Por mesa» retoma la misma venta → historial muestra la cobrada. Duplicado de nombre en minúsculas, precio negativo y con 3 decimales rechazados con mensaje claro. `caja1`: solo «Ventas» (Vender, Historial), URL forzada a tablero redirige.
+- [ ] **Hallazgo navegador (14/11):** «Por mesa» no distingue qué mesas tienen venta abierta; el catálogo lista primero decenas de artículos «Inactivo» de E2E; los campos del diálogo «Nuevo artículo» no tienen nombre accesible (lectores de pantalla).
+- [ ] **Hallazgo navegador (14/11):** Bar Demo no trae artículos de venta sembrados; el caso base del bar empieza con catálogo vacío.
 - `main` tiene 1 commit que no está en `pruebas` y `pruebas` 2 que no están en `main`; PR #22 abierto (sincronización). Base efectiva de esta rama: `18289d6`.
