@@ -9,7 +9,7 @@ Se copian de `.env.example` a `.env` (no se versiona). En producción no dejar n
 | Variable | Para qué |
 |---|---|
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Superusuario del contenedor `db`; solo crea esquemas y roles. |
-| `CORE_DB_PASSWORD`, `HOSPITALITY_DB_PASSWORD`, `COMMERCE_DB_PASSWORD`, `ANALYTICS_DB_PASSWORD` | Contraseña del rol `<dominio>_app`. `docker-compose.yml` arma `<DOMINIO>_DATABASE_URL`. Se leen **solo al crear el volumen** (`infra/postgres/init-schemas.sh`): cambiarlas después exige `ALTER ROLE`. |
+| `CORE_DB_PASSWORD`, `HOSPITALITY_DB_PASSWORD`, `COMMERCE_DB_PASSWORD`, `ANALYTICS_DB_PASSWORD`, `POS_DB_PASSWORD` | Contraseña del rol `<dominio>_app`. `docker-compose.yml` arma `<DOMINIO>_DATABASE_URL`. Se leen **solo al crear el volumen** (`infra/postgres/init-schemas.sh`): cambiarlas después exige `ALTER ROLE`. |
 | `MQTT_PASSWORD` | Usuario `api` del broker (`scripts/mqtt-user.sh api`). Vacía = la API no se suscribe. |
 | `DOMAIN` | Solo producción; obligatoria en `docker-compose.prod.yml`. Caddy saca el certificado. |
 | `SIM_*`, `SEED_PASSWORD` | Solo demo. El simulador no arranca en producción (perfil `demo`). |
@@ -34,6 +34,14 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml ps   # db health
   2. Si hubo daño de datos: restaurar el último backup (§5) y desplegar el commit anterior.
 - Antes de desplegar una migración destructiva, correr `scripts/backup.sh` a mano.
 - Nunca `prisma db push` ni `migrate dev` contra producción.
+- **Dominio nuevo en una base existente** (p. ej. `pos`): `init-schemas.sh` solo corre al crear el volumen. Antes de desplegar la versión que
+  lo trae, agregar `<DOMINIO>_DB_PASSWORD` al `.env`, recrear `db` para que reciba la variable y crear rol y esquema faltantes
+  (el script es idempotente: no toca roles, contraseñas ni esquemas que ya existen):
+
+  ```sh
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d db
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml exec db sh /docker-entrypoint-initdb.d/init-schemas.sh
+  ```
 
 ## 4. Seeds
 
