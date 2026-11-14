@@ -102,7 +102,8 @@ async function seedStockHistory(app: INestApplicationContext, ctx: StockContext,
       if (Number(row!.quantity.toString()) !== balance) throw new Error(`Saldo de ${p.name} (${row!.quantity}) no coincide con el historial (${balance})`);
     }
   } catch (e) {
-    if (e !== ALREADY_SEEDED) throw e;
+    // Sembrado otro día: la misma clave llega con otros datos y commerce responde idempotency_key_reused (409), también = ya sembrado.
+    if (e !== ALREADY_SEEDED && (e as { code?: string }).code !== 'idempotency_key_reused') throw e;
   }
   return count;
 }
