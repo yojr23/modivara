@@ -10,6 +10,7 @@ import {
 import {
   CALLS_API_PATHS as CA, GATEWAY_API_PATHS, GATEWAY_KEY_HEADER, HOSPITALITY_API_PATHS as HO, LAYOUTS_API_PATHS as LA, REALTIME_EVENTS as E, REALTIME_PATH,
 } from '@modivara/hospitality-contracts';
+import { POS_API_PATHS as PO } from '@modivara/pos-contracts';
 import { PASSWORD, startHost } from './testing.js';
 
 // SEC-07 + QA-06: matriz negativa rol × endpoint × negocio/local. Solo caminos de rechazo (el camino feliz ya lo cubren las demás suites).
@@ -73,6 +74,20 @@ const ROUTES: Route[] = [
   r('get', CM.reasons, 'commerce.stock.read'),
   r('post', CM.reasons, 'commerce.reasons.manage'),
   r('post', CM.reasonDeactivate, 'commerce.reasons.manage'),
+  r('get', PO.items, 'pos.sales.read'),
+  r('post', PO.items, 'pos.catalog.manage'),
+  r('patch', PO.item, 'pos.catalog.manage'),
+  r('post', PO.itemDeactivate, 'pos.catalog.manage'),
+  r('get', PO.settings, 'pos.sales.read'),
+  r('put', PO.settings, 'pos.catalog.manage'),
+  r('get', PO.sales, 'pos.sales.read'),
+  r('post', PO.sales, 'pos.sales.operate'),
+  r('get', PO.sale, 'pos.sales.read'),
+  r('post', PO.saleLines, 'pos.sales.operate'),
+  r('post', PO.saleLineVoid, 'pos.sales.operate'),
+  r('post', PO.saleComplete, 'pos.sales.operate'),
+  r('post', PO.saleVoid, 'pos.sales.void'),
+  r('post', PO.links, 'pos.sales.operate'),
 ];
 // Rutas sin sesión de usuario. Las del gateway se autentican con su clave; /health vive en AppModule y lo cubre health.int.test.ts.
 const PUBLIC_ROUTES = new Set(['post /auth/login', 'post /auth/logout', `post ${GATEWAY_API_PATHS.deviceEvents}`, `post ${GATEWAY_API_PATHS.heartbeat}`]);
@@ -360,3 +375,4 @@ describe('Socket.IO: lo que las suites de realtime aún no fijaban', () => {
     expect(await done).toBe('io server disconnect');
   });
 });
+

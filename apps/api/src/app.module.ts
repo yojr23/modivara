@@ -4,6 +4,7 @@ import { COMMERCE_OUTBOX, CommerceModule } from '@modivara/commerce-api';
 import { CORE_OUTBOX, CORE_PRISMA, CoreModule, coreGlobalProviders, Public } from '@modivara/core-api';
 import type { OutboxPoller } from '@modivara/core-contracts';
 import { HOSPITALITY_OUTBOX, HospitalityModule } from '@modivara/hospitality-api';
+import { POS_OUTBOX, PosModule } from '@modivara/pos-api';
 import { IntegrationSubscribersModule } from './integration-subscribers.module.js';
 
 @Controller('health')
@@ -15,6 +16,7 @@ export class HealthController {
     @Optional() @Inject(CORE_OUTBOX) private readonly coreOutbox?: OutboxPoller,
     @Optional() @Inject(HOSPITALITY_OUTBOX) private readonly hospitalityOutbox?: OutboxPoller,
     @Optional() @Inject(COMMERCE_OUTBOX) private readonly commerceOutbox?: OutboxPoller,
+    @Optional() @Inject(POS_OUTBOX) private readonly posOutbox?: OutboxPoller,
   ) {}
 
   /** Vivo: el proceso responde. `/health` queda como alias (demo, E2E). */
@@ -24,7 +26,7 @@ export class HealthController {
     return { status: 'ok' };
   }
 
-  /** Listo: además la base responde. ponytail: solo PostgreSQL (los 4 esquemas viven en la misma); sumar MQTT/outbox si el piloto lo pide. */
+  /** Listo: además la base responde. ponytail: solo PostgreSQL (todos los esquemas viven en la misma); sumar MQTT/outbox si el piloto lo pide. */
   @Public()
   @Get('ready')
   async ready() {
@@ -45,7 +47,7 @@ export class HealthController {
    * es pública (Caddy expone /api/*) y el estado interno no se publica. Si el recuento falla devuelve null (no tumba la sonda).
    */
   private async failedEvents(): Promise<Record<string, number | null>> {
-    const pollers = { core: this.coreOutbox, hospitality: this.hospitalityOutbox, commerce: this.commerceOutbox };
+    const pollers = { core: this.coreOutbox, hospitality: this.hospitalityOutbox, commerce: this.commerceOutbox, pos: this.posOutbox };
     const entries = await Promise.all(
       Object.entries(pollers).flatMap(([name, p]) => (p ? [p.countFailed().catch(() => null).then((n) => [name, n] as const)] : [])),
     );
@@ -59,7 +61,9 @@ const analytics = AnalyticsModule.forRoot();
 
 // El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio.
 @Module({
-  imports: [CoreModule.forRoot(), hospitality, commerce, analytics, IntegrationSubscribersModule.forDomains({ hospitality, commerce, analytics })],
+  imports: [
+    CoreModule.forRoot(), hospitality, commerce, analytics, PosModule.forRoot(), IntegrationSubscribersModule.forDomains({ hospitality, commerce, analytics }),
+  ],
   controllers: [HealthController],
   // Guards (Origin, sesión, permiso, módulo) y filtro de errores de core: valen para las rutas de todos los dominios.
   providers: [...coreGlobalProviders],

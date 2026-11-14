@@ -6,10 +6,13 @@ import { CORE_EVENT_SUBSCRIBER } from '@modivara/core-api';
 import { EVENT_HISTORY_READERS, INTEGRATION_EVENT_SUBSCRIBERS } from '@modivara/core-contracts';
 import { HOSPITALITY_EVENT_SUBSCRIBER } from '@modivara/hospitality-api';
 import { HOSPITALITY_EVENT_HISTORY } from '@modivara/hospitality-contracts';
+import { POS_REFERENCE_VALIDATORS } from '@modivara/pos-api';
+import { posReferenceValidators } from './integrations/hospitality-pos.js';
 
 /**
  * Registra también los lectores de historial de los emisores (EVENT_HISTORY_READERS, Q-09) que consume `analytics:rebuild`.
  * Registra los suscriptores de cada dominio bajo el token que inyectan los pollers de outbox (core, hospitality y commerce; analytics solo consume). El de core audita las acciones de plataforma de hospitality.
+ * También el validador de mesas de Hospitality para POS (POS_REFERENCE_VALIDATORS, POS-27); un host sin Hospitality no lo registra.
  * Global para que los módulos de dominio lo vean sin importarlo. Debe recibir los MISMOS objetos DynamicModule que importa el host
  * (así Nest los trata como una sola instancia). Cada suscriptor filtra por `handles(event_type)`.
  */
@@ -28,8 +31,8 @@ export class IntegrationSubscribersModule {
         provide: EVENT_HISTORY_READERS,
         inject: [HOSPITALITY_EVENT_HISTORY, COMMERCE_EVENT_HISTORY],
         useFactory: (...readers: unknown[]) => readers,
-      }],
-      exports: [INTEGRATION_EVENT_SUBSCRIBERS, EVENT_HISTORY_READERS],
+      }, posReferenceValidators],
+      exports: [INTEGRATION_EVENT_SUBSCRIBERS, EVENT_HISTORY_READERS, POS_REFERENCE_VALIDATORS],
     };
   }
 }
