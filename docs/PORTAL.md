@@ -14,13 +14,14 @@
 | `/<negocio>/app/espacios` | Editor de espacios y planos (L-05). | Módulo `hospitality` + `hospitality.tables.manage` |
 | `/<negocio>/app/metricas` | Métricas de llamados e inventario (F5-12). | Módulo `analytics` + `analytics.calls.read` o `analytics.inventory.read` |
 | `/<negocio>/app/inventario` | Registro de stock (F4-09). | Módulo `commerce` + `commerce.stock.read` |
+| `/<negocio>/app/ventas` | Ventas del POS horizontal (POS-23, POS-24, POS-30): Vender, Por mesa (solo con `hospitality` + `hospitality.calls.read`), Catálogo y Historial. `?venta=<id>` abre una venta. | Módulo `pos` + `pos.sales.read` |
 | `/<negocio>/app/usuarios` | Usuarios del negocio (F1-15). | `core.users.manage` en el local (sin módulo) |
 | `/labs/app/consola` | Consola de superadmin (F2-14, F3-15): gateways, botones y detectados sin asignar. | Permisos `platform.*` (solo superadmin; sin módulo) |
 | `/_tokens` | Muestra interna de la base visual (T6). | Interna |
 
 Si la URL es de otro negocio que el de la sesión, la app redirige al negocio real. La navegación solo oculta; la autorización la decide siempre el backend.
 
-Usuarios de demo (`pnpm seed`): `bar-demo/{admin,barra,mesero1,inventario1}`, `bar-demo-pisos/admin`, `labs/superadmin`. La clave es la de `SEED_PASSWORD`.
+Usuarios de demo (`pnpm seed`): `bar-demo/{admin,barra,mesero1,inventario1,caja1}`, `bar-demo-pisos/admin` (sin `pos`), `tienda-demo/admin` (solo `pos`), `labs/superadmin`. La clave es la de `SEED_PASSWORD`.
 
 ## Estructura del código
 
@@ -49,6 +50,8 @@ Las pantallas usan solo los hooks públicos de cada `domains/<d>/web` (TanStack 
 **Métricas** (`app/Metrics.tsx`): `useServiceCallMetrics` (todo el local y, al elegir una mesa, con `table_id`) sobre el plano publicado teñido por área; `useInventoryMetrics` (una consulta de todo el local: `by_product` da salidas y cantidades por producto; otra con `product_id` para la serie del producto elegido) con `useProducts` para la unidad y `useMovements` para los últimos movimientos.
 
 **Inventario** (`app/Inventory.tsx`): `useProducts`, `useStockLocations` (lugar por defecto), `useBalances`, `useMovements` (lo de hoy, desde el inicio del día **del local**, `location.timezone`), `useReasons`, `useRegisterMovement`/`useAdjustToCount` con `Idempotency-Key` por intento (se renueva solo tras un éxito) y `useCreateProduct`. «Ver historial» (`HistoryView`): `useMovementPages`, filtros de producto, tipo y rango de fechas (días del local) en el servidor, paginación por cursor `(occurred_at, id)` y «Cargar más» (pide una fila de más solo para saber si hay otra página); cada fila muestra motivo, fecha y quién registró. El producto se elige con botones `aria-pressed` agrupados por categoría y «Nuevo producto» es un `<dialog>` nativo (`Modal` de `ui.tsx`: Escape, foco atrapado y devuelto al disparador). Las fechas de inventario usan `fmtWhen(…, tz)`/`dayKey`/`dayStart` de `format.ts`. Vista «Lugares y motivos» (`app/InventorySettings.tsx`, con `commerce.reasons.manage` o `commerce.catalog.manage`): `useStockLocations`/`useCreateStockLocation` (alta; sin renombrar ni desactivar), `useReasons`/`useCreateReason`/`useDeactivateReason` (agrupados por dirección, desactivar con confirmación; el registro rápido solo ofrece los activos) (F4-10).
+
+**Ventas** (`app/Sales.tsx`, POS-001): hooks de `pos-web` (`useSellableItems`, `usePosSettings`, `useSales`, `useSale`, mutaciones con `Idempotency-Key` por intento). Vender: catálogo con búsqueda por nombre o SKU, ticket abierto con líneas (anular deja la línea tachada), total, cobro declarado (un medio) y un solo primario «Cobrar»; mientras la venta de `?venta=` no carga, el catálogo y «Nueva venta» quedan deshabilitados. Catálogo (`pos.catalog.manage`): alta y edición de artículos (unidad no editable) y moneda del local. Historial paginado por cursor `(opened_at, id)`. 409 `sale_not_open` (otra persona la cerró) recarga y avisa. Ninguna pantalla nombra un rubro. **Por mesa** y la acción «Venta» de la ficha de la mesa del tablero son composición del portal: piden `POST …/pos/links` con `{provider: 'hospitality', resource_type: 'table', resource_id}`; sin módulo `pos` o sin `pos.sales.operate` el tablero no muestra la acción ni llama a POS.
 
 **Usuarios** (`app/Users.tsx`): `useUsers` (lista con búsqueda; tarjetas en celular), `useCreateUser` + `useSetLocationRoles` (crear exige local y roles; si el segundo paso falla se avisa con un aviso fijo), por usuario `useSetLocationRoles`, `useResetPassword` (se pide la clave nueva; la API no devuelve ninguna), `useRevokeUserSessions` y `useDeactivateUser` con `<dialog>` (no a uno mismo). Valida con `usernameSchema`/`passwordSchema` de core-contracts. `GET /users` trae los roles por local (`locations`) que el actor puede ver; la lista los muestra y el panel los precarga. No trae desactivados: un usuario desactivado sale de la lista.
 

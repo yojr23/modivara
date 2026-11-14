@@ -418,18 +418,28 @@ No abrir cinco repositorios ni introducir microservicios por adelantado. **Sí m
 
 ---
 
-## Estado (13/11/2026, rama `pos/mesas`)
+## Estado (14/11/2026, rama `pos/mesas`)
 
-Decisión del responsable (13/11): solo lo desbloqueado mientras no existan ADR-006 ni MOD-10/12/13 en `pruebas`; agregado `Sale`/`SaleLine`.
+13/11: el responsable pidió primero solo lo desbloqueado y luego «completa todo el plan». Como `test/plan-003-modularidad` no existe, esta rama redacta `ADR-006` (Propuesto) y hace la composición mínima que necesita POS; no implementa MOD-10/12/13 de PLAN-003. Decisiones: agregado `Sale`/`SaleLine`; rol `cashier` («Caja»).
 
 | ID | Estado |
 |---|---|
-| POS-01 | Hecho. Línea base sobre `130eadb`: `pnpm build`, `typecheck`, `test` y `check:separability` en verde. `test:integration` y `test:e2e` no se corrieron (sin cambios de BD ni pantallas). |
-| POS-02, POS-03 | Bloqueados: esperan ADR-006. `ADR-005` sin anotar. |
-| POS-04 | Borrador en `docs/POS-001_especificacion_pos_horizontal.md` (decisiones §7 provisionales, matriz de permisos propuesta). |
-| POS-05 | Hecho: `domains/pos/contracts` y `domains/pos/api`; `check:separability` los detecta. `domains/pos/web` se crea con POS-22 (no hay API que consumir aún). |
-| POS-10, POS-11 | Hechos: `SellableItem`, precios NUMERIC(14,2) y cantidades NUMERIC(12,3) en bigint, redondeo mitad hacia arriba. |
-| POS-12 | Hecho: `Sale` abre sin contexto, agrega/anula líneas con snapshot, cierra con cobro declarado y registra `pos.sale.completed.v1`; anula ventas abiertas. |
-| POS-13 | Hecho: casos de uso y puertos sin Nest ni Prisma; pruebas con repositorios en memoria (zapatería, cafetería y servicios con el mismo flujo). |
-| POS-39 | Adelantado: `domains/pos/api/src/agnosticism.test.ts` falla si el código de POS menciona mesas, rubros o depende de otros productos. |
-| POS-06…09, POS-14…38, POS-40…43 | Pendientes; POS-06/07/14 en adelante esperan ADR-006 y la composición de PLAN-003. |
+| POS-01 | Hecho: línea base verde sobre `130eadb`. |
+| POS-02, POS-03 | Hechos: `ADR-006` (Propuesto, aprobación formal pendiente), nota de supersesión en `ADR-005`, punteros en STATUS-001 y README. ADR-001/002/003 intactos. |
+| POS-04 | Hecho: `docs/POS-001_especificacion_pos_horizontal.md` (lenguaje, decisiones §7 del plan, permisos, diseño). |
+| POS-05 | Hecho: `domains/pos/{contracts,api,web}`; `check:separability` los compila y prueba solos. |
+| POS-06 | Hecho: módulo `pos`, permisos `pos.*`, rol `cashier`, migración core `0003_pos_module`. |
+| POS-07 | Hecho: esquema `pos`, rol `pos_app`, `POS_DATABASE_URL`, migraciones `0001_init` y `0002_idempotency_scope`; `init-schemas.sh` idempotente para bases existentes (OPERACION-001 §3). |
+| POS-08 | Hecho: `PosModule` en el host; prueba `apps/api/src/e2e/core-pos.int.test.ts` con un host solo Core + POS. La composición configurable general sigue siendo MOD-13 de PLAN-003. |
+| POS-09 | Hecho: moneda por local (`settings`, COP por defecto), catálogo, permisos y navegación propios; seed `tienda-demo` solo con `pos`. |
+| POS-10…13 | Hechos: `SellableItem`, `Sale`, decimales exactos, casos de uso sin Nest ni Prisma. |
+| POS-14, POS-15 | Hechos: persistencia con `FOR UPDATE`, FK compuestas, índices únicos parciales (catálogo y vínculo activo), CHECK de unidades enteras. |
+| POS-16…21 | Hechos: API REST (`POS-001` §7), guards de módulo y permiso, idempotencia con replay/reuse, outbox `pos.sale.completed.v1`, tres rubros por los mismos endpoints, pruebas de concurrencia y aislamiento. |
+| POS-22…26 | Hechos: `pos-web`, pantalla «Ventas», E2E `e2e/pos.spec.ts` (POS-only en escritorio y 390 px). Revocación de POS (T12) cubierta en integración, no en E2E. |
+| POS-27…31 | Hechos: validador `hospitality` en `apps/api/src/integrations/hospitality-pos.ts`, una venta abierta por mesa bajo concurrencia, acción «Venta» en el tablero, «Por mesa» en celular sin plano, E2E `e2e/pos-tables.spec.ts` y regresión Hospitality-only. |
+| POS-32…38 | Fuera de esta rama (por plan). |
+| POS-39 | Hecho: `domains/pos/api/src/agnosticism.test.ts` (corre en `pnpm test` y `check:separability`). |
+| POS-40…42 | Hechos en integración: Core + POS solo, matriz de entitlements y permisos (incluye revocar), robustez de cierre, vínculo e idempotencia. |
+| POS-43 | Hecho: build, typecheck, test, separabilidad, integración y E2E (41) en verde; revisiones de Codex aplicadas. |
+
+**Pendiente del responsable:** aprobar ADR-006; revisar en el navegador la pantalla «Ventas» y la acción «Venta» del tablero antes de pasar a `main`; decidir si vincular una mesa debe exigir también `hospitality.calls.read` (hoy basta `pos.sales.operate`); qué pasa con artículos en otra moneda al cambiar la moneda del local (hoy no se pueden vender: `currency_mismatch`). **Límites:** cobro declarado, sin pagos procesados, impuestos ni factura electrónica.
