@@ -15,6 +15,12 @@ describe('findDependencyViolations', () => {
     const v = findDependencyViolations([{ name: '@modivara/hospitality-api', deps: ['@modivara/core-api', '@modivara/commerce-web'] }]);
     expect(v).toHaveLength(2);
   });
+
+  it('MOD-11: core no depende de ningún otro dominio, ni de sus contracts (regresión core-api → hospitality-contracts)', () => {
+    const pkg = { name: '@modivara/core-api', dependencies: { '@modivara/core-contracts': 'workspace:*', '@modivara/hospitality-contracts': 'workspace:*' } };
+    const v = findDependencyViolations([{ name: pkg.name, deps: Object.keys(pkg.dependencies) }]);
+    expect(v).toEqual(['@modivara/core-api depende de @modivara/hospitality-contracts: core no puede depender de otro dominio']);
+  });
 });
 
 describe('findImportViolations', () => {
@@ -30,6 +36,14 @@ describe('findImportViolations', () => {
   it('rechaza rutas relativas que salen del dominio', () => {
     expect(check(`import { u } from '../../../../core/api/src/domain/user.js';`)).toHaveLength(1);
     expect(check(`export * from '../../../../commerce/contracts/src/index.js';`)).toHaveLength(1);
+  });
+
+  it('un dominio solo importa contracts ajenos; core no importa ningún dominio (aunque no esté en package.json)', () => {
+    expect(check(`import { a } from '@modivara/commerce-contracts';\nimport { b } from '@modivara/commerce-api';\nimport { c } from '@modivara/hospitality-api';`)).toHaveLength(1);
+    const coreRoot = path.resolve('/repo/domains/core');
+    const core = (content) => findImportViolations([{ file: path.join(coreRoot, 'api/src/presentation/x.ts'), unitRoot: coreRoot, content }]);
+    expect(core(`import { platformActionRecordedEventSchema } from '@modivara/hospitality-contracts';`)).toHaveLength(1);
+    expect(core(`import { a } from '@modivara/core-contracts';`)).toEqual([]);
   });
 });
 

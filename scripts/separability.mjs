@@ -3,31 +3,51 @@ import path from 'node:path';
 
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"]([^'"]+)['"]/g;
 
-/** Un paquete de domains/ solo puede depender de `@modivara/*-contracts`. */
+const DOMAIN_PKG = /^@modivara\/([a-z]+)-(?:api|web|contracts)$/;
+
+/**
+ * ¿Puede un paquete del dominio `from` depender de `dep`? Del propio dominio, sí; de otro dominio, solo de su `*-contracts`;
+ * core (infraestructura compartida, MOD-11) no depende de ningún otro dominio.
+ */
+function dependencyProblem(from, dep) {
+  if (!dep.startsWith('@modivara/')) return null;
+  const to = DOMAIN_PKG.exec(dep)?.[1];
+  if (to === from) return null;
+  if (from === 'core') return 'core no puede depender de otro dominio';
+  return dep.endsWith('-contracts') ? null : 'un dominio solo puede depender de *-contracts';
+}
+
+/** Dependencias de package.json de los paquetes de domains/ (`name` = `@modivara/<dominio>-<api|web|contracts>`). */
 export function findDependencyViolations(pkgs) {
-  return pkgs.flatMap(({ name, deps }) =>
-    deps
-      .filter((dep) => dep.startsWith('@modivara/') && !dep.endsWith('-contracts'))
-      .map((dep) => `${name} depende de ${dep}: un dominio solo puede depender de *-contracts`),
-  );
+  return pkgs.flatMap(({ name, deps }) => {
+    const from = DOMAIN_PKG.exec(name)?.[1];
+    return deps.flatMap((dep) => {
+      const problem = dependencyProblem(from, dep);
+      return problem ? [`${name} depende de ${dep}: ${problem}`] : [];
+    });
+  });
 }
 
 /**
  * Cada archivo pertenece a una unidad (domains/<d> o apps/<a>):
  * - nunca importa rutas internas de un paquete (`@modivara/x/...`);
- * - sus imports relativos no salen de su unidad.
+ * - sus imports relativos no salen de su unidad;
+ * - en domains/<d>, los imports de otros dominios cumplen la misma regla que las dependencias (aunque falte en package.json).
  */
 export function findImportViolations(files) {
-  return files.flatMap(({ file, unitRoot, content }) =>
-    [...content.matchAll(SPECIFIER)].flatMap(([, spec]) => {
+  return files.flatMap(({ file, unitRoot, content }) => {
+    const domain = /[\\/]domains[\\/]([^\\/]+)$/.exec(unitRoot)?.[1];
+    return [...content.matchAll(SPECIFIER)].flatMap(([, spec]) => {
       if (/^@modivara\/[^/]+\/.+/.test(spec)) return [`${file}: importa ruta interna ${spec}; usa solo el index del paquete`];
+      const problem = domain && dependencyProblem(domain, spec);
+      if (problem) return [`${file}: importa ${spec}: ${problem}`];
       if (spec.startsWith('.')) {
         const target = path.resolve(path.dirname(file), spec);
         if (target !== unitRoot && !target.startsWith(unitRoot + path.sep)) return [`${file}: ${spec} sale de ${unitRoot}`];
       }
       return [];
-    }),
-  );
+    });
+  });
 }
 
 const FRAMEWORK = /^(@nestjs\/|@prisma\/|zod$|react($|\/)|react-dom)/;
