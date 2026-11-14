@@ -10,7 +10,7 @@ import {
 import {
   CALLS_API_PATHS as CA, GATEWAY_API_PATHS, GATEWAY_KEY_HEADER, HOSPITALITY_API_PATHS as HO, LAYOUTS_API_PATHS as LA, REALTIME_EVENTS as E, REALTIME_PATH,
 } from '@modivara/hospitality-contracts';
-import { POS_API_PATHS as PO } from '@modivara/pos-contracts';
+import { IDEMPOTENCY_KEY_HEADER, POS_API_PATHS as PO } from '@modivara/pos-contracts';
 import { PASSWORD, startHost } from './testing.js';
 
 // SEC-07 + QA-06: matriz negativa rol × endpoint × negocio/local. Solo caminos de rechazo (el camino feliz ya lo cubren las demás suites).
@@ -376,3 +376,49 @@ describe('Socket.IO: lo que las suites de realtime aún no fijaban', () => {
   });
 });
 
+describe('POS: rol, módulo y entitlement (POS-41)', () => {
+  const POS_ROUTES = ROUTES.filter((x) => x.permission?.startsWith('pos.'));
+  const key = () => ({ [IDEMPOTENCY_KEY_HEADER]: crypto.randomUUID() });
+
+  it('caja vende y consulta; admin además gestiona catálogo y anula', async () => {
+    const admin = cookies.get('bar-demo/admin'), caja = cookies.get('bar-demo/caja1');
+    const base = `/locations/${demoLocation}/pos`;
+    const item = await call(admin, 'post', `${base}/items`, { name: 'Matriz POS', unit: 'unit', price: '1000' });
+    expect(item.status).toBe(201);
+    expect((await call(caja, 'get', `${base}/items`)).status).toBe(200);
+    expect((await call(caja, 'get', `${base}/settings`)).status).toBe(200);
+    const opened = await call(caja, 'post', `${base}/sales`, {}, key());
+    expect(opened.status).toBe(201);
+    const saleId = opened.body.sale.id as string;
+    expect((await call(caja, 'post', `${base}/sales/${saleId}/lines`, { sellable_item_id: item.body.id, quantity: '1' }, key())).status).toBe(201);
+    expect((await call(caja, 'get', `${base}/sales/${saleId}`)).status).toBe(200);
+    expect((await call(caja, 'post', `${base}/sales/${saleId}/void`, {}, key())).status).toBe(403);
+    expect((await call(admin, 'post', `${base}/sales/${saleId}/void`, {}, key())).status).toBe(201);
+    expect((await call(admin, 'put', `${base}/settings`, { currency: 'COP' })).status).toBe(200);
+  });
+
+  it.each(POS_ROUTES.map((x) => [label(x), x] as const))('negocio sin pos (bar-demo-pisos), aun admin: 403 module_disabled en %s', async (_n, route) => {
+    const res = await call(cookies.get('bar-demo-pisos/admin'), route.method, fill(route.path, pisosLocation), withBody(route), key());
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ code: 'module_disabled' });
+  });
+
+  it('revocar el entitlement pos: 403 al instante, también para admin; reactivarlo lo devuelve', async () => {
+    const db = h.get<{ $executeRawUnsafe(sql: string): Promise<unknown> }>('CORE_PRISMA');
+    const set = (enabled: boolean) =>
+      db.$executeRawUnsafe(`UPDATE entitlements SET enabled = ${enabled} WHERE module = 'pos' AND organization_id = '${h.organizationId}'`);
+    const sales = `/locations/${demoLocation}/pos/sales`;
+    expect((await call(cookies.get('bar-demo/admin'), 'get', sales)).status).toBe(200);
+    await set(false);
+    try {
+      for (const who of ['bar-demo/admin', 'bar-demo/caja1']) {
+        const res = await call(cookies.get(who), 'get', sales);
+        expect([res.status, res.body.code]).toEqual([403, 'module_disabled']);
+      }
+      expect((await call(cookies.get('bar-demo/caja1'), 'post', sales, {}, key())).status).toBe(403);
+    } finally {
+      await set(true);
+    }
+    expect((await call(cookies.get('bar-demo/caja1'), 'get', sales)).status).toBe(200);
+  });
+});
