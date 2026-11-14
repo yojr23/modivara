@@ -6,7 +6,7 @@ import { CircleAlert, CircleMinus, CirclePlus, Minus, Package, PackagePlus, Plus
 import { useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen, unitWord } from './format';
+import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen, parseDecimal, unitWord } from './format';
 import InventorySettings from './InventorySettings';
 import { Bone, EmptyState, ErrorState, Modal, Page, Segmented, useApp, useToast } from './ui';
 
@@ -127,18 +127,22 @@ function Problem({ text }: { text: string }) {
   return <p role="alert" className="anim-rise flex gap-2 rounded-md border border-danger/40 bg-danger/6 px-3 py-2.5 text-sm"><CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-danger" />{text}</p>;
 }
 
-/** Cantidad con − y + del tamaño del dedo; el teclado numérico sigue funcionando. */
+/**
+ * Cantidad con − y + del tamaño del dedo. Texto con teclado decimal (no `type="number"`): con la coma de es-CO el navegador
+ * descartaba la coma y «0,5» llegaba como 5.
+ */
 function Quantity({ value, onChange, unit, label }: { value: string; onChange: (v: string) => void; unit: Unit; label: string }) {
-  const n = Number(value) || 0;
+  const n = parseDecimal(value) || 0;
   const s = step(unit);
+  const set = (x: number) => onChange(String(Math.round(x * 1000) / 1000).replace('.', ','));
   return (
     <div className="flex items-stretch gap-2">
-      <Button variant="secondary" aria-label="Menos" className="w-12 px-0" onClick={() => onChange(String(Math.max(0, n - s)))}><Minus aria-hidden className="size-4" /></Button>
+      <Button variant="secondary" aria-label="Menos" className="w-12 px-0" onClick={() => set(Math.max(0, n - s))}><Minus aria-hidden className="size-4" /></Button>
       <div className="relative flex-1">
-        <input aria-label={label} inputMode="decimal" type="number" min={0} step="any" value={value} onChange={(e) => onChange(e.target.value)} className={cn(input, 'pr-20 text-center font-display text-xl font-bold tabular-nums')} />
+        <input aria-label={label} inputMode="decimal" type="text" autoComplete="off" value={value} onChange={(e) => onChange(e.target.value)} className={cn(input, 'pr-20 text-center font-display text-xl font-bold tabular-nums')} />
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted">{unitWord(unit, n)}</span>
       </div>
-      <Button variant="secondary" aria-label="Más" className="w-12 px-0" onClick={() => onChange(String(n + s))}><Plus aria-hidden className="size-4" /></Button>
+      <Button variant="secondary" aria-label="Más" className="w-12 px-0" onClick={() => set(n + s)}><Plus aria-hidden className="size-4" /></Button>
     </div>
   );
 }
@@ -159,13 +163,15 @@ function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductD
   // Una clave por intención: reintentar lo mismo no duplica; cambiar cantidad, tipo o motivo es otro movimiento (la API rechaza la misma clave con otros datos).
   const key = useMemo(() => newIdempotencyKey(), [product.id, direction, reasonId, qty]);
   const bal = inv.balance(product.id);
-  const n = Number(qty);
-  const diff = direction === 'adjust' && qty !== '' ? n - bal : null;
+  const n = parseDecimal(qty);
+  const valid = !Number.isNaN(n);
+  const diff = direction === 'adjust' && valid ? n - bal : null;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (qty.trim() !== '' && !valid) return setError('Escribe la cantidad con números, por ejemplo 2 o 0,5 (hasta 3 decimales).');
     if (!reasonId) return setError('Elige el motivo.');
-    const err = await inv.register({ productId: product.id, direction, reasonId, quantity: qty === '' ? NaN : n, note, key });
+    const err = await inv.register({ productId: product.id, direction, reasonId, quantity: n, note, key });
     setError(err);
     if (!err) { setQty(''); setNote(''); }
   }
@@ -197,7 +203,7 @@ function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductD
       )}
       {error && <Problem text={error} />}
       <Button type="submit" size="lg" className="w-full" disabled={inv.busy}>
-        {inv.busy ? 'Registrando…' : direction === 'adjust' && qty !== '' ? `Ajustar a ${fmtQty(n, product.unit)}` : DIR[direction].verb}
+        {inv.busy ? 'Registrando…' : direction === 'adjust' && valid ? `Ajustar a ${fmtQty(n, product.unit)}` : DIR[direction].verb}
       </Button>
     </form>
   );
