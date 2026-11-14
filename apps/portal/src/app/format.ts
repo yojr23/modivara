@@ -56,6 +56,19 @@ export function fmtWhen(isoOrMs: string | number, tz?: string) {
   return `${prefix} ${dtf(tz, { hour: '2-digit', minute: '2-digit', hour12: false }).format(ms)}`;
 }
 
+const moneyFmts = new Map<string, Intl.NumberFormat>();
+/**
+ * Importe del contrato («12000.50») en su moneda: «$ 12.000,50»; sin centavos no los muestra («$ 12.000»).
+ * ponytail: Number solo para mostrar; exacto porque el contrato admite ≤ 14 dígitos (12 enteros + 2 decimales). Los cálculos van en bigint.
+ */
+export function fmtMoney(amount: string, currency: string) {
+  const digits = /\.\d*[1-9]/.test(amount) ? 2 : 0;
+  const k = `${currency}|${digits}`;
+  let f = moneyFmts.get(k);
+  if (!f) moneyFmts.set(k, (f = new Intl.NumberFormat('es-CO', { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits })));
+  return f.format(Number(amount));
+}
+
 /** «hace 40 s», «hace 5 min», «hace 3 h», «hace 2 d» desde un instante hasta `now` (ms). */
 export function agoLabel(from: number, now: number) {
   const s = Math.max(0, Math.floor((now - from) / 1000));

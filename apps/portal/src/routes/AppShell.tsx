@@ -1,7 +1,7 @@
 import { PERMISSIONS, type ModuleName } from '@modivara/core-contracts';
 import { useLogout, useSession } from '@modivara/core-web';
 import { RealtimeProvider } from '@modivara/hospitality-web';
-import { ChartColumn, ConciergeBell, Cable, History as HistoryIcon, Map as MapIcon, Package, Users as UsersIcon, type LucideIcon } from 'lucide-react';
+import { ChartColumn, ConciergeBell, Cable, History as HistoryIcon, Map as MapIcon, Package, Receipt, Users as UsersIcon, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Navigate, Outlet, useParams } from 'react-router';
 import Board from '@/app/Board';
@@ -9,6 +9,7 @@ import Console from '@/app/Console';
 import History from '@/app/History';
 import Inventory from '@/app/Inventory';
 import Metrics from '@/app/Metrics';
+import Sales from '@/app/Sales';
 import Spaces from '@/app/Spaces';
 import Users from '@/app/Users';
 import { AppContext, EmptyState, Wordmark, type Location, type Permission, useApp } from '@/app/ui';
@@ -22,6 +23,7 @@ const SCREENS: { id: string; label: string; Icon: LucideIcon; module?: ModuleNam
   { id: 'tablero', label: 'Tablero', Icon: ConciergeBell, module: 'hospitality', perms: ['hospitality.calls.read'], element: <Board /> },
   { id: 'historial', label: 'Historial', Icon: HistoryIcon, module: 'hospitality', perms: ['hospitality.calls.read'], element: <History /> },
   { id: 'espacios', label: 'Espacios', Icon: MapIcon, module: 'hospitality', perms: ['hospitality.tables.manage'], element: <Spaces /> },
+  { id: 'ventas', label: 'Ventas', Icon: Receipt, module: 'pos', perms: ['pos.sales.read'], element: <Sales /> },
   { id: 'metricas', label: 'Métricas', Icon: ChartColumn, module: 'analytics', perms: ['analytics.calls.read', 'analytics.inventory.read'], element: <Metrics /> },
   { id: 'inventario', label: 'Inventario', Icon: Package, module: 'commerce', perms: ['commerce.stock.read'], element: <Inventory /> },
   // Usuarios es de core: sin módulo, solo el permiso en el local activo.

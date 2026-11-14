@@ -161,6 +161,12 @@ importers:
       '@modivara/hospitality-web':
         specifier: workspace:*
         version: link:../../domains/hospitality/web
+      '@modivara/pos-contracts':
+        specifier: workspace:*
+        version: link:../../domains/pos/contracts
+      '@modivara/pos-web':
+        specifier: workspace:*
+        version: link:../../domains/pos/web
       '@radix-ui/react-slot':
         specifier: 1.5.0
         version: 1.5.0(@types/react@19.3.0)(react@19.3.1)

@@ -16,7 +16,7 @@ const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { sta
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-function mount(path: string, fetchImpl: () => Promise<Response>) {
+function mount(path: string, fetchImpl: (url: string, init?: RequestInit) => Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(fetchImpl));
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   const client = new QueryClient();
@@ -53,6 +53,65 @@ it('un 401 de cualquier consulta limpia la sesión y redirige', async () => {
   // consulta cualquiera del portal que recibe 401
   await client.fetchQuery({ queryKey: ['x'], queryFn: async () => { const r = await fetch('/api/v1/x'); if (r.status === 401) throw Object.assign(new (await import('@modivara/core-web')).ApiRequestError(401, 'session_expired')); } }).catch(() => {});
   await waitFor(() => expect(router.state.location.pathname).toBe('/demo'));
+});
+
+it('Ventas aparece con el módulo pos y pos.sales.read; sin el módulo, no', async () => {
+  const api = (m: ReturnType<typeof me>) => async (url: string) => json(url.endsWith('/me') ? m : []);
+  const { router } = mount('/demo/app', api(me(['pos'], ['pos.sales.read'])));
+  await waitFor(() => expect(router.state.location.pathname).toBe('/demo/app/ventas'));
+  const [nav] = await screen.findAllByRole('navigation', { name: 'Módulos' });
+  expect(within(nav!).getByText('Ventas')).toBeTruthy();
+  expect(await screen.findByText('Aún no hay ventas cobradas')).toBeTruthy(); // solo lectura: abre el historial
+  expect(screen.queryByRole('button', { name: 'Vender' })).toBeNull();
+  cleanup();
+
+  mount('/demo/app', api(me(['commerce'], ['commerce.stock.read', 'pos.sales.read'])));
+  const [nav2] = await screen.findAllByRole('navigation', { name: 'Módulos' });
+  expect(within(nav2!).queryByText('Ventas')).toBeNull();
+});
+
+it('Vender: tocar un artículo abre la venta y agrega la línea con Idempotency-Key; Cobrar la cierra con el medio elegido', async () => {
+  const S = ID(4);
+  const item = { id: ID(5), name: 'Café', sku: null, category: null, unit: 'unit', price: '5000.00', currency: 'COP', active: true };
+  const line = { id: ID(6), sellable_item_id: item.id, sku: null, name: 'Café', unit: 'unit', unit_price: '5000.00', quantity: '2.000', line_total: '10000.00', added_at: '2026-11-13T10:00:00.000Z', voided_at: null };
+  let sale = { id: S, currency: 'COP', status: 'open', total: '0.00', payment_method: null as string | null, opened_at: '2026-11-13T10:00:00.000Z', opened_by: ID(3), closed_at: null as string | null, closed_by: null as string | null, lines: [] as unknown[] };
+  const calls: { method: string; url: string; body?: unknown; key?: string }[] = [];
+  const base = `/api/v1/locations/${ID(2)}/pos`;
+  const { router } = mount('/demo/app/ventas', async (url, init) => {
+    const method = init?.method ?? 'GET';
+    if (method !== 'GET') calls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined, key: (init?.headers as Record<string, string>)['Idempotency-Key'] });
+    if (url.endsWith('/me')) return json(me(['pos'], ['pos.sales.read', 'pos.sales.operate']));
+    if (url === `${base}/items`) return json([item]);
+    if (url.startsWith(`${base}/sales?`)) return json([]);
+    if (url === `${base}/sales/${S}`) return json(sale);
+    if (url === `${base}/sales`) return json({ sale, replayed: false }, 201);
+    if (url === `${base}/sales/${S}/lines`) sale = { ...sale, total: '10000.00', lines: [line] };
+    if (url === `${base}/sales/${S}/complete`) sale = { ...sale, status: 'completed', payment_method: 'card', closed_at: '2026-11-13T10:05:00.000Z', closed_by: ID(3) };
+    return json({ sale, replayed: false }, 201);
+  });
+
+  const qty = await screen.findByLabelText('Cantidad');
+  fireEvent.change(qty, { target: { value: '1,5' } });
+  fireEvent.click(screen.getByRole('button', { name: /Café/ }));
+  expect((await screen.findByRole('alert')).textContent).toMatch(/por unidad/); // `unit` solo admite enteros
+  expect(calls).toEqual([]);
+
+  fireEvent.change(qty, { target: { value: '2' } });
+  fireEvent.click(screen.getByRole('button', { name: /Café/ }));
+  await screen.findByRole('button', { name: 'Anular Café' });
+  await waitFor(() => expect(router.state.location.search).toBe(`?venta=${S}`)); // enlazable desde otras pantallas
+  expect(calls.map((c) => [c.method, c.url, c.body])).toEqual([
+    ['POST', `${base}/sales`, undefined],
+    ['POST', `${base}/sales/${S}/lines`, { sellable_item_id: item.id, quantity: '2' }],
+  ]);
+  expect(calls.every((c) => /^[0-9a-f-]{36}$/.test(c.key ?? ''))).toBe(true);
+
+  fireEvent.change(screen.getByLabelText('Medio de pago'), { target: { value: 'card' } });
+  fireEvent.click(screen.getByRole('button', { name: /^Cobrar/ }));
+  expect(await screen.findByText(/Venta cobrada: \$\s10\.000 en tarjeta/)).toBeTruthy();
+  expect(calls[2]).toMatchObject({ method: 'POST', url: `${base}/sales/${S}/complete`, body: { payment_method: 'card' } });
+  await waitFor(() => expect(router.state.location.search).toBe(''));
+  expect(screen.getByText('Toca un artículo para empezar una venta.')).toBeTruthy();
 });
 
 it('la portada pide el negocio, valida el slug y lleva a su login', async () => {
