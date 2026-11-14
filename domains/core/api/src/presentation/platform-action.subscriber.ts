@@ -1,5 +1,4 @@
-import { type IntegrationEvent, type IntegrationEventSubscriber } from '@modivara/core-contracts';
-import { platformActionRecordedEventSchema } from '@modivara/hospitality-contracts';
+import { type IntegrationEvent, type IntegrationEventSubscriber, platformActionRecordedEventSchema } from '@modivara/core-contracts';
 import type { AuditLog } from '../application/ports/index.js';
 
 /**
