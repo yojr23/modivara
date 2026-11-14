@@ -66,6 +66,11 @@ export interface SaleStore {
    * y guarda venta, líneas, eventos y clave; si la venta ya no está abierta, desactiva sus vínculos. Todo o nada.
    */
   mutate(query: ScopedId, idem: IdempotencyKey, work: (sale: Sale) => void): Promise<SaleWrite>;
+  /**
+   * Resultado ya confirmado para la clave: misma operación y petición → la venta en su estado actual (`replayed`); otra →
+   * `IdempotencyKeyReusedError`; clave nueva → null. Permite responder un reintento sin repetir validaciones externas.
+   */
+  findReplay(query: LocationScope, idem: IdempotencyKey): Promise<SaleWrite | null>;
   findById(query: ScopedId): Promise<Sale | null>;
   findByActiveLink(query: LocationScope & ExternalLink): Promise<Sale | null>;
   /** Más recientes primero por (opened_at desc, id desc); `after` = cursor de la última fila de la página anterior. */

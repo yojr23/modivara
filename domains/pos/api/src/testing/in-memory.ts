@@ -72,6 +72,10 @@ export class InMemorySales implements SaleStore {
     return { sale: Sale.restore(sale.toProps()), replayed: false };
   }
 
+  async findReplay(scope: LocationScope, idem: IdempotencyKey) {
+    return this.replay(scope, idem);
+  }
+
   async findById(q: ScopedId) {
     const p = this.rows.get(q.id);
     return p && inScope(p, q) ? Sale.restore(p) : null;

@@ -200,6 +200,10 @@ describe('reglas de la venta por HTTP', () => {
     expect(completed.length).toBeGreaterThan(0);
     expect(completed.every((s) => s.status === 'completed')).toBe(true);
     expect((await t.as(cashier).get(path(cafe, '/sales?cursor=basura'))).status).toBe(400);
+    // Pasa la forma del cursor pero la fecha es imposible o no canónica: 400, nunca un Invalid Date hacia la base.
+    for (const ts of ['2026-99-99T99:99:99Z', '2026-02-30T10:00:00.000Z', '2026-11-14T10:00:00Z']) {
+      expect((await t.as(cashier).get(path(cafe, `/sales?cursor=${ts}_${all[0]!.id}`))).status).toBe(400);
+    }
   });
 });
 

@@ -51,6 +51,28 @@ describe('vincular una venta a una mesa (adaptador hospitality)', () => {
     }
   });
 
+  it('reintento con la misma clave tras desactivar la mesa o revocar hospitality: la venta ya confirmada', async () => {
+    const admin = h.as('bar-demo/admin');
+    const spare = (await admin.post(`/locations/${h.locationId}/tables`, { label: 'POS-reintento' })).body as { id: string };
+    const headers = key();
+    const first = await link(spare.id, 'bar-demo/caja1', headers);
+    expect(first.status).toBe(201);
+    const saleId = saleResultSchema.parse(first.body).sale.id;
+
+    expect((await admin.post(`/locations/${h.locationId}/tables/${spare.id}/deactivate`)).status).toBe(204);
+    const afterDeactivate = await link(spare.id, 'bar-demo/caja1', headers);
+    expect([afterDeactivate.status, saleResultSchema.parse(afterDeactivate.body).sale.id]).toEqual([200, saleId]);
+    expect((await link(spare.id)).status).toBe(404); // una petición nueva sí se valida
+
+    await coreDb().$executeRawUnsafe(`UPDATE entitlements SET enabled = false WHERE module = 'hospitality' AND organization_id = '${h.organizationId}'`);
+    try {
+      const afterRevoke = await link(spare.id, 'bar-demo/caja1', headers);
+      expect([afterRevoke.status, saleResultSchema.parse(afterRevoke.body).sale.id]).toEqual([200, saleId]);
+    } finally {
+      await coreDb().$executeRawUnsafe(`UPDATE entitlements SET enabled = true WHERE module = 'hospitality' AND organization_id = '${h.organizationId}'`);
+    }
+  });
+
   it('el llamado y la venta de la mesa son independientes', async () => {
     const admin = h.as('bar-demo/admin');
     const callOf = async (id: string) => (await admin.get(`/locations/${h.locationId}/service-calls/${id}`)).body.status as string;

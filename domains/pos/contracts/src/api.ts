@@ -130,16 +130,18 @@ export type OpenLinkedSaleDto = z.infer<typeof openLinkedSaleSchema>;
 /** Cursor estable `(opened_at, id)` de una venta: la página siguiente empieza justo después de ella. */
 const SALE_CURSOR = /^(\d{4}-\d\d-\d\dT[\d:.]+Z)_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 export const saleCursor = (s: Pick<SaleDto, 'opened_at' | 'id'>) => `${s.opened_at}_${s.id}`;
+/** null si no es un cursor emitido por `saleCursor`: fecha imposible o no canónica (`toISOString`) incluida. */
 export const parseSaleCursor = (c: string) => {
   const m = SALE_CURSOR.exec(c);
-  return m ? { openedAt: new Date(m[1]!), id: m[2]! } : null;
+  const openedAt = m ? new Date(m[1]!) : null;
+  return openedAt && !Number.isNaN(openedAt.getTime()) && openedAt.toISOString() === m![1] ? { openedAt, id: m![2]! } : null;
 };
 
 /** Historial: más recientes primero. */
 export const saleQuerySchema = z.object({
   status: z.enum(SALE_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
-  cursor: z.string().regex(SALE_CURSOR).optional(),
+  cursor: z.string().refine((c) => parseSaleCursor(c) !== null, 'Cursor inválido').optional(),
 });
 export type SaleQueryDto = z.infer<typeof saleQuerySchema>;
 

@@ -157,6 +157,9 @@ export class OpenLinkedSale {
     await requireLocation(this.core, cmd);
     const link = { provider: cmd.provider, resourceType: cmd.resourceType, resourceId: cmd.resourceId };
     const idem = idempotency(cmd.idempotencyKey, 'open_linked_sale', cmd, link);
+    // Un reintento de una petición ya confirmada devuelve su venta aunque el recurso ya no valide (recurso desactivado, módulo del proveedor revocado).
+    const replay = await this.sales.findReplay(cmd, idem);
+    if (replay) return replay;
     const validator = this.validators.find((v) => v.provider === cmd.provider);
     if (!validator || !UUID.test(cmd.resourceId) || !(await validator.validate(cmd, cmd.resourceType, cmd.resourceId))) {
       throw new NotFoundError('External resource');

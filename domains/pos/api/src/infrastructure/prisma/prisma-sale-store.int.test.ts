@@ -2,7 +2,10 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { newId, toEventEnvelope } from '@modivara/core-contracts';
 import { saleCompletedV1 } from '@modivara/pos-contracts';
 import { ConflictError, IdempotencyKeyReusedError, NotFoundError, SaleNotOpenError } from '../../domain/errors.js';
+import { OpenLinkedSale, OpenSale } from '../../application/use-cases.js';
+import type { ExternalLink, LocationScope } from '../../application/ports.js';
 import { integrationWorld, posPrismaForTests, resetPos, tenant } from '../../testing/integration.js';
+import { PrismaSaleStore } from './prisma-sale-store.js';
 
 // PostgreSQL real, sin dobles (POS-14, POS-18, POS-19). Las carreras se repiten para cazar intercalados raros.
 const REPEATS = 10;
@@ -153,6 +156,49 @@ describe('concurrencia e idempotencia (POS-18)', () => {
       expect(next.replayed).toBe(false);
       expect(next.sale.id).not.toBe(saleId);
     }
+  });
+
+  it('recurso ya vinculado y la misma clave tomada entretanto por otra operación: idempotency_key_reused, no la venta vinculada', async () => {
+    const w = integrationWorld(db);
+    const resourceId = newId();
+    w.validator.known.add(`spot:${resourceId}`);
+    const cmd = { ...w.actor, provider: 'ext', resourceType: 'spot', resourceId };
+    const linked = await w.openLinked.execute({ ...cmd, idempotencyKey: newId() });
+
+    // Barrera: la petición A se detiene justo después de encontrar la venta vinculada, antes de atar su clave.
+    let reached!: () => void, release!: () => void;
+    const atGate = new Promise<void>((r) => (reached = r));
+    const gate = new Promise<void>((r) => (release = r));
+    class GatedStore extends PrismaSaleStore {
+      override async findByActiveLink(q: LocationScope & ExternalLink) {
+        const found = await super.findByActiveLink(q);
+        reached();
+        await gate;
+        return found;
+      }
+    }
+    const store = new GatedStore(db);
+    const openLinked = new OpenLinkedSale(store, w.settings, [w.validator], w.core);
+    const key = newId();
+    const a = openLinked.execute({ ...cmd, idempotencyKey: key });
+    await atGate;
+    const b = await new OpenSale(store, w.settings, w.core).execute({ ...w.actor, idempotencyKey: key }); // B toma la clave
+    release();
+    await expect(a).rejects.toThrow(IdempotencyKeyReusedError);
+    expect(b.sale.id).not.toBe(linked.sale.id);
+    expect(await db.idempotencyKey.findUnique({ where: { organizationId_key: { organizationId: w.t.organizationId, key } } })).toMatchObject({
+      operation: 'open_sale', saleId: b.sale.id,
+    });
+  });
+
+  it('reintento de un vínculo confirmado cuando el recurso ya no valida: la venta original', async () => {
+    const w = integrationWorld(db);
+    const resourceId = newId();
+    w.validator.known.add(`spot:${resourceId}`);
+    const cmd = { ...w.actor, provider: 'ext', resourceType: 'spot', resourceId, idempotencyKey: newId() };
+    const first = await w.openLinked.execute(cmd);
+    w.validator.known.clear();
+    expect(await w.openLinked.execute(cmd)).toMatchObject({ replayed: true, sale: { id: first.sale.id } });
   });
 
   it('alta simultánea del mismo nombre de artículo: una ConflictError', async () => {

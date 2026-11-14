@@ -72,11 +72,17 @@ export class PrismaSaleStore implements SaleStore {
       if (replay) return replay;
       const linked = link && (await this.findByActiveLink({ organizationId: p.organizationId, locationId: p.locationId, ...link }));
       if (!linked) throw e;
-      // La clave queda atada a la venta vinculada: un reintento tardío la devuelve aunque ya esté cerrada.
+      // La clave queda atada a la venta vinculada: un reintento tardío la devuelve aunque ya esté cerrada. Si otra petición tomó
+      // la clave entretanto, manda lo que ella confirmó (misma petición → su venta; otra → idempotency_key_reused).
       if (idem) {
-        await this.db.idempotencyKey.create({ data: { organizationId: p.organizationId, ...idem, saleId: linked.id } }).catch((err: unknown) => {
+        try {
+          await this.db.idempotencyKey.create({ data: { organizationId: p.organizationId, ...idem, saleId: linked.id } });
+        } catch (err) {
           if (!isUniqueViolation(err)) throw err;
-        });
+          const taken = await this.replay(this.db, p, idem);
+          if (taken) return taken;
+          throw err;
+        }
       }
       return { sale: linked, replayed: true };
     }
@@ -124,6 +130,10 @@ export class PrismaSaleStore implements SaleStore {
       }
       throw e;
     }
+  }
+
+  findReplay(scope: LocationScope, idem: IdempotencyKey) {
+    return this.replay(this.db, scope, idem);
   }
 
   findById(q: ScopedId) {

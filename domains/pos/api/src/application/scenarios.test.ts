@@ -256,6 +256,15 @@ describe('ventas vinculadas a un recurso externo (POS-15)', () => {
     expect(next.sale.id).not.toBe(first.sale.id);
   });
 
+  it('reintento con la misma clave cuando el recurso ya no valida: la venta confirmada, sin consultar al proveedor', async () => {
+    validator.known.add(`spot:${resourceId}`);
+    const idempotencyKey = '01900000-0000-7000-8000-0000000000d1';
+    const first = await uc.openLinked.execute({ ...linked, idempotencyKey });
+    validator.known.clear(); // p. ej. mesa desactivada o módulo revocado
+    expect(await uc.openLinked.execute({ ...linked, idempotencyKey })).toMatchObject({ replayed: true, sale: { id: first.sale.id } });
+    await expect(uc.openLinked.execute({ ...linked, idempotencyKey: '01900000-0000-7000-8000-0000000000d2' })).rejects.toThrow(NotFoundError);
+  });
+
   it('proveedor no registrado o recurso desconocido → no existe', async () => {
     const idempotencyKey = '01900000-0000-7000-8000-0000000000c1';
     await expect(uc.openLinked.execute({ ...linked, idempotencyKey })).rejects.toThrow(NotFoundError);
