@@ -1,0 +1,174 @@
+// Esquema "pos" (POS-001 §7). Lo que Prisma no expresa (CHECK, índices por expresión) va en SQL explícito al final de la migración 0001.
+generator client {
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Unit {
+  unit
+  kg
+  g
+  l
+  ml
+  m
+  h
+
+  @@map("unit")
+}
+
+enum SaleStatus {
+  open
+  completed
+  voided
+
+  @@map("sale_status")
+}
+
+enum PaymentMethod {
+  cash
+  card
+  transfer
+  other
+
+  @@map("payment_method")
+}
+
+/// Moneda por local (POS-09); sin fila vale la moneda por defecto.
+model LocationSettings {
+  organizationId String   @map("organization_id") @db.Uuid
+  locationId     String   @map("location_id") @db.Uuid
+  currency       String   @db.Char(3)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  updatedBy      String   @map("updated_by") @db.Uuid
+
+  @@id([organizationId, locationId])
+  @@map("location_settings")
+}
+
+model SellableItem {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  name           String
+  sku            String?
+  category       String?
+  unit           Unit
+  price          Decimal   @db.Decimal(14, 2)
+  currency       String    @db.Char(3)
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+  createdAt      DateTime  @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @map("updated_at") @db.Timestamptz
+  createdBy      String    @map("created_by") @db.Uuid
+  updatedBy      String    @map("updated_by") @db.Uuid
+
+  lines SaleLine[]
+
+  @@unique([id, locationId], map: "uq_sellable_items_id_location")
+  @@map("sellable_items")
+}
+
+model Sale {
+  id             String         @id @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  locationId     String         @map("location_id") @db.Uuid
+  currency       String         @db.Char(3)
+  status         SaleStatus
+  paymentMethod  PaymentMethod? @map("payment_method")
+  openedAt       DateTime       @map("opened_at") @db.Timestamptz
+  openedBy       String         @map("opened_by") @db.Uuid
+  closedAt       DateTime?      @map("closed_at") @db.Timestamptz
+  closedBy       String?        @map("closed_by") @db.Uuid
+
+  lines           SaleLine[]
+  links           SaleExternalLink[]
+  idempotencyKeys IdempotencyKey[]
+
+  @@unique([id, locationId], map: "uq_sales_id_location")
+  @@index([locationId, openedAt(sort: Desc), id(sort: Desc)], map: "ix_sales_history")
+  @@map("sales")
+}
+
+model SaleLine {
+  id                String    @id @db.Uuid
+  saleId            String    @map("sale_id") @db.Uuid
+  locationId        String    @map("location_id") @db.Uuid
+  sellableItemId    String    @map("sellable_item_id") @db.Uuid
+  skuSnapshot       String?   @map("sku_snapshot")
+  nameSnapshot      String    @map("name_snapshot")
+  unitSnapshot      Unit      @map("unit_snapshot")
+  unitPriceSnapshot Decimal   @map("unit_price_snapshot") @db.Decimal(14, 2)
+  quantity          Decimal   @db.Decimal(12, 3)
+  addedAt           DateTime  @map("added_at") @db.Timestamptz
+  addedBy           String    @map("added_by") @db.Uuid
+  voidedAt          DateTime? @map("voided_at") @db.Timestamptz
+  voidedBy          String?   @map("voided_by") @db.Uuid
+
+  sale         Sale         @relation(fields: [saleId, locationId], references: [id, locationId])
+  sellableItem SellableItem @relation(fields: [sellableItemId, locationId], references: [id, locationId])
+
+  @@index([saleId], map: "ix_sale_lines_sale")
+  @@map("sale_lines")
+}
+
+/// Vínculo de una venta con un recurso de otro producto (POS-15); uno activo por recurso.
+model SaleExternalLink {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  saleId         String    @map("sale_id") @db.Uuid
+  provider       String
+  resourceType   String    @map("resource_type")
+  resourceId     String    @map("resource_id") @db.Uuid
+  active         Boolean   @default(true)
+  createdAt      DateTime  @map("created_at") @db.Timestamptz
+  createdBy      String    @map("created_by") @db.Uuid
+  releasedAt     DateTime? @map("released_at") @db.Timestamptz
+
+  sale Sale @relation(fields: [saleId, locationId], references: [id, locationId])
+
+  @@index([saleId], map: "ix_sale_external_links_sale")
+  @@map("sale_external_links")
+}
+
+/// Claves de `Idempotency-Key` de las mutaciones de venta (POS-18), únicas por negocio.
+model IdempotencyKey {
+  organizationId String   @map("organization_id") @db.Uuid
+  key            String   @db.Uuid
+  operation      String
+  fingerprint    String
+  saleId         String   @map("sale_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  sale Sale @relation(fields: [saleId], references: [id])
+
+  @@id([organizationId, key])
+  @@map("idempotency_keys")
+}
+
+model OutboxEvent {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  eventType      String    @map("event_type")
+  eventVersion   Int       @map("event_version")
+  occurredAt     DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  organizationId String    @map("organization_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  correlationId  String    @map("correlation_id") @db.Uuid
+  causationId    String?   @map("causation_id") @db.Uuid
+  payload        Json
+  dispatchedAt   DateTime? @map("dispatched_at") @db.Timestamptz
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz
+  failedAt       DateTime? @map("failed_at") @db.Timestamptz
+
+  @@index([nextAttemptAt], map: "ix_outbox_pending", where: raw("dispatched_at IS NULL AND failed_at IS NULL"))
+  @@map("outbox_events")
+}

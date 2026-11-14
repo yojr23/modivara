@@ -13,14 +13,23 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "prisma:validate": "prisma validate",
+    "generate": "prisma generate",
+    "postinstall": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@modivara/core-contracts": "workspace:*",
-    "@modivara/pos-contracts": "workspace:*"
+    "@modivara/pos-contracts": "workspace:*",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.1",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }
