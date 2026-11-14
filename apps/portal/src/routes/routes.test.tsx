@@ -232,3 +232,31 @@ it('la portada pide el negocio, valida el slug y lleva a su login', async () => 
   fireEvent.submit(input.closest('form')!);
   await waitFor(() => expect(router.state.location.pathname).toBe('/bar-demo'));
 });
+
+it('Vender: dos taps seguidos mientras se agrega el artículo crean una sola línea', async () => {
+  const S = ID(4);
+  const item = { id: ID(5), name: 'Café', sku: null, category: null, unit: 'unit', price: '5000.00', currency: 'COP', active: true };
+  const open = { id: S, currency: 'COP', status: 'open', total: '0.00', payment_method: null, opened_at: '2026-11-14T15:00:00.000Z', opened_by: ID(1), closed_at: null, closed_by: null, lines: [] };
+  const base = `/api/v1/locations/${ID(2)}/pos`;
+  const posts: string[] = [];
+  let release!: () => void;
+  mount(`/demo/app/ventas?venta=${S}`, async (url, init) => {
+    if ((init?.method ?? 'GET') !== 'GET') {
+      posts.push(url);
+      await new Promise<void>((r) => (release = r));
+      return json({ sale: open, replayed: false }, 201);
+    }
+    if (url.endsWith('/me')) return json(me(['pos'], ['pos.sales.read', 'pos.sales.operate']));
+    if (url === `${base}/items`) return json([item]);
+    if (url === `${base}/sales/${S}`) return json(open);
+    return json([]);
+  });
+  const cafe = await screen.findByRole('button', { name: /Café/ });
+  await waitFor(() => expect((cafe as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(cafe);
+  fireEvent.click(cafe);
+  await waitFor(() => expect(posts).toEqual([`${base}/sales/${S}/lines`]));
+  release();
+  await waitFor(() => expect((screen.getByRole('button', { name: /Café/ }) as HTMLButtonElement).disabled).toBe(false));
+  expect(posts).toHaveLength(1);
+});

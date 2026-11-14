@@ -178,6 +178,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
   const unresolved = !!saleId && !sale;
   const openM = useOpenSale(l);
   const addM = useAddSaleLine(l);
+  const adding = useRef(false);
   const voidLineM = useVoidSaleLine(l);
   const completeM = useCompleteSale(l);
   const voidM = useVoidSale(l);
@@ -222,11 +223,17 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
         ? `${item.name} se vende por unidad: escribe una cantidad entera mayor que cero.`
         : 'Escribe una cantidad mayor que cero, con hasta 3 decimales.');
     }
-    if (unresolved) return;
-    const id = sale?.id ?? (await newSale());
-    if (!id) return;
-    const r = await run(`add:${id}:${item.id}:${quantity}`, (k) => addM.mutateAsync({ saleId: id, input: { sellable_item_id: item.id, quantity }, idempotencyKey: k }));
-    if (r) setQty('1');
+    // Un tap mientras otro agrega se ignora: dos claves distintas serían dos líneas legítimas para la API (POS-18).
+    if (unresolved || adding.current) return;
+    adding.current = true;
+    try {
+      const id = sale?.id ?? (await newSale());
+      if (!id) return;
+      const r = await run(`add:${id}:${item.id}:${quantity}`, (k) => addM.mutateAsync({ saleId: id, input: { sellable_item_id: item.id, quantity }, idempotencyKey: k }));
+      if (r) setQty('1');
+    } finally {
+      adding.current = false;
+    }
   }
 
   async function complete() {
@@ -278,7 +285,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
                   <p className="mb-1.5 text-xs text-muted">{c}</p>
                   <div role="group" aria-label={c} className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
                     {shown.filter((i) => (i.category ?? NO_CATEGORY) === c).map((i) => (
-                      <button key={i.id} type="button" disabled={openM.isPending || unresolved} onClick={() => void add(i)}
+                      <button key={i.id} type="button" disabled={openM.isPending || addM.isPending || unresolved} onClick={() => void add(i)}
                         className="rounded-lg border border-line bg-surface px-3 py-2 text-left transition-colors hover:border-line-strong active:bg-sunken disabled:opacity-50">
                         <span className="block font-semibold">{i.name}</span>
                         <span className="text-sm text-muted tabular-nums">{fmtMoney(i.price, i.currency)}{i.unit !== 'unit' && ` / ${i.unit}`}</span>
