@@ -8,11 +8,13 @@ export interface BusinessSeed {
   slug: string;
   name: string;
   location: string;
+  /** Módulos que contrata; sin el campo, los tres (`MODULES`). */
+  modules?: readonly (typeof MODULES)[number][];
   users: Array<{ username: string; displayName: string; role: Role }>;
 }
 
 // DATA-001 §7. OPEN: el documento no fija el username del superadmin, el nombre del local ni los usuarios de bar-demo-pisos
-// (se crea `admin` para poder probar el aislamiento H1); tampoco qué módulos contrata cada demo (se habilitan los tres).
+// (se crea `admin` para poder probar el aislamiento H1); tampoco qué módulos contrata cada demo (los bares, los tres; zapatería y restaurante, los de PLAN-003 T01/T07).
 export const SUPERADMIN = { username: 'superadmin', displayName: 'Superadmin' };
 export const MODULES = ['hospitality', 'commerce', 'analytics'] as const;
 export const BUSINESSES: BusinessSeed[] = [
@@ -27,6 +29,18 @@ export const BUSINESSES: BusinessSeed[] = [
   },
   {
     slug: 'bar-demo-pisos', name: 'Bar Demo Pisos', location: 'Principal',
+    users: [{ username: 'admin', displayName: 'Administrador', role: 'admin' }],
+  },
+  // MOD-61/74: misma instalación, paquetes aislados. Zapatería solo con inventario; restaurante solo con mesas y llamados.
+  {
+    slug: 'zapateria-demo', name: 'Zapatería Demo', location: 'Principal', modules: ['commerce'],
+    users: [
+      { username: 'admin', displayName: 'Administrador', role: 'admin' },
+      { username: 'inventario1', displayName: 'Inventario 1', role: 'inventory' },
+    ],
+  },
+  {
+    slug: 'restaurante-demo', name: 'Restaurante Demo', location: 'Principal', modules: ['hospitality'],
     users: [{ username: 'admin', displayName: 'Administrador', role: 'admin' }],
   },
 ];
@@ -48,7 +62,7 @@ export async function seedCore(app: INestApplicationContext, password: string): 
 
   for (const b of BUSINESSES) {
     const { organization, locations } = await provision.execute({
-      actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: MODULES,
+      actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: b.modules ?? MODULES,
     });
     const actor: ActorContext = { ...root, actingOrganizationId: organization.id };
     const existing = await listUsers.execute({ actor, includeInactive: true });

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CoreModule, DeactivateUser, ListUsers, Login, SetLocationRoles, type ActorContext } from '@modivara/core-api';
+import { CoreModule, DeactivateUser, GetMe, ListUsers, Login, SetLocationRoles, type ActorContext } from '@modivara/core-api';
 import { seedCore } from './core.js';
 
 // F1-11: el seed se puede repetir y deja usuarios que inician sesión de verdad. Requiere db-test (esquema core migrado).
@@ -15,6 +15,7 @@ const PASSWORD = 'Secret123';
 const USERS: Array<[string, string]> = [
   ['labs', 'superadmin'], ['bar-demo', 'admin'], ['bar-demo', 'barra'], ['bar-demo', 'mesero1'],
   ['bar-demo', 'inventario1'], ['bar-demo-pisos', 'admin'],
+  ['zapateria-demo', 'admin'], ['zapateria-demo', 'inventario1'], ['restaurante-demo', 'admin'],
 ];
 
 // Lo mínimo del cliente Prisma que usa esta prueba (el cliente no es parte de la superficie pública de core-api).
@@ -41,6 +42,15 @@ describe('seed:core', () => {
       for (const [slug, username] of USERS) {
         expect((await login.execute({ slug, username, password: PASSWORD })).username).toBe(username);
       }
+      // Paquetes aislados (MOD-61/74): cada demo solo con sus módulos.
+      const root = (await login.execute({ slug: 'labs', username: 'superadmin', password: PASSWORD })).actor;
+      const modules = async (slug: string) => {
+        const id = (await app.get<TestDb>('CORE_PRISMA').organization.findFirstOrThrow({ where: { slug } })).id;
+        return app.get(GetMe).execute({ actor: { ...root, actingOrganizationId: id } }).then((m) => m.modules.sort());
+      };
+      expect(await modules('zapateria-demo')).toEqual(['commerce']);
+      expect(await modules('restaurante-demo')).toEqual(['hospitality']);
+      expect(await modules('bar-demo')).toEqual(['analytics', 'commerce', 'hospitality']);
     } finally {
       await app.close();
     }
