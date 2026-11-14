@@ -1,5 +1,7 @@
 # ADR-005 — Dominio `pos`: cuentas por mesa, separado de inventario
 
+> **Superada (13/11/2026)** en su orientación por mesa (`menu_items`, `checks.table_id NOT NULL`, payload gastronómico) por ADR-006 y `POS-001`. Se conserva como registro histórico.
+
 > **Estado: En evaluación.** No está aceptado: decide el responsable. ADR-001 deja el «POS completo» fuera del MVP y lo ubicaba dentro de `commerce`; este documento evalúa un recorte mínimo como **dominio propio** y no cambia ADR-001/003. Si se acepta, esos documentos se enmiendan con una revisión que apunte a este.
 > **Fecha:** 09/11/2026 (rama `pos/mesas`, desde `pruebas` en `18289d6`).
 > **Convención:** «Hoy» = lo que el repo hace y se puede comprobar; «Propuesta» = lo que se recomienda; «Pregunta» = lo que decide el responsable.

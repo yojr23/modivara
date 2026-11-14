@@ -11,6 +11,7 @@
 - **CI en verde por primera vez** (`0349945`). Nunca había pasado en GitHub: sin `.env`, `docker compose` fallaba al interpolar `SIM_GATEWAY_KEY:?` aunque solo levanta `db-test`; el workflow ahora copia `.env.example` antes de `test:integration`. Integración 775/775 en local y en un clon limpio. Playwright sigue fuera de CI (QA-02).
 - **Dependabot:** subidas menores aplicadas (Nest 12.3.2, react-query 5.105.0, vite 8.3.5, acciones checkout/setup-node 7 y pnpm/action-setup 5). Node se queda en 24 en CI, `.nvmrc` y `Dockerfile`; las mayores de `node` y `@types/node` se ignoran en `.github/dependabot.yml` y se suben a mano en los tres sitios a la vez.
 - **Auditoría del 09/11** (detalle en `BACKLOG-001` M.8): sin agujeros de seguridad nuevos; `pnpm audit` sin vulnerabilidades. Arreglados: rótulos de métricas en la zona del navegador y clave de idempotencia de stock reutilizada con otros datos.
+- **Productos (13/11/2026):** POS pasa a ser el quinto producto horizontal, independiente de `commerce` (`docs/ADR-006_pos_quinto_producto_horizontal.md`, propuesto; aplicado en la rama `pos/mesas`). Los cuatro dominios de §1 siguen igual.
 
 ## 1. Hecho
 

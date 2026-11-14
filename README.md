@@ -1,6 +1,6 @@
 # Modivara
 
-Monorepo del MVP (pnpm workspaces). Destino: cuatro repositorios (`platform-core`, `hospitality-ops`, `commerce`, `analytics`); ver ADR-002 D1.
+Monorepo del MVP (pnpm workspaces). Destino: cuatro repositorios (`platform-core`, `hospitality-ops`, `commerce`, `analytics`); ver ADR-002 D1. POS se suma como quinto producto horizontal (`domains/pos`, solo depende de Core): ver [`docs/ADR-006_pos_quinto_producto_horizontal.md`](docs/ADR-006_pos_quinto_producto_horizontal.md) (propuesto).
 
 Documentación de arquitectura en `docs/` (ADR-001, ADR-002, ADR-003, TECH-001, DATA-001, BRAND-002, más HANDOFF y NOCHE-LOG, que son históricos), plan de trabajo con el estado por fase en `PLAN-001`, diseño y decisiones de las pantallas en `PLAN-002` y el mapa del frontend (rutas, permisos, datos) en `docs/PORTAL.md`.
 
