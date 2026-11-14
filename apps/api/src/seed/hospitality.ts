@@ -44,7 +44,9 @@ export async function seedHospitality(app: INestApplicationContext, password: st
   }
 
   async function ensureTable(ctx: ActorContext, label: string, zoneId: string | null): Promise<string> {
-    const existing = (await app.get(ListTables).execute(ctx)).find((v) => v.table.label === label && v.table.zoneId === zoneId);
+    // Sin zona (Bar Demo, etiquetas únicas) se busca en cualquier espacio: `seed:planos-demo` mueve sus mesas a pisos y
+    // repetir el seed no debe crearlas de nuevo en el espacio por defecto.
+    const existing = (await app.get(ListTables).execute(ctx)).find((v) => v.table.label === label && (zoneId === null || v.table.zoneId === zoneId));
     return (existing?.table ?? (await app.get(CreateTable).execute({ ...ctx, label, zoneId }))).id;
   }
 

@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BootstrapPlatform, CoreModule, ProvisionOrganization } from '@modivara/core-api';
-import { GatewayPressAdapter, GetConnectivity, HospitalityModule, ListDevices, ListPublishedLayouts, ListTables, ListZones } from '@modivara/hospitality-api';
+import { CreateZone, GatewayPressAdapter, GetConnectivity, HospitalityModule, ListDevices, ListPublishedLayouts, ListTables, ListZones, UpdateTable } from '@modivara/hospitality-api';
 import { seedCore } from './core.js';
 import { seedHospitality } from './hospitality.js';
 import { resetBoth } from './testing.js';
@@ -70,6 +70,13 @@ describe('seed:hospitality', () => {
       const pisosPlans = await app.get(ListPublishedLayouts).execute(pisos);
       expect(pisosPlans.map((l) => [l.version, count(l, 'table')])).toEqual([[1, 3], [1, 3]]);
       expect(new Set(pisosPlans.map((l) => l.zoneId)).size).toBe(2);
+
+      // seed:planos-demo mueve las mesas de Bar Demo a pisos: repetir el seed no las vuelve a crear en el espacio por defecto.
+      const actor = { ...demo, actorUserId: root.actorUserId };
+      const floor = await app.get(CreateZone).execute({ ...actor, name: 'Primer piso' });
+      await app.get(UpdateTable).execute({ ...actor, tableId: tables[0]!.table.id, zoneId: floor.id });
+      await seedHospitality(app, PASSWORD, (l) => lines.push(l));
+      expect(await app.get(ListTables).execute(demo)).toHaveLength(15);
     } finally {
       await app.close();
     }
