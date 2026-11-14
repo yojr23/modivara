@@ -5,7 +5,7 @@ import {
   CreateProduct, EnsureDefaultStockLocation, ListMovementReasons, ListProducts, RegisterMovement, SeedMovementReasons, type StockContext,
 } from '@modivara/commerce-api';
 import type { Unit } from '@modivara/commerce-contracts';
-import { BUSINESSES, MODULES, SUPERADMIN } from './core.js';
+import { BUSINESSES, SUPERADMIN } from './core.js';
 
 // DATA-001 §7: «unos 10 productos con stock inicial y motivos sembrados». OPEN: el documento no fija cuáles ni cuánto stock; es un surtido de bar inventado.
 /**
@@ -46,8 +46,8 @@ export async function seedCommerce(app: INestApplicationContext, password: strin
   const root = await app.get(BootstrapPlatform).execute({ ...SUPERADMIN, password });
   const provision = app.get(ProvisionOrganization);
 
-  for (const b of BUSINESSES) {
-    const { organization, locations } = await provision.execute({ actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: MODULES });
+  for (const b of BUSINESSES.filter((x) => x.modules.includes('commerce'))) {
+    const { organization, locations } = await provision.execute({ actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: b.modules });
     const ctx: StockContext = { organizationId: organization.id, locationId: locations[0]!.id, actorUserId: root.actorUserId };
 
     await app.get(SeedMovementReasons).execute(ctx);

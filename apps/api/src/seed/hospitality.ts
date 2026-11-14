@@ -5,7 +5,7 @@ import {
   type ActorContext,
 } from '@modivara/hospitality-api';
 import type { LayoutElement } from '@modivara/hospitality-contracts';
-import { BUSINESSES, MODULES, SUPERADMIN } from './core.js';
+import { BUSINESSES, SUPERADMIN } from './core.js';
 
 // DATA-001 §7. OPEN: el documento no fija el formato de las etiquetas de mesa ("Mesa 1" como en el simulador) ni qué mesas hay en cada zona de
 // "Bar Demo Pisos" (3 por zona, con los mismos números repetidos); tampoco el nombre del gateway.
@@ -34,7 +34,7 @@ export async function seedHospitality(app: INestApplicationContext, password: st
 
   async function contextOf(slug: string): Promise<ActorContext> {
     const b = BUSINESSES.find((x) => x.slug === slug)!;
-    const { organization, locations } = await provision.execute({ actor: root, slug, name: b.name, locations: [{ name: b.location }], modules: MODULES });
+    const { organization, locations } = await provision.execute({ actor: root, slug, name: b.name, locations: [{ name: b.location }], modules: b.modules });
     return { organizationId: organization.id, locationId: locations[0]!.id, actorUserId: root.actorUserId };
   }
 

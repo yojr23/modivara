@@ -14,7 +14,7 @@ class SeedTestModule {}
 const PASSWORD = 'Secret123';
 const USERS: Array<[string, string]> = [
   ['labs', 'superadmin'], ['bar-demo', 'admin'], ['bar-demo', 'barra'], ['bar-demo', 'mesero1'],
-  ['bar-demo', 'inventario1'], ['bar-demo-pisos', 'admin'],
+  ['bar-demo', 'inventario1'], ['bar-demo', 'caja1'], ['bar-demo-pisos', 'admin'], ['tienda-demo', 'admin'],
 ];
 
 // Lo mínimo del cliente Prisma que usa esta prueba (el cliente no es parte de la superficie pública de core-api).
@@ -24,6 +24,7 @@ interface TestDb {
   location: { findFirstOrThrow(a: object): Promise<{ id: string }> };
   appUser: { findMany(a: object): Promise<Array<{ deactivatedAt: Date | null }>> };
   locationMembership: { findFirstOrThrow(a: object): Promise<{ roles: string[] }> };
+  entitlement: { findMany(a: object): Promise<Array<{ module: string }>> };
 }
 
 // La base de pruebas es compartida y esta prueba deja usuarios desactivados: parte siempre de un esquema vacío.
@@ -41,6 +42,24 @@ describe('seed:core', () => {
       for (const [slug, username] of USERS) {
         expect((await login.execute({ slug, username, password: PASSWORD })).username).toBe(username);
       }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('cada negocio de demo contrata solo sus productos (POS-001 §7)', async () => {
+    const app = await NestFactory.createApplicationContext(SeedTestModule, { logger: false });
+    try {
+      await reset(app);
+      await seedCore(app, PASSWORD);
+      const db = app.get<TestDb>('CORE_PRISMA');
+      const modulesOf = async (slug: string) =>
+        (await db.entitlement.findMany({ where: { organization: { slug }, enabled: true } })).map((e) => e.module).sort();
+      expect(await modulesOf('bar-demo')).toEqual(['analytics', 'commerce', 'hospitality', 'pos']);
+      expect(await modulesOf('bar-demo-pisos')).toEqual(['analytics', 'commerce', 'hospitality']);
+      expect(await modulesOf('tienda-demo')).toEqual(['pos']);
+      const caja = (await app.get(Login).execute({ slug: 'bar-demo', username: 'caja1', password: PASSWORD })).actor;
+      expect((await db.locationMembership.findFirstOrThrow({ where: { userId: caja.actorUserId } })).roles).toEqual(['cashier']);
     } finally {
       await app.close();
     }

@@ -78,8 +78,8 @@ const ROUTES: Route[] = [
 const PUBLIC_ROUTES = new Set(['post /auth/login', 'post /auth/logout', `post ${GATEWAY_API_PATHS.deviceEvents}`, `post ${GATEWAY_API_PATHS.heartbeat}`]);
 
 const ZERO = '00000000-0000-4000-8000-000000000000';
-const ROLES = ['admin', 'staff', 'inventory'] as const satisfies readonly LocationRole[];
-const USER_OF: Record<(typeof ROLES)[number], [string, string]> = { admin: ['bar-demo', 'admin'], staff: ['bar-demo', 'barra'], inventory: ['bar-demo', 'inventario1'] };
+const ROLES = ['admin', 'staff', 'inventory', 'cashier'] as const satisfies readonly LocationRole[];
+const USER_OF: Record<(typeof ROLES)[number], [string, string]> = { admin: ['bar-demo', 'admin'], staff: ['bar-demo', 'barra'], inventory: ['bar-demo', 'inventario1'], cashier: ['bar-demo', 'caja1'] };
 const hasPermission = (role: LocationRole, p: Permission) => permissionsFor([role], { isOwner: false, isPlatform: false }).has(p);
 const fill = (path: string, locationId: string) => path.replace(':locationId', locationId).replace(/:\w+/g, ZERO);
 const hasLocation = (route: Route) => route.path.includes(':locationId');
