@@ -52,9 +52,10 @@ export class CreateSellableItem {
 }
 
 export class UpdateSellableItem {
-  constructor(private readonly items: SellableItemRepository) {}
+  constructor(private readonly items: SellableItemRepository, private readonly core: CoreAccessPort) {}
 
   async execute(cmd: PosContext & { id: string; changes: Parameters<SellableItem['update']>[0] }): Promise<SellableItem> {
+    await requireLocation(this.core, cmd);
     const item = await requireItem(this.items, cmd, cmd.id);
     item.update(cmd.changes, cmd.actorUserId, new Date());
     await assertUnique(this.items, item);
@@ -64,9 +65,10 @@ export class UpdateSellableItem {
 }
 
 export class DeactivateSellableItem {
-  constructor(private readonly items: SellableItemRepository) {}
+  constructor(private readonly items: SellableItemRepository, private readonly core: CoreAccessPort) {}
 
   async execute(cmd: PosContext & { id: string }): Promise<void> {
+    await requireLocation(this.core, cmd);
     const item = await requireItem(this.items, cmd, cmd.id);
     item.deactivate(cmd.actorUserId, new Date());
     await this.items.save(item);
@@ -86,9 +88,14 @@ export class OpenSale {
 }
 
 export class AddSaleLine {
-  constructor(private readonly sales: SaleRepository, private readonly items: SellableItemRepository) {}
+  constructor(
+    private readonly sales: SaleRepository,
+    private readonly items: SellableItemRepository,
+    private readonly core: CoreAccessPort,
+  ) {}
 
   async execute(cmd: PosContext & { saleId: string; sellableItemId: string; quantity: string }): Promise<Sale> {
+    await requireLocation(this.core, cmd);
     const sale = await requireSale(this.sales, cmd, cmd.saleId);
     const item = await requireItem(this.items, cmd, cmd.sellableItemId);
     sale.addLine({ lineId: newId(), item, quantity: cmd.quantity, actorUserId: cmd.actorUserId, now: new Date() });
@@ -98,9 +105,10 @@ export class AddSaleLine {
 }
 
 export class VoidSaleLine {
-  constructor(private readonly sales: SaleRepository) {}
+  constructor(private readonly sales: SaleRepository, private readonly core: CoreAccessPort) {}
 
   async execute(cmd: PosContext & { saleId: string; lineId: string }): Promise<Sale> {
+    await requireLocation(this.core, cmd);
     const sale = await requireSale(this.sales, cmd, cmd.saleId);
     sale.voidLine(cmd.lineId, cmd.actorUserId, new Date());
     await this.sales.save(sale);
@@ -109,9 +117,10 @@ export class VoidSaleLine {
 }
 
 export class CompleteSale {
-  constructor(private readonly sales: SaleRepository) {}
+  constructor(private readonly sales: SaleRepository, private readonly core: CoreAccessPort) {}
 
   async execute(cmd: PosContext & { saleId: string; paymentMethod: string }): Promise<Sale> {
+    await requireLocation(this.core, cmd);
     const sale = await requireSale(this.sales, cmd, cmd.saleId);
     sale.complete({ eventId: newId(), paymentMethod: cmd.paymentMethod, actorUserId: cmd.actorUserId, now: new Date() });
     await this.sales.save(sale);
@@ -120,9 +129,10 @@ export class CompleteSale {
 }
 
 export class VoidSale {
-  constructor(private readonly sales: SaleRepository) {}
+  constructor(private readonly sales: SaleRepository, private readonly core: CoreAccessPort) {}
 
   async execute(cmd: PosContext & { saleId: string }): Promise<Sale> {
+    await requireLocation(this.core, cmd);
     const sale = await requireSale(this.sales, cmd, cmd.saleId);
     sale.void(cmd.actorUserId, new Date());
     await this.sales.save(sale);

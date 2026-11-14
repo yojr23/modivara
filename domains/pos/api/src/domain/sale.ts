@@ -13,7 +13,7 @@ import {
 import { AggregateRoot } from '@modivara/core-contracts';
 import { CurrencyMismatchError, EmptySaleError, InvalidValueError, NotFoundError, SaleNotOpenError } from './errors.js';
 import type { SellableItem } from './sellable-item.js';
-import { parseQuantity, requireCurrency } from './values.js';
+import { MAX_AMOUNT, parseQuantity, requireCurrency } from './values.js';
 
 /** Línea con snapshot del artículo al momento de venderlo: cambios posteriores del catálogo no la alteran. */
 export interface SaleLine {
@@ -99,6 +99,10 @@ export class Sale extends AggregateRoot {
       voidedAt: null,
       voidedBy: null,
     };
+    // El total cabe en NUMERIC(14,2) si cada suma parcial cabe: así el evento del cierre siempre es válido.
+    if (this.total + multiplyMoney(line.unitPriceSnapshot, line.quantity) > MAX_AMOUNT) {
+      throw new InvalidValueError('Sale total out of range');
+    }
     this.props.lines.push(line);
     return { ...line };
   }

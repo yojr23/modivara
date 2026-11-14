@@ -1,7 +1,8 @@
 import { MONEY_SCALE, NAME_MAX_LENGTH, QUANTITY_SCALE, type Unit, UNITS, parseScaled } from '@modivara/pos-contracts';
 import { InvalidQuantityError, InvalidValueError } from './errors.js';
 
-const MAX_PRICE = 10n ** 14n - 1n; // NUMERIC(14,2)
+/** NUMERIC(14,2): tope de precio, importe de línea y total de venta. */
+export const MAX_AMOUNT = 10n ** 14n - 1n;
 const MAX_QUANTITY = 10n ** 12n - 1n; // NUMERIC(12,3)
 
 /** Texto obligatorio, recortado y acotado. */
@@ -35,7 +36,7 @@ export function parsePrice(text: string): bigint {
   } catch {
     throw new InvalidValueError(`Invalid price: "${text}"`);
   }
-  if (value > MAX_PRICE) throw new InvalidValueError(`Price out of range: "${text}"`);
+  if (value > MAX_AMOUNT) throw new InvalidValueError(`Price out of range: "${text}"`);
   return value;
 }
 

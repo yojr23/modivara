@@ -1,7 +1,7 @@
 import { saleCompletedV1 } from '@modivara/pos-contracts';
 import { toEventEnvelope } from '@modivara/core-contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { CurrencyMismatchError, EmptySaleError, InvalidQuantityError, LocationUnavailableError, NotFoundError, SaleNotOpenError } from '../domain/errors.js';
+import { CurrencyMismatchError, EmptySaleError, InvalidQuantityError, InvalidValueError, LocationUnavailableError, NotFoundError, SaleNotOpenError } from '../domain/errors.js';
 import { FakeCore, InMemorySales, InMemorySellableItems } from '../testing/in-memory.js';
 import { AddSaleLine, CompleteSale, CreateSellableItem, OpenSale, UpdateSellableItem, VoidSale, VoidSaleLine } from './use-cases.js';
 
@@ -16,12 +16,12 @@ let uc: ReturnType<typeof wire>;
 function wire() {
   return {
     createItem: new CreateSellableItem(items, core),
-    updateItem: new UpdateSellableItem(items),
+    updateItem: new UpdateSellableItem(items, core),
     open: new OpenSale(sales, core),
-    add: new AddSaleLine(sales, items),
-    voidLine: new VoidSaleLine(sales),
-    complete: new CompleteSale(sales),
-    voidSale: new VoidSale(sales),
+    add: new AddSaleLine(sales, items, core),
+    voidLine: new VoidSaleLine(sales, core),
+    complete: new CompleteSale(sales, core),
+    voidSale: new VoidSale(sales, core),
   };
 }
 beforeEach(() => {
@@ -111,6 +111,13 @@ describe('reglas de venta', () => {
     expect((await uc.voidSale.execute({ ...ctx, saleId: sale.id })).status).toBe('voided');
     expect(sales.outbox).toHaveLength(0);
   });
+  it('ningún importe de línea ni total supera NUMERIC(14,2)', async () => {
+    const big = await item('Lote', 'kg', '999999999999.99');
+    const sale = await uc.open.execute({ ...ctx, currency: 'COP' });
+    await expect(uc.add.execute({ ...ctx, saleId: sale.id, sellableItemId: big.id, quantity: '2' })).rejects.toThrow(InvalidValueError);
+    await uc.add.execute({ ...ctx, saleId: sale.id, sellableItemId: big.id, quantity: '0.6' });
+    await expect(uc.add.execute({ ...ctx, saleId: sale.id, sellableItemId: big.id, quantity: '0.6' })).rejects.toThrow(InvalidValueError);
+  });
   it('moneda distinta entre artículo y venta se rechaza', async () => {
     const usd = await uc.createItem.execute({ ...ctx, name: 'Gift card', unit: 'unit', price: '10', currency: 'USD' });
     const sale = await uc.open.execute({ ...ctx, currency: 'COP' });
@@ -125,6 +132,13 @@ describe('aislamiento por negocio y local', () => {
     const foreignSale = await uc.open.execute({ ...other, currency: 'COP' });
     await expect(uc.add.execute({ ...other, saleId: foreignSale.id, sellableItemId: tinto.id, quantity: '1' })).rejects.toThrow(NotFoundError);
     await expect(uc.complete.execute({ ...ctx, saleId: foreignSale.id, paymentMethod: 'cash' })).rejects.toThrow(NotFoundError);
+  });
+  it('desactivar el local frena también las ventas ya abiertas', async () => {
+    const tinto = await item('Tinto', 'unit', '2500');
+    const sale = await uc.open.execute({ ...ctx, currency: 'COP' });
+    core.add({ id: LOC, organizationId: ORG, active: false });
+    await expect(uc.add.execute({ ...ctx, saleId: sale.id, sellableItemId: tinto.id, quantity: '1' })).rejects.toThrow(LocationUnavailableError);
+    await expect(uc.complete.execute({ ...ctx, saleId: sale.id, paymentMethod: 'cash' })).rejects.toThrow(LocationUnavailableError);
   });
   it('local inactivo o de otro negocio no opera', async () => {
     core.add({ id: OTHER_LOC, organizationId: ORG, active: false });
