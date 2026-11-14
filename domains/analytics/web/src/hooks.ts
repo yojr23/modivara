@@ -12,7 +12,8 @@ const retry = false as const; // un 403/404/400 no mejora reintentando
 /** Estado de UI tipado de un error de hook (`undefined` si no hay error). */
 export const metricsErrorState = (e: unknown) => (e == null ? undefined : toErrorState(e));
 
-export const useServiceCallMetrics = (locationId: string, query: MetricsParams) =>
-  useQuery({ queryKey: analyticsKeys.serviceCalls(locationId, query), queryFn: () => api.serviceCallMetrics(locationId, query), retry });
+/** `enabled: false` cuando la vista no tiene la fuente (hospitality) o el permiso: no se consulta. */
+export const useServiceCallMetrics = (locationId: string, query: MetricsParams, { enabled = true } = {}) =>
+  useQuery({ queryKey: analyticsKeys.serviceCalls(locationId, query), queryFn: () => api.serviceCallMetrics(locationId, query), retry, enabled });
 export const useInventoryMetrics = (locationId: string, query: MetricsParams) =>
   useQuery({ queryKey: analyticsKeys.inventory(locationId, query), queryFn: () => api.inventoryMetrics(locationId, query), retry });

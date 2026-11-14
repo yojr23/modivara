@@ -264,7 +264,7 @@ export default function Spaces() {
   const [mode, setMode] = useState<'design' | 'review' | 'activity'>('design');
   const [range, setRange] = useState<Range>('last_7_days');
   const canActivity = me.modules.includes('analytics') && can('analytics.calls.read');
-  const metrics = useServiceCallMetrics(location.id, { range });
+  const metrics = useServiceCallMetrics(location.id, { range }, { enabled: canActivity });
   const calls = new Map((metrics.data?.by_table ?? []).map((t) => [t.table_id, t.calls]));
   const heat = (tableId: string) => calls.get(tableId) ?? 0;
   const review = mode === 'review';

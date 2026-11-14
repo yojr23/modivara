@@ -228,21 +228,27 @@ function StockByProduct({ range }: { range: RangePreset }) {
   );
 }
 
+/** Cada pestaña exige su fuente contratada (de dónde salen los datos) y su permiso: sin fuente no hay consultas ni pestaña. */
+const SOURCES = [['calls', 'Llamados', 'hospitality', 'analytics.calls.read'], ['stock', 'Inventario', 'commerce', 'analytics.inventory.read']] as const;
+
 export default function Metrics() {
-  const { can } = useApp();
+  const { me, can } = useApp();
   const [params] = useSearchParams();
-  const tabs = ([['calls', 'Llamados'], ['stock', 'Inventario']] as const).filter(([t]) => can(t === 'calls' ? 'analytics.calls.read' : 'analytics.inventory.read'));
-  const [tab, setTab] = useState<Tab>(params.get('tab') === 'stock' || !can('analytics.calls.read') ? 'stock' : 'calls');
+  const tabs = SOURCES.filter(([, , m, p]) => me.modules.includes(m) && can(p)).map(([t, label]) => [t, label] as const);
+  const [chosen, setTab] = useState<Tab>(params.get('tab') === 'stock' ? 'stock' : 'calls');
+  const tab = tabs.find(([t]) => t === chosen)?.[0] ?? tabs[0]?.[0];
   const [range, setRange] = useState<RangePreset>('last_7_days');
   return (
     <Page
       id="metricas" title="Métricas"
-      actions={<div className="flex flex-wrap items-center gap-3 md:ml-auto">
+      actions={tab && <div className="flex flex-wrap items-center gap-3 md:ml-auto">
         {tabs.length > 1 && <Segmented label="Qué medir" options={tabs} value={tab} onChange={setTab} />}
         <Segmented label="Período" options={RANGE_OPTIONS} value={range as (typeof RANGE_OPTIONS)[number][0]} onChange={setRange} />
       </div>}
     >
-      {tab === 'calls' ? <CallsOnPlan range={range} /> : <StockByProduct range={range} />}
+      {tab === 'calls' ? <CallsOnPlan range={range} /> : tab === 'stock' ? <StockByProduct range={range} /> : (
+        <EmptyState Icon={ChartColumn} title="Sin fuentes de datos" text="Las métricas salen de los llamados de mesas o del inventario. Este negocio no tiene ninguno de los dos habilitado." />
+      )}
     </Page>
   );
 }
