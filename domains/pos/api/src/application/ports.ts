@@ -85,9 +85,10 @@ export interface PosSettingsRepository {
 
 /**
  * Adaptador que registra el host por proveedor (POS-15, POS-27): confirma que el recurso externo existe y es visible
- * para el actor. POS nunca conoce al proveedor; uno no registrado equivale a un recurso inexistente.
+ * para el actor, y devuelve su nombre corto tal como lo ve la persona (null = no existe). POS nunca conoce al proveedor;
+ * uno no registrado equivale a un recurso inexistente.
  */
 export interface ExternalReferenceValidator {
   readonly provider: string;
-  validate(ctx: PosContext, resourceType: string, resourceId: string): Promise<boolean>;
+  validate(ctx: PosContext, resourceType: string, resourceId: string): Promise<string | null>;
 }

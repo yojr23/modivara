@@ -55,6 +55,7 @@ test('la venta de la mesa: tablero, «Por mesa» en celular y Caja llegan a la m
   await board.page.getByRole('region', { name: `Detalle de ${TABLE}` }).getByRole('button', { name: 'Venta' }).click();
   await expect(board.page).toHaveURL(/\/bar-demo\/app\/ventas\?venta=/);
   const saleId = saleIdOf(board.page)!;
+  await expect(ticket(board.page).getByText(`${TABLE} ·`, { exact: true })).toBeVisible(); // la venta dice de qué mesa es
   await addItem(board.page, '1');
   await expect(ticket(board.page).getByRole('listitem').filter({ hasText: ITEM })).toContainText('1 unidad');
 
@@ -84,9 +85,12 @@ test('la venta de la mesa: tablero, «Por mesa» en celular y Caja llegan a la m
   await expect(cashier.getByRole('navigation', { name: 'Módulos' }).first().getByRole('link')).toHaveText(['Ventas']);
   await expect(cashier.getByRole('group', { name: 'Vista' }).getByRole('button')).toHaveText(['Vender', 'Historial']);
   await expect(ticket(cashier).getByRole('listitem')).toHaveCount(2);
+  await expect(ticket(cashier).getByText(`${TABLE} ·`, { exact: true })).toBeVisible(); // sin «Por mesa», Caja sabe de qué mesa es
   await ticket(cashier).getByLabel('Medio de pago').selectOption({ label: 'Efectivo' });
   await ticket(cashier).getByRole('button', { name: /^Cobrar .*27\.000/ }).click();
   await expect(cashier.getByText('Venta cobrada: ')).toContainText('27.000 en efectivo');
+  await view(cashier, 'Historial').click();
+  await expect(cashier.getByRole('button', { name: new RegExp(`${TABLE} · 2 artículos · Efectivo`) }).first()).toBeVisible();
 
   const sale = await json(admin, 'GET', `/locations/${loc}/pos/sales/${saleId}`);
   expect([sale.status, sale.total, sale.payment_method]).toEqual(['completed', '27000.00', 'cash']);

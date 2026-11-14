@@ -94,6 +94,9 @@ export const saleLineSchema = z.object({
 });
 export type SaleLineDto = z.infer<typeof saleLineSchema>;
 
+/** Largo máximo de la etiqueta de un recurso externo vinculado (`sale_external_links.label`). */
+export const CONTEXT_LABEL_MAX = 60;
+
 export const saleSchema = z.object({
   id: z.uuid(),
   currency: currencySchema,
@@ -105,6 +108,8 @@ export const saleSchema = z.object({
   opened_by: z.uuid(),
   closed_at: iso.nullable(),
   closed_by: z.uuid().nullable(),
+  /** Nombre legible del recurso externo al que se vinculó (copia al vincular); se conserva al cerrar. Null si nunca se vinculó. */
+  context_label: z.string().max(CONTEXT_LABEL_MAX).nullable(),
   /** Incluye las anuladas (auditoría); la UI las muestra tachadas. */
   lines: z.array(saleLineSchema),
 });

@@ -1,4 +1,4 @@
-import { saleCompletedV1 } from '@modivara/pos-contracts';
+import { CONTEXT_LABEL_MAX, saleCompletedV1 } from '@modivara/pos-contracts';
 import { toEventEnvelope } from '@modivara/core-contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId } from '@modivara/core-contracts';
@@ -237,6 +237,7 @@ describe('ventas vinculadas a un recurso externo (POS-15)', () => {
     const first = await uc.openLinked.execute({ ...linked, idempotencyKey: firstKey });
     const again = await uc.openLinked.execute({ ...linked, idempotencyKey: otherKey });
     expect(first.replayed).toBe(false);
+    expect(first.sale.toProps().contextLabel).toBe('spot 00aa'); // la etiqueta que dio el proveedor, copiada en la venta
     expect(again).toMatchObject({ replayed: true, sale: { id: first.sale.id } });
 
     const tinto = await item('Tinto', 'unit', '2500');
@@ -246,6 +247,8 @@ describe('ventas vinculadas a un recurso externo (POS-15)', () => {
     for (const idempotencyKey of [firstKey, otherKey]) {
       expect(await uc.openLinked.execute({ ...linked, idempotencyKey })).toMatchObject({ replayed: true, sale: { id: first.sale.id, status: 'completed' } });
     }
+    // Cerrada, conserva la etiqueta (historial).
+    expect((await uc.listSales.execute({ ...ctx, status: 'completed' }))[0]!.toProps().contextLabel).toBe('spot 00aa');
     expect(sales.rows.size).toBe(1);
     validator.known.add('spot:01900000-0000-7000-8000-0000000000ab');
     await expect(uc.openLinked.execute({ ...linked, resourceId: '01900000-0000-7000-8000-0000000000ab', idempotencyKey: firstKey }))
@@ -263,6 +266,17 @@ describe('ventas vinculadas a un recurso externo (POS-15)', () => {
     validator.known.clear(); // p. ej. mesa desactivada o módulo revocado
     expect(await uc.openLinked.execute({ ...linked, idempotencyKey })).toMatchObject({ replayed: true, sale: { id: first.sale.id } });
     await expect(uc.openLinked.execute({ ...linked, idempotencyKey: '01900000-0000-7000-8000-0000000000d2' })).rejects.toThrow(NotFoundError);
+  });
+
+  it('etiqueta del proveedor: sin espacios sobrantes, recortada al máximo; vacía → sin etiqueta', async () => {
+    validator.known.add(`spot:${resourceId}`);
+    validator.label = `  ${'x'.repeat(CONTEXT_LABEL_MAX + 5)} `;
+    const long = await uc.openLinked.execute({ ...linked, idempotencyKey: '01900000-0000-7000-8000-0000000000e1' });
+    expect(long.sale.toProps().contextLabel).toBe('x'.repeat(CONTEXT_LABEL_MAX));
+    await uc.cancel({ ...ctx, saleId: long.sale.id });
+    validator.label = ' ';
+    const blank = await uc.openLinked.execute({ ...linked, idempotencyKey: '01900000-0000-7000-8000-0000000000e3' });
+    expect(blank.sale.toProps().contextLabel).toBeNull();
   });
 
   it('proveedor no registrado o recurso desconocido → no existe', async () => {

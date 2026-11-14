@@ -45,6 +45,8 @@ export interface SaleProps {
   /** Cierre o anulación, según `status`. */
   closedAt: Date | null;
   closedBy: string | null;
+  /** Etiqueta del recurso externo vinculado, copiada al vincular (solo para mostrar); la venta no la interpreta. */
+  contextLabel: string | null;
 }
 
 /**
@@ -56,7 +58,9 @@ export class Sale extends AggregateRoot {
     super();
   }
 
-  static open(input: { id: string; organizationId: string; locationId: string; currency: string; actorUserId: string; now: Date }): Sale {
+  static open(input: {
+    id: string; organizationId: string; locationId: string; currency: string; actorUserId: string; now: Date; contextLabel?: string | null;
+  }): Sale {
     return new Sale({
       id: input.id,
       organizationId: input.organizationId,
@@ -69,6 +73,7 @@ export class Sale extends AggregateRoot {
       openedBy: input.actorUserId,
       closedAt: null,
       closedBy: null,
+      contextLabel: input.contextLabel ?? null,
     });
   }
 

@@ -57,7 +57,7 @@ describe('POS-20: tres rubros con los mismos endpoints', () => {
     const pair = await item(shoes, { name: 'Tenis negro 42', sku: 'ZAP-NEG-42', category: 'Calzado', unit: 'unit', price: '189900' });
     expect(pair).toMatchObject({ price: '189900.00', currency: 'COP', active: true });
     const sale = await sell(shoes, [[pair, '2']]);
-    expect(sale).toMatchObject({ status: 'completed', total: '379800.00', payment_method: 'cash', closed_by: cashier.actor.actorUserId });
+    expect(sale).toMatchObject({ status: 'completed', total: '379800.00', payment_method: 'cash', closed_by: cashier.actor.actorUserId, context_label: null });
     expect(sale.lines[0]).toMatchObject({ sku: 'ZAP-NEG-42', quantity: '2.000', unit_price: '189900.00', line_total: '379800.00' });
   });
 
@@ -219,6 +219,7 @@ describe('POS-15: vínculos externos genéricos', () => {
     const again = await link(body);
     expect([first.status, again.status]).toEqual([201, 200]);
     expect(result(again).sale.id).toBe(result(first).sale.id);
+    expect(result(first).sale.context_label).toBe(`desk ${resourceId.slice(-4)}`);
     expect((await link({ ...body, resource_id: newId() })).status).toBe(404);
     expect((await link({ ...body, provider: 'otro' })).status).toBe(404);
     expect((await link({ ...body, provider: 'Ext!' })).status).toBe(400);

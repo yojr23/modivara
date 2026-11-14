@@ -303,7 +303,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
         <div className="mb-2 flex shrink-0 items-baseline justify-between gap-2">
           <div>
             <h2 id="ticket-h" className="text-lg font-bold">Venta en curso</h2>
-            {sale && <p className="text-sm text-muted">Abierta {fmtWhen(sale.opened_at, tz)}</p>}
+            {sale && <p className="text-sm text-muted">{sale.context_label && <span className="font-semibold text-fg">{sale.context_label} · </span>}Abierta {fmtWhen(sale.opened_at, tz)}</p>}
           </div>
           <Button size="sm" variant="ghost" disabled={busy || unresolved} onClick={() => void newSale()}><Plus aria-hidden className="size-4" />Nueva venta</Button>
         </div>
@@ -313,7 +313,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
               <button key={s.id} type="button" aria-pressed={s.id === sale?.id} onClick={() => select(s.id)}
                 className={cn('shrink-0 rounded-md border px-3 py-1.5 text-left text-sm', s.id === sale?.id ? 'border-ink ring-1 ring-ink' : 'border-line hover:border-line-strong')}>
                 <span className="block font-semibold tabular-nums">{fmtMoney(s.total, s.currency)}</span>
-                <span className="block text-xs text-muted">{fmtWhen(s.opened_at, tz)} · {countLabel(activeCount(s))}</span>
+                <span className="block text-xs text-muted">{s.context_label && `${s.context_label} · `}{fmtWhen(s.opened_at, tz)} · {countLabel(activeCount(s))}</span>
               </button>
             ))}
           </div>
@@ -599,7 +599,7 @@ function SalesHistory() {
                 <button type="button" onClick={() => setDetail(s)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-4 px-4 py-3 text-left hover:bg-sunken">
                   <span className="font-semibold">{fmtWhen(s.closed_at ?? s.opened_at, location.timezone)}</span>
                   <span className="text-right font-semibold tabular-nums">{fmtMoney(s.total, s.currency)}</span>
-                  <span className="text-sm text-muted">{countLabel(activeCount(s))}{s.payment_method && ` · ${PAY[s.payment_method]}`}</span>
+                  <span className="text-sm text-muted">{s.context_label && `${s.context_label} · `}{countLabel(activeCount(s))}{s.payment_method && ` · ${PAY[s.payment_method]}`}</span>
                 </button>
               </li>
             ))}
@@ -618,7 +618,9 @@ export default function Sales() {
   const [, setParams] = useSearchParams();
   const views = ([
     ['vender', 'Vender', can('pos.sales.operate')],
-    // Composición: solo si el negocio también tiene Hospitality y el rol puede leer sus mesas.
+    // Composición: solo si el negocio también tiene Hospitality y el rol puede leer sus mesas. Caja (solo pos.sales.*) no la ve:
+    // reconoce la mesa de cada venta por `context_label`.
+    // OPEN: ¿dar «Por mesa» al rol Caja (p. ej. hospitality.calls.read o un permiso de solo lectura de mesas)?
     ['mesas', 'Por mesa', can('pos.sales.operate') && me.modules.includes('hospitality') && can('hospitality.calls.read')],
     ['catalogo', 'Catálogo', can('pos.catalog.manage')],
     ['historial', 'Historial', true],

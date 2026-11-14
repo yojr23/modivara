@@ -77,7 +77,7 @@ it('Vender: tocar un artículo abre la venta y agrega la línea con Idempotency-
   const S = ID(4);
   const item = { id: ID(5), name: 'Café', sku: null, category: null, unit: 'unit', price: '5000.00', currency: 'COP', active: true };
   const line = { id: ID(6), sellable_item_id: item.id, sku: null, name: 'Café', unit: 'unit', unit_price: '5000.00', quantity: '2.000', line_total: '10000.00', added_at: '2026-11-13T10:00:00.000Z', voided_at: null };
-  let sale = { id: S, currency: 'COP', status: 'open', total: '0.00', payment_method: null as string | null, opened_at: '2026-11-13T10:00:00.000Z', opened_by: ID(3), closed_at: null as string | null, closed_by: null as string | null, lines: [] as unknown[] };
+  let sale = { id: S, currency: 'COP', status: 'open', total: '0.00', payment_method: null as string | null, opened_at: '2026-11-13T10:00:00.000Z', opened_by: ID(3), closed_at: null as string | null, closed_by: null as string | null, context_label: null, lines: [] as unknown[] };
   const calls: { method: string; url: string; body?: unknown; key?: string }[] = [];
   const base = `/api/v1/locations/${ID(2)}/pos`;
   const { router } = mount('/demo/app/ventas', async (url, init) => {
@@ -122,7 +122,7 @@ it('Vender: tocar un artículo abre la venta y agrega la línea con Idempotency-
 const L = ID(2);
 const T = ID(7);
 const SALE = ID(4);
-const linkedSale = { id: SALE, currency: 'COP', status: 'open', total: '0.00', payment_method: null, opened_at: '2026-11-13T10:00:00.000Z', opened_by: ID(3), closed_at: null, closed_by: null, lines: [] };
+const linkedSale = { id: SALE, currency: 'COP', status: 'open', total: '0.00', payment_method: null, opened_at: '2026-11-13T10:00:00.000Z', opened_by: ID(3), closed_at: null, closed_by: null, context_label: 'Mesa 3', lines: [] };
 const table = { id: T, label: 'Mesa 3', zone_id: null, zone_name: null, display_name: 'Mesa 3', position: 0 };
 const layout = {
   id: ID(8), zone_id: null, version: 1, status: 'published', canvas_width: 800, canvas_height: 600, revision: 1, updated_at: '2026-11-13T10:00:00.000Z', published_at: '2026-11-13T10:00:00.000Z',
@@ -182,9 +182,31 @@ it('Ventas «Por mesa»: con Hospitality lista las mesas sin plano publicado y t
   await waitFor(() => expect(router.state.location.search).toBe(`?venta=${SALE}`));
   expect(screen.getByRole('button', { name: 'Vender' }).getAttribute('aria-pressed')).toBe('true');
   expect(await screen.findByText('Toca un artículo para agregarlo.')).toBeTruthy(); // la venta de la mesa quedó en curso
+  expect(within(screen.getByRole('complementary', { name: 'Venta en curso' })).getByText('Mesa 3 ·')).toBeTruthy();
   const posts = reqs.filter((r) => r.method === 'POST');
   expect(posts.map((r) => [r.url, r.body])).toEqual([[`/api/v1/locations/${L}/pos/links`, { provider: 'hospitality', resource_type: 'table', resource_id: T }]]);
   expect(posts[0]!.key).toMatch(/^[0-9a-f-]{36}$/);
+});
+
+it('Caja sin «Por mesa»: la etiqueta de la venta dice de qué mesa es, en la venta en curso, en las abiertas y en el historial', async () => {
+  const other = { ...linkedSale, id: ID(8), context_label: 'Mesa 7', total: '9000.00' };
+  const closed = { ...linkedSale, id: ID(9), status: 'completed', payment_method: 'card', closed_at: '2026-11-13T10:05:00.000Z', closed_by: ID(3), context_label: 'Mesa 3', lines: [
+    { id: ID(6), sellable_item_id: ID(5), sku: null, name: 'Café', unit: 'unit', unit_price: '5000.00', quantity: '1.000', line_total: '5000.00', added_at: '2026-11-13T10:00:00.000Z', voided_at: null },
+  ] };
+  const base = `/api/v1/locations/${L}/pos`;
+  mount(`/demo/app/ventas?venta=${SALE}`, async (url) => {
+    if (url.endsWith('/me')) return json(me(['hospitality', 'pos'], ['pos.sales.read', 'pos.sales.operate']));
+    if (url === `${base}/sales/${SALE}`) return json(linkedSale);
+    if (url.startsWith(`${base}/sales?`) && url.includes('status=open')) return json([linkedSale, other]);
+    if (url.startsWith(`${base}/sales?`) && url.includes('status=completed')) return json([closed]);
+    return json([]);
+  });
+  const ticket = await screen.findByRole('complementary', { name: 'Venta en curso' });
+  expect(await within(ticket).findByText('Mesa 3 ·')).toBeTruthy(); // encabezado de la venta en curso
+  const openGroup = await within(ticket).findByRole('group', { name: 'Ventas abiertas' });
+  expect(within(openGroup).getByRole('button', { name: /Mesa 7 · .* · 0 artículos/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Historial' }));
+  expect(await screen.findByText('Mesa 3 · 1 artículo · Tarjeta')).toBeTruthy();
 });
 
 it('Ventas «Por mesa»: oculto en un negocio solo POS (sin peticiones a Hospitality) y sin hospitality.calls.read', async () => {
@@ -236,7 +258,7 @@ it('la portada pide el negocio, valida el slug y lleva a su login', async () => 
 it('Vender: dos taps seguidos mientras se agrega el artículo crean una sola línea', async () => {
   const S = ID(4);
   const item = { id: ID(5), name: 'Café', sku: null, category: null, unit: 'unit', price: '5000.00', currency: 'COP', active: true };
-  const open = { id: S, currency: 'COP', status: 'open', total: '0.00', payment_method: null, opened_at: '2026-11-14T15:00:00.000Z', opened_by: ID(1), closed_at: null, closed_by: null, lines: [] };
+  const open = { id: S, currency: 'COP', status: 'open', total: '0.00', payment_method: null, opened_at: '2026-11-14T15:00:00.000Z', opened_by: ID(1), closed_at: null, closed_by: null, context_label: null, lines: [] };
   const base = `/api/v1/locations/${ID(2)}/pos`;
   const posts: string[] = [];
   let release!: () => void;

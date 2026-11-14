@@ -119,11 +119,14 @@ export class InMemoryPosSettings implements PosSettingsRepository {
   async saveCurrency(q: LocationScope & { currency: string }) { this.rows.set(`${q.organizationId}:${q.locationId}`, q.currency); }
 }
 
-/** Proveedor externo de prueba: solo conoce los recursos de `known`. */
+/** Proveedor externo de prueba: solo conoce los recursos de `known`; su etiqueta es `label` o `<tipo> <últimos 4 del id>`. */
 export class FakeReferenceValidator implements ExternalReferenceValidator {
   readonly known = new Set<string>();
+  label: string | null = null;
   constructor(readonly provider = 'ext') {}
-  async validate(_ctx: unknown, resourceType: string, resourceId: string) { return this.known.has(`${resourceType}:${resourceId}`); }
+  async validate(_ctx: unknown, resourceType: string, resourceId: string) {
+    return this.known.has(`${resourceType}:${resourceId}`) ? (this.label ?? `${resourceType} ${resourceId.slice(-4)}`) : null;
+  }
 }
 
 /** Core mínimo: solo locales. POS no necesita nada más de Core para vender. */

@@ -146,7 +146,10 @@ describe('concurrencia e idempotencia (POS-18)', () => {
 
       const saleId = results[0]!.sale.id;
       await w.voidSale.execute({ ...w.actor, saleId, idempotencyKey: newId() });
-      expect(await db.saleExternalLink.findFirst({ where: { saleId } })).toMatchObject({ active: false, releasedAt: expect.any(Date) });
+      expect(await db.saleExternalLink.findFirst({ where: { saleId } })).toMatchObject({ active: false, releasedAt: expect.any(Date), label: `spot ${resourceId.slice(-4)}` });
+      // Liberado el vínculo, la venta conserva la etiqueta (por id y en el listado).
+      expect((await w.getSale.execute({ ...w.actor, saleId })).toProps().contextLabel).toBe(`spot ${resourceId.slice(-4)}`);
+      expect((await w.listSales.execute(w.actor)).map((s) => s.toProps().contextLabel)).toEqual([`spot ${resourceId.slice(-4)}`]);
       // Reintento tardío de cualquiera de las tres peticiones: la venta original (anulada), sin abrir otra.
       for (const idempotencyKey of keys) {
         expect(await w.openLinked.execute({ ...cmd, idempotencyKey })).toMatchObject({ replayed: true, sale: { id: saleId, status: 'voided' } });

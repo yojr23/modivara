@@ -14,7 +14,7 @@ const U = '55555555-5555-4555-8555-555555555555';
 const item = { id: I, name: 'Café', sku: null, category: null, unit: 'unit', price: '5000.00', currency: 'COP', active: true };
 const sale = {
   id: S, currency: 'COP', status: 'open', total: '0.00', payment_method: null, opened_at: '2026-11-13T10:00:00.000Z', opened_by: U,
-  closed_at: null, closed_by: null, lines: [],
+  closed_at: null, closed_by: null, context_label: null, lines: [],
 };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } });
 const stub = (res: Response | (() => Response)) => {

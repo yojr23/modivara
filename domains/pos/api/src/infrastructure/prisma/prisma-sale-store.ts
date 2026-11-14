@@ -7,7 +7,11 @@ import type { PosPrisma } from './client.js';
 import { isUniqueViolation, type Db } from './db.js';
 import type { Prisma } from './generated/client.js';
 
-const withLines = { lines: { orderBy: [{ addedAt: 'asc' }, { id: 'asc' }] } } satisfies Prisma.SaleInclude;
+// Etiqueta del vínculo más reciente: sigue visible en el historial aunque el vínculo ya no esté activo.
+const withLines = {
+  lines: { orderBy: [{ addedAt: 'asc' }, { id: 'asc' }] },
+  links: { orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 1, select: { label: true } },
+} satisfies Prisma.SaleInclude;
 type SaleRow = Prisma.SaleGetPayload<{ include: typeof withLines }>;
 
 // Decimales siempre como texto: Number perdería centavos en montos grandes.
@@ -15,6 +19,7 @@ const toSale = (r: SaleRow) =>
   Sale.restore({
     id: r.id, organizationId: r.organizationId, locationId: r.locationId, currency: r.currency, status: r.status,
     paymentMethod: r.paymentMethod, openedAt: r.openedAt, openedBy: r.openedBy, closedAt: r.closedAt, closedBy: r.closedBy,
+    contextLabel: r.links[0]?.label ?? null,
     lines: r.lines.map((l) => ({
       id: l.id, sellableItemId: l.sellableItemId, skuSnapshot: l.skuSnapshot, nameSnapshot: l.nameSnapshot, unitSnapshot: l.unitSnapshot,
       unitPriceSnapshot: parseScaled(l.unitPriceSnapshot.toFixed(MONEY_SCALE), MONEY_SCALE),
@@ -58,7 +63,7 @@ export class PrismaSaleStore implements SaleStore {
         if (p.lines.length > 0) await tx.saleLine.createMany({ data: p.lines.map((l) => lineRow(p, l)) });
         if (link) {
           await tx.saleExternalLink.create({
-            data: { id: newId(), organizationId: p.organizationId, locationId: p.locationId, saleId: p.id, ...link, createdAt: p.openedAt, createdBy: p.openedBy },
+            data: { id: newId(), organizationId: p.organizationId, locationId: p.locationId, saleId: p.id, ...link, label: p.contextLabel, createdAt: p.openedAt, createdBy: p.openedBy },
           });
         }
         if (idem) await tx.idempotencyKey.create({ data: { organizationId: p.organizationId, ...idem, saleId: p.id } });

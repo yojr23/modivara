@@ -1,4 +1,4 @@
-import type { SaleStatus } from '@modivara/pos-contracts';
+import { CONTEXT_LABEL_MAX, type SaleStatus } from '@modivara/pos-contracts';
 import { type CoreAccessPort, findActiveLocation, newId } from '@modivara/core-contracts';
 import { ConflictError, InvalidValueError, LocationUnavailableError, NotFoundError } from '../domain/errors.js';
 import { Sale } from '../domain/sale.js';
@@ -140,7 +140,8 @@ export class OpenSale {
 }
 
 /**
- * Abre o recupera la venta atada a un recurso de otro producto (POS-15). El validador del proveedor lo registra el host;
+ * Abre o recupera la venta atada a un recurso de otro producto (POS-15). El validador del proveedor lo registra el host y da
+ * la etiqueta del recurso, que la venta guarda como copia para mostrarla;
  * proveedor desconocido o recurso inválido → `NotFoundError` (no revela qué proveedores existen). La clave de idempotencia
  * queda atada a la venta devuelta (nueva o ya vinculada): un reintento tardío, aunque esa venta ya esté cerrada y el recurso
  * libre, devuelve la misma venta en vez de abrir otra.
@@ -161,11 +162,11 @@ export class OpenLinkedSale {
     const replay = await this.sales.findReplay(cmd, idem);
     if (replay) return replay;
     const validator = this.validators.find((v) => v.provider === cmd.provider);
-    if (!validator || !UUID.test(cmd.resourceId) || !(await validator.validate(cmd, cmd.resourceType, cmd.resourceId))) {
-      throw new NotFoundError('External resource');
-    }
+    const label = validator && UUID.test(cmd.resourceId) ? await validator.validate(cmd, cmd.resourceType, cmd.resourceId) : null;
+    if (label === null) throw new NotFoundError('External resource');
     const currency = await locationCurrency(this.settings, cmd);
-    return this.sales.open(Sale.open({ ...cmd, currency, id: newId(), now: new Date() }), idem, link);
+    const contextLabel = label.trim().slice(0, CONTEXT_LABEL_MAX) || null;
+    return this.sales.open(Sale.open({ ...cmd, currency, id: newId(), now: new Date(), contextLabel }), idem, link);
   }
 }
 

@@ -21,6 +21,7 @@ const toSale = (sale: Sale): SaleDto => {
   return {
     id: s.id, currency: s.currency, status: s.status, total: money(sale.total), payment_method: s.paymentMethod,
     opened_at: s.openedAt.toISOString(), opened_by: s.openedBy, closed_at: s.closedAt?.toISOString() ?? null, closed_by: s.closedBy,
+    context_label: s.contextLabel,
     lines: s.lines.map((l) => ({
       id: l.id, sellable_item_id: l.sellableItemId, sku: l.skuSnapshot, name: l.nameSnapshot, unit: l.unitSnapshot,
       unit_price: money(l.unitPriceSnapshot), quantity: formatScaled(l.quantity, QUANTITY_SCALE), line_total: money(multiplyMoney(l.unitPriceSnapshot, l.quantity)),

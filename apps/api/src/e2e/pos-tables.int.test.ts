@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { IDEMPOTENCY_KEY_HEADER, saleResultSchema } from '@modivara/pos-contracts';
+import { IDEMPOTENCY_KEY_HEADER, saleResultSchema, saleSchema } from '@modivara/pos-contracts';
 import { startHost } from './testing.js';
 
 // POS-27 / POS-28 / POS-42: adaptador de mesas de Hospitality en el host completo, con mesas, botón y llamados reales.
@@ -24,7 +24,14 @@ describe('vincular una venta a una mesa (adaptador hospitality)', () => {
     expect(first.status).toBe(201);
     const again = await link(table, 'bar-demo/admin');
     expect(again.status).toBe(200);
-    expect(saleResultSchema.parse(again.body).sale.id).toBe(saleResultSchema.parse(first.body).sale.id);
+    const sale = saleResultSchema.parse(again.body).sale;
+    expect(sale.id).toBe(saleResultSchema.parse(first.body).sale.id);
+    // Caja (sin permisos de Hospitality) reconoce la mesa por la etiqueta de la venta, en el detalle y en el listado.
+    expect(sale.context_label).toBe('1');
+    const caja = h.as('bar-demo/caja1');
+    expect(saleSchema.parse((await caja.get(`${pos()}/sales/${sale.id}`)).body).context_label).toBe('1');
+    const open = saleSchema.array().parse((await caja.get(`${pos()}/sales?status=open`)).body);
+    expect(open.find((s) => s.id === sale.id)?.context_label).toBe('1');
   });
 
   it('mesa inexistente, de otro local, desactivada o tipo de recurso ajeno: 404', async () => {
