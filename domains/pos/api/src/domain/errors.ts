@@ -22,3 +22,7 @@ export class EmptySaleError extends DomainError {
 export class CurrencyMismatchError extends DomainError {
   readonly code = 'currency_mismatch';
 }
+/** La clave de idempotencia ya se usó con otra operación u otra petición: nunca se devuelve aquel resultado. */
+export class IdempotencyKeyReusedError extends DomainError {
+  readonly code = 'idempotency_key_reused';
+}

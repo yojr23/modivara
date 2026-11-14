@@ -1,22 +1,35 @@
 import type { CoreAccessPort, DomainEvent, LocationRef } from '@modivara/core-contracts';
-import type { SaleRepository, ScopedId, SellableItemRepository } from '../application/ports.js';
+import type {
+  ExternalLink, ExternalReferenceValidator, IdempotencyKey, LocationScope, PosSettingsRepository, SaleStore, ScopedId, SellableItemRepository,
+} from '../application/ports.js';
+import { ConflictError, IdempotencyKeyReusedError, NotFoundError } from '../domain/errors.js';
 import { Sale } from '../domain/sale.js';
 import { SellableItem } from '../domain/sellable-item.js';
 
-const inScope = (p: { organizationId: string; locationId: string }, q: { organizationId: string; locationId: string }) =>
-  p.organizationId === q.organizationId && p.locationId === q.locationId;
+const inScope = (p: LocationScope, q: LocationScope) => p.organizationId === q.organizationId && p.locationId === q.locationId;
 
 export class InMemorySellableItems implements SellableItemRepository {
   readonly rows = new Map<string, ReturnType<SellableItem['toProps']>>();
-  async save(item: SellableItem) { this.rows.set(item.id, item.toProps()); }
+  /** Igual que los índices únicos parciales: nombre (sin mayúsculas) y SKU únicos entre activos del local. */
+  async save(item: SellableItem) {
+    const p = item.toProps();
+    const clash = p.deactivatedAt === null && [...this.rows.values()].some((r) =>
+      r.id !== p.id && r.deactivatedAt === null && r.locationId === p.locationId &&
+      (r.name.toLowerCase() === p.name.toLowerCase() || (p.sku !== null && r.sku === p.sku)));
+    if (clash) throw new ConflictError('Unique violation');
+    this.rows.set(item.id, p);
+  }
   async findById(q: ScopedId) {
     const p = this.rows.get(q.id);
     return p && inScope(p, q) ? SellableItem.restore(p) : null;
   }
-  async findActiveByName(q: { organizationId: string; locationId: string; name: string }) {
+  async list(q: LocationScope) {
+    return [...this.rows.values()].filter((p) => inScope(p, q)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => SellableItem.restore(p));
+  }
+  async findActiveByName(q: LocationScope & { name: string }) {
     return this.find((p) => inScope(p, q) && p.name.toLowerCase() === q.name.toLowerCase());
   }
-  async findActiveBySku(q: { organizationId: string; locationId: string; sku: string }) {
+  async findActiveBySku(q: LocationScope & { sku: string }) {
     return this.find((p) => inScope(p, q) && p.sku === q.sku);
   }
   private find(match: (p: ReturnType<SellableItem['toProps']>) => boolean) {
@@ -25,18 +38,82 @@ export class InMemorySellableItems implements SellableItemRepository {
   }
 }
 
-export class InMemorySales implements SaleRepository {
+/** Misma semántica que el adaptador de PostgreSQL: idempotencia, un vínculo activo por recurso, outbox. */
+export class InMemorySales implements SaleStore {
   readonly rows = new Map<string, ReturnType<Sale['toProps']>>();
   /** Lo que el adaptador real escribe en `pos.outbox_events`. */
   readonly outbox: DomainEvent[] = [];
-  async save(sale: Sale) {
-    this.rows.set(sale.id, sale.toProps());
-    this.outbox.push(...sale.pullEvents());
+  readonly keys = new Map<string, IdempotencyKey & { saleId: string }>();
+  readonly links: (ExternalLink & LocationScope & { saleId: string; active: boolean })[] = [];
+
+  async open(sale: Sale, idem: IdempotencyKey | null, link?: ExternalLink) {
+    const replay = idem && this.replay(sale.organizationId, idem);
+    if (replay) return replay;
+    if (link) {
+      const linked = await this.findByActiveLink({ organizationId: sale.organizationId, locationId: sale.locationId, ...link });
+      if (linked) return { sale: linked, replayed: true };
+      this.links.push({ ...link, organizationId: sale.organizationId, locationId: sale.locationId, saleId: sale.id, active: true });
+    }
+    this.write(sale, idem);
+    return { sale: Sale.restore(sale.toProps()), replayed: false };
   }
+
+  async mutate(q: ScopedId, idem: IdempotencyKey, work: (sale: Sale) => void) {
+    const sale = await this.findById(q);
+    if (!sale) throw new NotFoundError('Sale');
+    const replay = this.replay(q.organizationId, idem);
+    if (replay) return replay;
+    work(sale);
+    this.write(sale, idem);
+    if (sale.status !== 'open') for (const l of this.links) if (l.saleId === sale.id) l.active = false;
+    return { sale: Sale.restore(sale.toProps()), replayed: false };
+  }
+
   async findById(q: ScopedId) {
     const p = this.rows.get(q.id);
     return p && inScope(p, q) ? Sale.restore(p) : null;
   }
+
+  async findByActiveLink(q: LocationScope & ExternalLink) {
+    const l = this.links.find((x) => x.active && inScope(x, q) && x.provider === q.provider && x.resourceType === q.resourceType && x.resourceId === q.resourceId);
+    return l ? this.findById({ id: l.saleId, organizationId: q.organizationId, locationId: q.locationId }) : null;
+  }
+
+  async list(q: Parameters<SaleStore['list']>[0]) {
+    const desc = (a: { openedAt: Date; id: string }, b: { openedAt: Date; id: string }) =>
+      b.openedAt.getTime() - a.openedAt.getTime() || (b.id < a.id ? -1 : b.id > a.id ? 1 : 0);
+    return [...this.rows.values()]
+      .filter((p) => inScope(p, q) && (!q.status || p.status === q.status) && (!q.after || desc(q.after, p) < 0))
+      .sort(desc)
+      .slice(0, q.limit)
+      .map((p) => Sale.restore(p));
+  }
+
+  private replay(organizationId: string, idem: IdempotencyKey) {
+    const k = this.keys.get(`${organizationId}:${idem.key}`);
+    if (!k) return null;
+    if (k.operation !== idem.operation || k.fingerprint !== idem.fingerprint) throw new IdempotencyKeyReusedError('Idempotency key reused');
+    return { sale: Sale.restore(this.rows.get(k.saleId)!), replayed: true };
+  }
+
+  private write(sale: Sale, idem: IdempotencyKey | null) {
+    this.rows.set(sale.id, sale.toProps());
+    this.outbox.push(...sale.pullEvents());
+    if (idem) this.keys.set(`${sale.organizationId}:${idem.key}`, { ...idem, saleId: sale.id });
+  }
+}
+
+export class InMemoryPosSettings implements PosSettingsRepository {
+  readonly rows = new Map<string, string>();
+  async findCurrency(q: LocationScope) { return this.rows.get(`${q.organizationId}:${q.locationId}`) ?? null; }
+  async saveCurrency(q: LocationScope & { currency: string }) { this.rows.set(`${q.organizationId}:${q.locationId}`, q.currency); }
+}
+
+/** Proveedor externo de prueba: solo conoce los recursos de `known`. */
+export class FakeReferenceValidator implements ExternalReferenceValidator {
+  readonly known = new Set<string>();
+  constructor(readonly provider = 'ext') {}
+  async validate(_ctx: unknown, resourceType: string, resourceId: string) { return this.known.has(`${resourceType}:${resourceId}`); }
 }
 
 /** Core mínimo: solo locales. POS no necesita nada más de Core para vender. */

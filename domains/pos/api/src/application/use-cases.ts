@@ -1,15 +1,19 @@
+import type { SaleStatus } from '@modivara/pos-contracts';
 import { type CoreAccessPort, findActiveLocation, newId } from '@modivara/core-contracts';
-import { ConflictError, LocationUnavailableError, NotFoundError } from '../domain/errors.js';
+import { ConflictError, InvalidValueError, LocationUnavailableError, NotFoundError } from '../domain/errors.js';
 import { Sale } from '../domain/sale.js';
 import { type CreateSellableItemInput, SellableItem } from '../domain/sellable-item.js';
-import type { SaleRepository, SellableItemRepository } from './ports.js';
+import { requireCurrency } from '../domain/values.js';
+import type {
+  ExternalReferenceValidator, IdempotencyKey, PosContext, PosSettingsRepository, SaleStore, SaleWrite, SellableItemRepository,
+} from './ports.js';
 
-/** Quién, en qué negocio y en qué local; viene del contexto autorizado en el servidor, nunca del cliente. */
-export interface PosContext {
-  organizationId: string;
-  locationId: string;
-  actorUserId: string;
-}
+// OPEN: moneda de un local sin ajustes guardados (POS-001 §7 dice COP); ¿derivarla del país del local cuando Core lo tenga?
+export const DEFAULT_CURRENCY = 'COP';
+export const DEFAULT_SALE_LIMIT = 50;
+export const MAX_SALE_LIMIT = 200;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function requireLocation(core: CoreAccessPort, ctx: PosContext): Promise<void> {
   if (!(await findActiveLocation(core, ctx.organizationId, ctx.locationId))) throw new LocationUnavailableError();
@@ -21,12 +25,11 @@ async function requireItem(items: SellableItemRepository, ctx: PosContext, id: s
   return item;
 }
 
-async function requireSale(sales: SaleRepository, ctx: PosContext, id: string): Promise<Sale> {
-  const sale = await sales.findById({ id, organizationId: ctx.organizationId, locationId: ctx.locationId });
-  if (!sale) throw new NotFoundError('Sale');
-  return sale;
+async function locationCurrency(settings: PosSettingsRepository, ctx: PosContext): Promise<string> {
+  return (await settings.findCurrency({ organizationId: ctx.organizationId, locationId: ctx.locationId })) ?? DEFAULT_CURRENCY;
 }
 
+/** Mensaje claro antes de escribir; la garantía la da `save` (índices únicos), no esta lectura. */
 async function assertUnique(items: SellableItemRepository, item: SellableItem): Promise<void> {
   const scope = { organizationId: item.organizationId, locationId: item.locationId };
   const byName = await items.findActiveByName({ ...scope, name: item.name });
@@ -36,15 +39,31 @@ async function assertUnique(items: SellableItemRepository, item: SellableItem): 
   if (bySku && bySku.id !== item.id) throw new ConflictError(`An active item with SKU "${item.sku}" already exists`);
 }
 
-export type CreateSellableItemCommand = PosContext &
-  Pick<CreateSellableItemInput, 'name' | 'sku' | 'category' | 'unit' | 'price' | 'currency'>;
+/**
+ * Clave de idempotencia con la huella de la petición: el local y los datos de la operación, en orden fijo
+ * (`JSON.stringify` respeta el orden de inserción). La misma clave en otro local u otra venta es otra petición.
+ */
+function idempotency(key: string, operation: string, ctx: PosContext, input: Record<string, string> = {}): IdempotencyKey {
+  if (!UUID.test(key)) throw new InvalidValueError('Idempotency key must be a UUID');
+  return { key, operation, fingerprint: JSON.stringify({ locationId: ctx.locationId, ...input }) };
+}
 
+const saleScope = (ctx: PosContext, id: string) => ({ id, organizationId: ctx.organizationId, locationId: ctx.locationId });
+
+export type CreateSellableItemCommand = PosContext & Pick<CreateSellableItemInput, 'name' | 'sku' | 'category' | 'unit' | 'price'>;
+
+/** La moneda del artículo es la del local (POS-09): el cliente no la envía. */
 export class CreateSellableItem {
-  constructor(private readonly items: SellableItemRepository, private readonly core: CoreAccessPort) {}
+  constructor(
+    private readonly items: SellableItemRepository,
+    private readonly settings: PosSettingsRepository,
+    private readonly core: CoreAccessPort,
+  ) {}
 
   async execute(cmd: CreateSellableItemCommand): Promise<SellableItem> {
     await requireLocation(this.core, cmd);
-    const item = SellableItem.create({ ...cmd, id: newId(), now: new Date() });
+    const currency = await locationCurrency(this.settings, cmd);
+    const item = SellableItem.create({ ...cmd, currency, id: newId(), now: new Date() });
     await assertUnique(this.items, item);
     await this.items.save(item);
     return item;
@@ -75,67 +94,143 @@ export class DeactivateSellableItem {
   }
 }
 
-// OPEN: la moneda de la venta llega en el comando; con POS-09 saldrá de la configuración del local.
-export class OpenSale {
-  constructor(private readonly sales: SaleRepository, private readonly core: CoreAccessPort) {}
+export class ListSellableItems {
+  constructor(private readonly items: SellableItemRepository, private readonly core: CoreAccessPort) {}
 
-  async execute(cmd: PosContext & { currency: string }): Promise<Sale> {
+  async execute(ctx: PosContext): Promise<SellableItem[]> {
+    await requireLocation(this.core, ctx);
+    return this.items.list({ organizationId: ctx.organizationId, locationId: ctx.locationId });
+  }
+}
+
+export class GetPosSettings {
+  constructor(private readonly settings: PosSettingsRepository, private readonly core: CoreAccessPort) {}
+
+  async execute(ctx: PosContext): Promise<{ currency: string }> {
+    await requireLocation(this.core, ctx);
+    return { currency: await locationCurrency(this.settings, ctx) };
+  }
+}
+
+/** Cambiar la moneda no toca artículos ni ventas ya creados: los nuevos toman la nueva y mezclarlas da `currency_mismatch`. */
+export class UpdatePosSettings {
+  constructor(private readonly settings: PosSettingsRepository, private readonly core: CoreAccessPort) {}
+
+  async execute(cmd: PosContext & { currency: string }): Promise<{ currency: string }> {
     await requireLocation(this.core, cmd);
-    const sale = Sale.open({ ...cmd, id: newId(), now: new Date() });
-    await this.sales.save(sale);
+    const currency = requireCurrency(cmd.currency);
+    await this.settings.saveCurrency({ organizationId: cmd.organizationId, locationId: cmd.locationId, currency, actorUserId: cmd.actorUserId });
+    return { currency };
+  }
+}
+
+export class OpenSale {
+  constructor(
+    private readonly sales: SaleStore,
+    private readonly settings: PosSettingsRepository,
+    private readonly core: CoreAccessPort,
+  ) {}
+
+  async execute(cmd: PosContext & { idempotencyKey: string }): Promise<SaleWrite> {
+    await requireLocation(this.core, cmd);
+    const idem = idempotency(cmd.idempotencyKey, 'open_sale', cmd);
+    const currency = await locationCurrency(this.settings, cmd);
+    return this.sales.open(Sale.open({ ...cmd, currency, id: newId(), now: new Date() }), idem);
+  }
+}
+
+/**
+ * Abre o recupera la venta atada a un recurso de otro producto (POS-15). El validador del proveedor lo registra el host;
+ * proveedor desconocido o recurso inválido → `NotFoundError` (no revela qué proveedores existen).
+ */
+export class OpenLinkedSale {
+  constructor(
+    private readonly sales: SaleStore,
+    private readonly settings: PosSettingsRepository,
+    private readonly validators: readonly ExternalReferenceValidator[],
+    private readonly core: CoreAccessPort,
+  ) {}
+
+  async execute(cmd: PosContext & { provider: string; resourceType: string; resourceId: string }): Promise<SaleWrite> {
+    await requireLocation(this.core, cmd);
+    const validator = this.validators.find((v) => v.provider === cmd.provider);
+    if (!validator || !UUID.test(cmd.resourceId) || !(await validator.validate(cmd, cmd.resourceType, cmd.resourceId))) {
+      throw new NotFoundError('External resource');
+    }
+    const link = { provider: cmd.provider, resourceType: cmd.resourceType, resourceId: cmd.resourceId };
+    const linked = await this.sales.findByActiveLink({ organizationId: cmd.organizationId, locationId: cmd.locationId, ...link });
+    if (linked) return { sale: linked, replayed: true };
+    const currency = await locationCurrency(this.settings, cmd);
+    return this.sales.open(Sale.open({ ...cmd, currency, id: newId(), now: new Date() }), null, link);
+  }
+}
+
+export class GetSale {
+  constructor(private readonly sales: SaleStore, private readonly core: CoreAccessPort) {}
+
+  async execute(cmd: PosContext & { saleId: string }): Promise<Sale> {
+    await requireLocation(this.core, cmd);
+    const sale = await this.sales.findById(saleScope(cmd, cmd.saleId));
+    if (!sale) throw new NotFoundError('Sale');
     return sale;
+  }
+}
+
+export class ListSales {
+  constructor(private readonly sales: SaleStore, private readonly core: CoreAccessPort) {}
+
+  async execute(cmd: PosContext & { status?: SaleStatus; limit?: number; after?: { openedAt: Date; id: string } }): Promise<Sale[]> {
+    await requireLocation(this.core, cmd);
+    const limit = Math.min(Math.max(cmd.limit ?? DEFAULT_SALE_LIMIT, 1), MAX_SALE_LIMIT);
+    return this.sales.list({ organizationId: cmd.organizationId, locationId: cmd.locationId, status: cmd.status, limit, after: cmd.after });
   }
 }
 
 export class AddSaleLine {
   constructor(
-    private readonly sales: SaleRepository,
+    private readonly sales: SaleStore,
     private readonly items: SellableItemRepository,
     private readonly core: CoreAccessPort,
   ) {}
 
-  async execute(cmd: PosContext & { saleId: string; sellableItemId: string; quantity: string }): Promise<Sale> {
+  async execute(cmd: PosContext & { saleId: string; sellableItemId: string; quantity: string; idempotencyKey: string }): Promise<SaleWrite> {
     await requireLocation(this.core, cmd);
-    const sale = await requireSale(this.sales, cmd, cmd.saleId);
+    const idem = idempotency(cmd.idempotencyKey, 'add_line', cmd, { saleId: cmd.saleId, itemId: cmd.sellableItemId, quantity: cmd.quantity });
     const item = await requireItem(this.items, cmd, cmd.sellableItemId);
-    sale.addLine({ lineId: newId(), item, quantity: cmd.quantity, actorUserId: cmd.actorUserId, now: new Date() });
-    await this.sales.save(sale);
-    return sale;
+    return this.sales.mutate(saleScope(cmd, cmd.saleId), idem, (sale) =>
+      sale.addLine({ lineId: newId(), item, quantity: cmd.quantity, actorUserId: cmd.actorUserId, now: new Date() }),
+    );
   }
 }
 
 export class VoidSaleLine {
-  constructor(private readonly sales: SaleRepository, private readonly core: CoreAccessPort) {}
+  constructor(private readonly sales: SaleStore, private readonly core: CoreAccessPort) {}
 
-  async execute(cmd: PosContext & { saleId: string; lineId: string }): Promise<Sale> {
+  async execute(cmd: PosContext & { saleId: string; lineId: string; idempotencyKey: string }): Promise<SaleWrite> {
     await requireLocation(this.core, cmd);
-    const sale = await requireSale(this.sales, cmd, cmd.saleId);
-    sale.voidLine(cmd.lineId, cmd.actorUserId, new Date());
-    await this.sales.save(sale);
-    return sale;
+    const idem = idempotency(cmd.idempotencyKey, 'void_line', cmd, { saleId: cmd.saleId, lineId: cmd.lineId });
+    return this.sales.mutate(saleScope(cmd, cmd.saleId), idem, (sale) => sale.voidLine(cmd.lineId, cmd.actorUserId, new Date()));
   }
 }
 
 export class CompleteSale {
-  constructor(private readonly sales: SaleRepository, private readonly core: CoreAccessPort) {}
+  constructor(private readonly sales: SaleStore, private readonly core: CoreAccessPort) {}
 
-  async execute(cmd: PosContext & { saleId: string; paymentMethod: string }): Promise<Sale> {
+  async execute(cmd: PosContext & { saleId: string; paymentMethod: string; idempotencyKey: string }): Promise<SaleWrite> {
     await requireLocation(this.core, cmd);
-    const sale = await requireSale(this.sales, cmd, cmd.saleId);
-    sale.complete({ eventId: newId(), paymentMethod: cmd.paymentMethod, actorUserId: cmd.actorUserId, now: new Date() });
-    await this.sales.save(sale);
-    return sale;
+    const idem = idempotency(cmd.idempotencyKey, 'complete_sale', cmd, { saleId: cmd.saleId, paymentMethod: cmd.paymentMethod });
+    return this.sales.mutate(saleScope(cmd, cmd.saleId), idem, (sale) =>
+      sale.complete({ eventId: newId(), paymentMethod: cmd.paymentMethod, actorUserId: cmd.actorUserId, now: new Date() }),
+    );
   }
 }
 
 export class VoidSale {
-  constructor(private readonly sales: SaleRepository, private readonly core: CoreAccessPort) {}
+  constructor(private readonly sales: SaleStore, private readonly core: CoreAccessPort) {}
 
-  async execute(cmd: PosContext & { saleId: string }): Promise<Sale> {
+  async execute(cmd: PosContext & { saleId: string; idempotencyKey: string }): Promise<SaleWrite> {
     await requireLocation(this.core, cmd);
-    const sale = await requireSale(this.sales, cmd, cmd.saleId);
-    sale.void(cmd.actorUserId, new Date());
-    await this.sales.save(sale);
-    return sale;
+    const idem = idempotency(cmd.idempotencyKey, 'void_sale', cmd, { saleId: cmd.saleId });
+    return this.sales.mutate(saleScope(cmd, cmd.saleId), idem, (sale) => sale.void(cmd.actorUserId, new Date()));
   }
 }
