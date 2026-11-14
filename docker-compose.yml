@@ -12,6 +12,7 @@ services:
       HOSPITALITY_DB_PASSWORD: ${HOSPITALITY_DB_PASSWORD:?definir en .env}
       COMMERCE_DB_PASSWORD: ${COMMERCE_DB_PASSWORD:?definir en .env}
       ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?definir en .env}
+      POS_DB_PASSWORD: ${POS_DB_PASSWORD:?definir en .env}
     volumes:
       - pgdata:/var/lib/postgresql
       - ./infra/postgres/init-schemas.sh:/docker-entrypoint-initdb.d/init-schemas.sh:ro
@@ -32,6 +33,7 @@ services:
       HOSPITALITY_DB_PASSWORD: test
       COMMERCE_DB_PASSWORD: test
       ANALYTICS_DB_PASSWORD: test
+      POS_DB_PASSWORD: test
     ports:
       - "127.0.0.1:55432:5432"
     tmpfs:
@@ -61,6 +63,7 @@ services:
       HOSPITALITY_DATABASE_URL: postgresql://hospitality_app:${HOSPITALITY_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=hospitality
       COMMERCE_DATABASE_URL: postgresql://commerce_app:${COMMERCE_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=commerce
       ANALYTICS_DATABASE_URL: postgresql://analytics_app:${ANALYTICS_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=analytics
+      POS_DATABASE_URL: postgresql://pos_app:${POS_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=pos
     depends_on:
       db: { condition: service_healthy }
       mqtt: { condition: service_started }

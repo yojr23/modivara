@@ -14,7 +14,7 @@ docker run -d --rm --name "$name" -e POSTGRES_PASSWORD=restore-check "${RESTORE_
 until docker exec "$name" pg_isready -q -U postgres -h 127.0.0.1; do sleep 1; done  # 127.0.0.1: el socket ya acepta durante el init, el TCP no
 db() { docker exec -i "$name" psql -q -v ON_ERROR_STOP=1 -U postgres "$@"; }
 db -d postgres -c 'CREATE DATABASE restored' -c 'CREATE ROLE modivara SUPERUSER'
-for d in core hospitality commerce analytics; do db -d restored -c "CREATE ROLE ${d}_app"; done
+for d in core hospitality commerce analytics pos; do db -d restored -c "CREATE ROLE ${d}_app"; done
 
 openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE -in "$file" \
   | docker exec -i "$name" pg_restore -U postgres -d restored --exit-on-error --no-password
