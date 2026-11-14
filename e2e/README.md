@@ -12,7 +12,7 @@ A mano: `docker compose up --build -d`, los seeds del README dentro del contened
 - **Credenciales:** `SEED_PASSWORD` del entorno o de `.env` (la misma del seed). Otra URL: `E2E_BASE_URL=http://... pnpm test:e2e`.
 - **Sesiones:** `global-setup.ts` inicia sesión una vez por usuario y guarda las cookies en `e2e/.auth/` (fuera de git). La API limita a 30 logins FALLIDOS por IP cada 15 min (los correctos no cuentan, SEC-05); el bloqueo por cuenta (5 fallos) lo prueba `auth.spec.ts`. Si se agota: esperar o `docker compose restart api`.
 - **Pulsaciones:** la primera corrida crea, como superadmin, un «Gateway E2E» en Bar Demo y guarda su id y clave en `e2e/.auth/`; los botones `btn-NN` del seed se pulsan por `POST /api/v1/device-events`.
-- **Datos:** las pruebas usan la base de demo. Cierran los llamados que abren, desactivan el producto y el usuario que crean y republican los planos sin las áreas de prueba; los llamados y movimientos de prueba quedan en el historial.
+- **Datos:** las pruebas usan la base de demo. Cierran los llamados que abren, desactivan el producto y el usuario que crean y republican los planos sin las áreas de prueba; desactivan los artículos de venta «E2E …»; los llamados, movimientos y ventas de prueba quedan en el historial.
 - **Un solo worker:** comparten la base y una prueba reinicia la API (`docker compose restart api`).
 
 | Archivo | Cubre (PLAN-001) |
@@ -27,7 +27,7 @@ A mano: `docker compose up --build -d`, los seeds del README dentro del contened
 | `mqtt.spec.ts` | Q-01: pulsación publicada por MQTT con el usuario del gateway (`scripts/mqtt-user.sh`, `mosquitto_pub` dentro del contenedor) → tablero → cerrar |
 | `console.spec.ts` | F2-15 / F3-15: superadmin (`labs`) elige Bar Demo / Principal, crea un gateway «E2E consola …» (clave una vez), lo desactiva; asigna y desasigna el botón fijo `btn-e2e-consola` (no se puede borrar); pestaña de detectados; un admin no ve la consola |
 | `diagnostics.spec.ts` | MOD-05: el tablero nombra el gateway sin señal y qué revisar; al desactivarlo desaparece |
-| `screens.spec.ts` | Pantallazos de todas las vistas por usuario (admin, barra, mesero1, inventario1, pisos/admin, superadmin) la portada, el login, el historial de inventario y el tablero con 15 llamados en escritorio y celular 390×844, en `docs/pantallazos/` |
+| `screens.spec.ts` | Pantallazos de todas las vistas por usuario (admin, barra, mesero1, inventario1, caja1, pisos/admin, tienda-demo/admin, superadmin) la portada, el login, el historial de inventario y el tablero con 15 llamados en escritorio y celular 390×844, en `docs/pantallazos/` |
 | `spaces.spec.ts` | L-05 / L-07: publicar un área mientras otro mira el tablero; conflicto de edición (409) sin pisar el borrador ajeno; desactivar una mesa (sale del borrador) y 409 si tiene botón |
-
-
+| `pos.spec.ts` | POS-31 / PLAN-003 T02: Tienda Demo (solo POS) ve Ventas y Usuarios, nunca Tablero, Inventario ni Métricas; crea y vende un zapato por SKU (`E2E-ZAP-42`, 2 unidades), una bebida y una hora de servicio (1,5 h) por el mismo flujo con cobro declarado, en escritorio y celular 390×844; historial y API coherentes; Hospitality, Commerce y Analytics → 403 `module_disabled` |
+| `pos-tables.spec.ts` | POS-26 / PLAN-003 T08: la venta de Mesa 5 se abre desde la ficha del tablero (escritorio) y desde Ventas «Por mesa» (celular): la misma venta, también para `caja1` por la API; Caja la cobra con un llamado pendiente (sigue pendiente) y finalizar el llamado no cierra la venta siguiente. T07/T09: Pisos sin «Venta», sin «Ventas» y POS → 403. T14: una venta de Bar Demo → 404 para Tienda Demo. T12 (revocar POS) queda en la integración: exige escribir en la base |
