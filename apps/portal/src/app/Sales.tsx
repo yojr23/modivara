@@ -3,8 +3,8 @@ import {
   type PaymentMethod, type SaleDto, type SellableItemDto, type Unit,
 } from '@modivara/pos-contracts';
 import {
-  newIdempotencyKey, posErrorState, useAddSaleLine, useCompleteSale, useCreateSellableItem, useDeactivateSellableItem, useOpenSale, usePosSettings,
-  useSale, useSales, useSellableItems, useUpdatePosSettings, useUpdateSellableItem, useVoidSale, useVoidSaleLine,
+  newIdempotencyKey, posErrorState, useAddSaleLine, useCompleteSale, useCreateSellableItem, useDeactivateSellableItem, useOpenLinkedSale, useOpenSale,
+  usePosSettings, useSale, useSales, useSellableItems, useUpdatePosSettings, useUpdateSellableItem, useVoidSale, useVoidSaleLine,
 } from '@modivara/pos-web';
 import { CircleAlert, Plus, Receipt, ShoppingCart, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
@@ -132,6 +132,31 @@ function Lines({ sale, onVoid, busy }: { sale: SaleDto; onVoid?: (lineId: string
   );
 }
 
+const SALE_GONE = 'Otra persona ya cerró o anuló esta venta. Se actualizó la lista.';
+
+/**
+ * POS-29/30 — composición del portal: abre la venta vinculada a una mesa de Hospitality o recupera la que ya tiene abierta.
+ * POS solo ve un recurso externo validado por el host; la venta no toca el llamado ni al revés.
+ */
+export function useTableSale(toast: Toast, onSale: (saleId: string) => void, onGone?: () => void) {
+  const { location } = useApp();
+  const m = useOpenLinkedSale(location.id);
+  const intent = useIntent();
+  return {
+    busy: m.isPending,
+    async open(tableId: string) {
+      try {
+        const r = await intent(`link:${tableId}`, (k) => m.mutateAsync({ input: { provider: 'hospitality', resource_type: 'table', resource_id: tableId }, idempotencyKey: k }));
+        onSale(r.sale.id);
+      } catch (e) {
+        const s = posErrorState(e);
+        toast.show(s === 'not_found' ? 'Esa mesa ya no está disponible para vender.' : s === 'sale_not_open' ? SALE_GONE : errorText(e));
+        if (s === 'not_found') onGone?.();
+      }
+    },
+  };
+}
+
 const activeCount = (s: SaleDto) => s.lines.filter((l) => !l.voided_at).length;
 const countLabel = (n: number) => `${n} ${n === 1 ? 'artículo' : 'artículos'}`;
 
@@ -173,7 +198,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
     try {
       return await intent(name, fn);
     } catch (e) {
-      if (posErrorState(e) === 'sale_not_open') toast.show('Otra persona ya cerró o anuló esta venta. Se actualizó la lista.');
+      if (posErrorState(e) === 'sale_not_open') toast.show(SALE_GONE);
       else setProblem(errorText(e));
       if (posErrorState(e) === 'not_found' || posErrorState(e) === 'inactive_entity') void itemsQ.refetch();
       return undefined;

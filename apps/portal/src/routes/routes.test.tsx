@@ -5,6 +5,9 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { routes } from './routes';
 
+// El tablero abre el tiempo real; en jsdom no hay servidor: un socket que nunca conecta.
+vi.mock('socket.io-client', () => ({ io: () => ({ on: () => {}, emit: () => {}, disconnect: () => {} }) }));
+
 const ID = (n: number) => `${String(n).repeat(8)}-${String(n).repeat(4)}-4${String(n).repeat(3)}-8${String(n).repeat(3)}-${String(n).repeat(12)}`;
 const me = (modules: string[], permissions: string[] = ['commerce.stock.read']) => ({
   actor: { user_id: ID(3), organization_id: ID(1), username: 'ana', display_name: 'Ana', is_owner: true, is_platform: false, acting_organization_id: null },
@@ -112,6 +115,61 @@ it('Vender: tocar un artículo abre la venta y agrega la línea con Idempotency-
   expect(calls[2]).toMatchObject({ method: 'POST', url: `${base}/sales/${S}/complete`, body: { payment_method: 'card' } });
   await waitFor(() => expect(router.state.location.search).toBe(''));
   expect(screen.getByText('Toca un artículo para empezar una venta.')).toBeTruthy();
+});
+
+/* ---------- POS-29/30: venta por mesa (composición hospitality + pos en el portal) ---------- */
+
+const L = ID(2);
+const T = ID(7);
+const SALE = ID(4);
+const linkedSale = { id: SALE, currency: 'COP', status: 'open', total: '0.00', payment_method: null, opened_at: '2026-11-13T10:00:00.000Z', opened_by: ID(3), closed_at: null, closed_by: null, lines: [] };
+const table = { id: T, label: 'Mesa 3', zone_id: null, zone_name: null, display_name: 'Mesa 3', position: 0 };
+const layout = {
+  id: ID(8), zone_id: null, version: 1, status: 'published', canvas_width: 800, canvas_height: 600, revision: 1, updated_at: '2026-11-13T10:00:00.000Z', published_at: '2026-11-13T10:00:00.000Z',
+  elements: [{ type: 'table', id: ID(9), table_id: T, shape: 'round', x: 100, y: 100, rotation: 0, width: 60, height: 60 }],
+};
+type Req = { method: string; url: string; body?: unknown; key?: string };
+/** API falsa de un bar: mesas, plano y llamados de Hospitality; catálogo vacío y `POST links` de POS. Anota cada petición. */
+function barApi(m: ReturnType<typeof me>, reqs: Req[], opts: { layouts?: unknown[] } = {}) {
+  return async (url: string, init?: RequestInit): Promise<Response> => {
+    const method = init?.method ?? 'GET';
+    reqs.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined, key: (init?.headers as Record<string, string> | undefined)?.['Idempotency-Key'] });
+    if (url.endsWith('/me')) return json(m);
+    if (url === `/api/v1/locations/${L}/tables`) return json([table]);
+    if (url === `/api/v1/locations/${L}/layouts`) return json(opts.layouts ?? [layout]);
+    if (url.startsWith(`/api/v1/locations/${L}/service-calls?`)) return json({ items: [], next_cursor: null });
+    if (url === `/api/v1/locations/${L}/device-status`) return json({ connectivity: 'all_connected', tables: [], gateways: [] });
+    if (url === `/api/v1/locations/${L}/pos/links`) return json({ sale: linkedSale, replayed: false }, 201);
+    if (url === `/api/v1/locations/${L}/pos/sales/${SALE}`) return json(linkedSale);
+    return json([]);
+  };
+}
+const posReqs = (reqs: Req[]) => reqs.filter((r) => r.url.includes('/pos/'));
+
+it('Tablero: «Venta» en la ficha de la mesa abre o recupera su venta (POST links con Idempotency-Key) y lleva a Ventas', async () => {
+  const reqs: Req[] = [];
+  const { router } = mount('/demo/app/tablero', barApi(me(['hospitality', 'pos'], ['hospitality.calls.read', 'pos.sales.read', 'pos.sales.operate']), reqs));
+  fireEvent.click(await screen.findByRole('button', { name: /^Mesa 3: Sin llamados/ }));
+  const sheet = await screen.findByRole('region', { name: 'Detalle de Mesa 3' });
+  expect(within(sheet).queryByRole('button', { name: 'Marcar en atención' })).toBeNull(); // sin llamado: la venta no depende de él
+  fireEvent.click(within(sheet).getByRole('button', { name: 'Venta' }));
+  await waitFor(() => expect(router.state.location.pathname).toBe('/demo/app/ventas'));
+  expect(router.state.location.search).toBe(`?venta=${SALE}`);
+  const posts = reqs.filter((r) => r.method === 'POST');
+  expect(posts.map((r) => [r.url, r.body])).toEqual([[`/api/v1/locations/${L}/pos/links`, { provider: 'hospitality', resource_type: 'table', resource_id: T }]]);
+  expect(posts[0]!.key).toMatch(/^[0-9a-f-]{36}$/);
+});
+
+it('Tablero: sin el módulo pos o sin pos.sales.operate no hay «Venta» ni peticiones a POS', async () => {
+  for (const m of [me(['hospitality', 'pos'], ['hospitality.calls.read', 'pos.sales.read']), me(['hospitality'], ['hospitality.calls.read', 'pos.sales.operate'])]) {
+    const reqs: Req[] = [];
+    mount('/demo/app/tablero', barApi(m, reqs));
+    fireEvent.click(await screen.findByRole('button', { name: /^Mesa 3: Sin llamados/ }));
+    const sheet = await screen.findByRole('region', { name: 'Detalle de Mesa 3' });
+    expect(within(sheet).queryByRole('button', { name: 'Venta' })).toBeNull();
+    expect(posReqs(reqs)).toEqual([]);
+    cleanup();
+  }
 });
 
 it('la portada pide el negocio, valida el slug y lleva a su login', async () => {

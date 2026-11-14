@@ -2,12 +2,13 @@ import type { ServiceCallDto } from '@modivara/hospitality-contracts';
 import {
   callErrorState, useAcknowledgeCall, useActiveCalls, useCompleteCall, useConnectionStatus, useDeviceStatus, useGatewaysStatus, useLayouts, useTables, useZones,
 } from '@modivara/hospitality-web';
-import { BellRing, CheckCheck, HandHelping, Map as MapIcon, TriangleAlert, Volume2, VolumeX, Wifi, WifiOff, X } from 'lucide-react';
+import { BellRing, CheckCheck, HandHelping, Map as MapIcon, Receipt, TriangleAlert, Volume2, VolumeX, Wifi, WifiOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
 import { agoLabel } from './format';
+import { useTableSale } from './Sales';
 import { DEFAULT_SPACE_NAME, ElementShape, RED_MS, areaAt, shortLabel, spaceIdOf, splitAreas, toneOf, type Space, type Tone } from './plan';
 import { beep, loadSound, newPendingIds, prepareAudio, saveSound } from './sound';
 import { Bone, EmptyState, ErrorState, OfflineBanner, Page, useApp, useEscape, useToast } from './ui';
@@ -55,6 +56,9 @@ function useBoard() {
   const ack = useAcknowledgeCall(l);
   const done = useCompleteCall(l);
   const status = useConnectionStatus();
+  const navigate = useNavigate();
+  // POS-29: la venta de la mesa vive en Ventas; abrirla no toca el llamado ni al revés.
+  const sale = useTableSale(toast, (id) => navigate(`../ventas?venta=${id}`, { relative: 'path' }));
   const gateways = useGatewaysStatus();
   const devices = useDeviceStatus(l);
   const [now, setNow] = useState(Date.now());
@@ -111,6 +115,7 @@ function useBoard() {
     loading: layouts.isPending || tables.isPending || calls.isPending,
     layoutsError: layouts.error, callsError: calls.error,
     retry: () => { void layouts.refetch(); void calls.refetch(); void tables.refetch(); void zones.refetch(); },
+    canSell: me.modules.includes('pos') && can('pos.sales.operate'), sale,
     canAck: can('hospitality.calls.acknowledge'), canComplete: can('hospitality.calls.complete'), canEdit: can('hospitality.tables.manage'),
     pending: queue.filter((c) => c.status === 'pending'),
     attending: queue.filter((c) => c.status === 'in_progress'),
@@ -254,6 +259,7 @@ function TableSheet({ b, tableId, onClose, className }: { b: Board; tableId: str
         {c && c.press_count > 1 && <span className="text-sm text-muted">Pulsó {c.press_count} veces</span>}
       </p>
       <div className="ml-auto flex gap-2">
+        {b.canSell && <Button variant="secondary" disabled={b.sale.busy} onClick={() => void b.sale.open(tableId)}><Receipt aria-hidden className="size-4" />Venta</Button>}
         {c && <Action b={b} c={c} primary={c.id === b.focus?.id} />}
         <Button variant="ghost" aria-label="Cerrar" onClick={onClose}><X aria-hidden className="size-5" /></Button>
       </div>
