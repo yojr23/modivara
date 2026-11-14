@@ -11,7 +11,7 @@ const FOREIGN = /@modivara\/(hospitality|commerce|analytics)-/;
 const sources = readdirSync(posRoot, { recursive: true, withFileTypes: true })
   .filter((e) => e.isFile() && /\.(ts|tsx|json)$/.test(e.name) && !/node_modules|dist/.test(e.parentPath))
   .map((e) => path.join(e.parentPath, e.name))
-  .filter((f) => !f.endsWith('.test.ts') && !f.includes('/testing/'));
+  .filter((f) => !/\.test\.tsx?$/.test(f) && !f.includes('/testing/'));
 
 describe('POS sin sector ni productos ajenos', () => {
   it('hay código que revisar', () => expect(sources.length).toBeGreaterThan(5));
