@@ -15,6 +15,6 @@ describe('meResponseSchema', () => {
   });
 
   it('rechaza permisos o módulos inventados', () => {
-    expect(meResponseSchema.safeParse({ actor: {}, organization: null, modules: ['pos'], locations: [] }).success).toBe(false);
+    expect(meResponseSchema.safeParse({ actor: {}, organization: null, modules: ['payroll'], locations: [] }).success).toBe(false);
   });
 });
