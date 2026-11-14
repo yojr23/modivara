@@ -198,7 +198,7 @@ it('Ventas «Por mesa»: oculto en un negocio solo POS (sin peticiones a Hospita
   }
 });
 
-it('Vender: con ?venta= aún sin resolver (cargando o con error) tocar un artículo no abre otra venta', async () => {
+it('Vender: con ?venta= aún sin resolver (cargando o con error) ni un artículo ni «Nueva venta» abren otra venta', async () => {
   const S = ID(4);
   const item = { id: ID(5), name: 'Café', sku: null, category: null, unit: 'unit', price: '5000.00', currency: 'COP', active: true };
   const base = `/api/v1/locations/${ID(2)}/pos`;
@@ -215,6 +215,9 @@ it('Vender: con ?venta= aún sin resolver (cargando o con error) tocar un artíc
   fireEvent.click(cafe);
   expect(await screen.findByText('No se pudo cargar la venta')).toBeTruthy();
   expect((screen.getByRole('button', { name: /Café/ }) as HTMLButtonElement).disabled).toBe(true);
+  const nueva = screen.getByRole('button', { name: 'Nueva venta' }) as HTMLButtonElement;
+  expect(nueva.disabled).toBe(true); // tampoco reemplaza la venta enlazada por un ticket suelto
+  fireEvent.click(nueva);
   expect(posts).toEqual([]);
 });
 

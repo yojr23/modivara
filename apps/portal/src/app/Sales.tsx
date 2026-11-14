@@ -298,7 +298,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
             <h2 id="ticket-h" className="text-lg font-bold">Venta en curso</h2>
             {sale && <p className="text-sm text-muted">Abierta {fmtWhen(sale.opened_at, tz)}</p>}
           </div>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void newSale()}><Plus aria-hidden className="size-4" />Nueva venta</Button>
+          <Button size="sm" variant="ghost" disabled={busy || unresolved} onClick={() => void newSale()}><Plus aria-hidden className="size-4" />Nueva venta</Button>
         </div>
         {open.some((s) => s.id !== sale?.id) && (
           <div role="group" aria-label="Ventas abiertas" className="mb-3 flex shrink-0 gap-2 overflow-x-auto pb-1">
