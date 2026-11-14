@@ -1,4 +1,4 @@
-import { NotFoundError, permissionsFor, type ModuleName, type Permission } from '@modivara/core-contracts';
+import { MODULES, NotFoundError, PERMISSION_SOURCES, permissionsFor, type ModuleName, type Permission } from '@modivara/core-contracts';
 import { SessionInvalidError } from '../domain/index.js';
 import { effectiveOrganizationId, type ActorContext } from './actor.js';
 import type { EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, UserRepository } from './ports/index.js';
@@ -35,19 +35,31 @@ export class GetMe {
     const org = await this.organizations.findById({ id: organizationId });
     if (!org?.isActive) throw new NotFoundError('Organization');
 
+    const modules = await this.entitlements.listEnabledModules({ organizationId });
     const active = await this.locations.listActive({ organizationId });
     // Superadmin y dueño ven todos los locales; el resto, los de sus membresías.
     const own = actor.isPlatform || actor.isOwner ? null : await this.memberships.listActiveByUser({ organizationId, userId: actor.actorUserId });
     const locations = active.flatMap((l) => {
       const roles = own?.find((m) => m.locationId === l.id)?.roles;
       if (own && !roles) return [];
-      return [{ id: l.id, name: l.name, timezone: l.timezone, permissions: [...permissionsFor(roles ?? [], actor)] }];
+      return [{ id: l.id, name: l.name, timezone: l.timezone, permissions: [...permissionsFor(roles ?? [], actor)].filter((p) => usable(p, modules)) }];
     });
     return {
       ...base,
       organization: { id: org.id, slug: org.slug, name: org.name },
-      modules: await this.entitlements.listEnabledModules({ organizationId }),
+      modules,
       locations,
     };
   }
+}
+
+/**
+ * Solo los permisos efectivos: los de un módulo de producto (prefijo en `MODULES`) exigen ese módulo habilitado y
+ * los de `PERMISSION_SOURCES`, su fuente. `core.*` y `platform.*` no dependen de módulos. Un módulo nuevo
+ * (p. ej. `pos`) queda cubierto al agregarse a `MODULES`. Es información de navegación: los guards no cambian.
+ */
+function usable(permission: Permission, modules: readonly ModuleName[]): boolean {
+  const prefix = permission.split('.')[0] as ModuleName;
+  const source = PERMISSION_SOURCES[permission];
+  return (!MODULES.includes(prefix) || modules.includes(prefix)) && (!source || modules.includes(source));
 }
