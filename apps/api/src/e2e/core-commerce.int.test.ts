@@ -1,91 +1,28 @@
-import 'reflect-metadata';
-import { execFileSync } from 'node:child_process';
-import path from 'node:path';
-import { Module, type INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CommerceModule } from '@modivara/commerce-api';
-import { BootstrapPlatform, CORE_OUTBOX, CORE_PRISMA, CoreModule, CreateUser, ProvisionOrganization, SetLocationRoles } from '@modivara/core-api';
+import { CORE_PRISMA } from '@modivara/core-api';
 import { SEEDED_MOVEMENT_REASONS } from '@modivara/commerce-contracts';
-import { INTEGRATION_EVENT_SUBSCRIBERS, SESSION_COOKIE } from '@modivara/core-contracts';
-import { hostMetadata } from '../app.module.js';
+import { INTEGRATION_EVENT_SUBSCRIBERS, type ModuleName } from '@modivara/core-contracts';
+import { MANUAL, type Raw, startPartialHost } from './partial-host.js';
 
 // MOD-12 (T01): host Core + Commerce, con la misma composición que AppModule, sobre una base propia con SOLO los esquemas core y commerce
-// migrados y sin variables de Hospitality/Analytics. Requiere db-test (usa su superusuario de pruebas para crear la base).
-const DB = 'modivara_core_commerce';
-const root = path.resolve(import.meta.dirname, '../../../..');
-const url = (domain: string, db = DB) => `postgresql://${domain}_app:test@127.0.0.1:55432/${db}?schema=${domain}`;
-const ADMIN_URL = 'postgresql://modivara:test@127.0.0.1:55432/modivara_test';
-const PASSWORD = 'Secret123';
-
-/** `prisma db execute`/`migrate deploy` con la URL dada como la del dominio (el cliente pg no es dependencia del host). */
-const prisma = (domain: string, databaseUrl: string, args: string[], input?: string) =>
-  execFileSync('pnpm', ['exec', 'prisma', ...args], {
-    cwd: path.join(root, 'domains', domain, 'api'), input, stdio: 'pipe',
-    env: { ...process.env, [`${domain.toUpperCase()}_DATABASE_URL`]: databaseUrl },
-  });
-
-function createCoreCommerceDatabase() {
-  const sql = (databaseUrl: string, script: string) => prisma('core', databaseUrl, ['db', 'execute', '--stdin'], script);
-  sql(ADMIN_URL, `DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`);
-  sql(ADMIN_URL, `CREATE DATABASE ${DB}`);
-  // Mismos roles que infra/postgres/init-schemas.sh (son del clúster), pero solo dos esquemas.
-  sql(ADMIN_URL.replace('/modivara_test', `/${DB}`), 'CREATE SCHEMA core AUTHORIZATION core_app; CREATE SCHEMA commerce AUTHORIZATION commerce_app;');
-  for (const domain of ['core', 'commerce']) prisma(domain, url(domain), ['migrate', 'deploy']);
-}
-
-let app: INestApplication;
+// migrados y sin variables de Hospitality/Analytics.
+let host: Awaited<ReturnType<typeof startPartialHost>>;
 let origin: string;
-const saved = { hospitality: process.env.HOSPITALITY_DATABASE_URL, analytics: process.env.ANALYTICS_DATABASE_URL };
-const get = <T>(token: string | (new (...a: never[]) => T)) => app.get<T>(token as never, { strict: false });
-type Raw = { $executeRawUnsafe(sql: string): Promise<unknown>; $queryRawUnsafe<T>(sql: string): Promise<T> };
-const tickCore = () => get<{ tick(): Promise<number> }>(CORE_OUTBOX).tick();
-
-async function login(slug: string, username: string) {
-  const res = await request(origin).post('/api/v1/auth/login').send({ slug, username, password: PASSWORD });
-  expect(res.status).toBe(200);
-  return (res.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith(`${SESSION_COOKIE}=`))!.split(';')[0]!;
-}
-const as = (cookie: string) => ({
-  get: (p: string) => request(origin).get(`/api/v1${p}`).set('Cookie', cookie),
-  post: (p: string, body: object, headers: Record<string, string> = {}) => request(origin).post(`/api/v1${p}`).set('Cookie', cookie).set(headers).send(body),
-  put: (p: string, body: object) => request(origin).put(`/api/v1${p}`).set('Cookie', cookie).send(body),
-});
-
+const get = <T>(token: string) => host.get<T>(token);
+const tickCore = () => host.tickCore();
+const login = (slug: string, username: string) => host.login(slug, username);
+const as = (cookie: string) => host.as(cookie);
 /** Negocio cliente con un local y un usuario `inventario` (rol inventory) y, si se pide, `vendedor` (staff). */
-async function provision(slug: string, modules: Array<'commerce'>, staff = false) {
-  const rootActor = await get(BootstrapPlatform).execute({ username: 'superadmin', displayName: 'Superadmin', password: PASSWORD });
-  const { organization, locations } = await get(ProvisionOrganization).execute({ actor: rootActor, slug, name: slug, locations: [{ name: 'Principal' }], modules });
-  const locationId = locations[0]!.id;
-  const actor = { ...rootActor, actingOrganizationId: organization.id };
-  for (const [username, role] of [['inventario', 'inventory'], ...(staff ? [['vendedor', 'staff']] : [])] as Array<[string, 'inventory' | 'staff']>) {
-    const user = await get(CreateUser).execute({ actor, username, displayName: username, password: PASSWORD });
-    await get(SetLocationRoles).execute({ actor, userId: user.id, locationId, roles: [role] });
-  }
-  return { organizationId: organization.id, locationId };
-}
+const provision = (slug: string, modules: ModuleName[], staff = false) =>
+  host.provision(slug, modules, { inventario: 'inventory', ...(staff && { vendedor: 'staff' as const }) });
 
 beforeAll(async () => {
-  delete process.env.HOSPITALITY_DATABASE_URL;
-  delete process.env.ANALYTICS_DATABASE_URL;
-  createCoreCommerceDatabase();
-  @Module(hostMetadata(CoreModule.forRoot({ databaseUrl: url('core'), outbox: { intervalMs: 3_600_000 } }), [
-    CommerceModule.forRoot({ databaseUrl: url('commerce'), outbox: { intervalMs: 3_600_000 } }),
-  ]))
-  class CoreCommerceHost {}
-  app = (await Test.createTestingModule({ imports: [CoreCommerceHost] }).compile()).createNestApplication();
-  app.use(cookieParser());
-  app.setGlobalPrefix('api/v1');
-  await app.listen(0, '127.0.0.1');
-  origin = `http://127.0.0.1:${(app.getHttpServer().address() as { port: number }).port}`;
+  host = await startPartialHost('modivara_core_commerce', ['commerce'], (url) => [CommerceModule.forRoot({ databaseUrl: url('commerce'), ...MANUAL })]);
+  origin = host.origin;
 });
-
-afterAll(async () => {
-  await app?.close();
-  for (const [domain, value] of Object.entries(saved)) if (value !== undefined) process.env[`${domain.toUpperCase()}_DATABASE_URL`] = value;
-});
+afterAll(() => host?.close());
 
 describe('MOD-12 host Core + Commerce (sin Hospitality ni Analytics)', () => {
   it('no instancia providers ni consumidores de los dominios ausentes', () => {
