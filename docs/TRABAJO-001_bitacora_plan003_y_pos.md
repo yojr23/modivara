@@ -28,7 +28,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 
 - [x] MOD-09 línea base sobre `18289d6` (Node 24.22.0, pnpm 10.18.3): build, typecheck, separabilidad, unit e integración (51 archivos, 775 pruebas) en verde. E2E se corre al final contra esta rama.
 - [~] Subramas en paralelo: `p3/a1-host` (worktree `p3-a1`: MOD-10…15, 26, 23 mínimo) y `p3/a2a3-portal` (worktree `p3-a2`: MOD-25, 52, 53, 60, 61, 74). Se integran en `test/plan-003-modularidad`. Bloqueo de `db-test`: directorio `scratchpad/dbtest.lock` (mkdir/rmdir).
-- [~] A0 MOD-00…05: ADR-006 copiado igual que en `pos/mesas` (Propuesto) [!] aprobación del responsable; MOD-01…05 en redacción (`docs/MOD-001`).
+- [x] A0 MOD-01…05 y MOD-50: `docs/MOD-001_productos_y_modularidad.md` (`208876b`). [!] MOD-00: ADR-006 sigue Propuesto, aprobación del responsable.
 - [x] A1 MOD-10: esquema de auditoría de plataforma en `core-contracts/platform-events.ts` (mismo tipo de evento v1); `core-api` sin `hospitality-contracts` (`5ca4aba`).
 - [x] A1 MOD-11: regla única (deps e imports), core sin dominios, prueba de regresión (`1d2344e`).
 - [x] A1 MOD-12: `core-commerce.int.test.ts` en base propia con solo esquemas core y commerce; `pnpm test:composition:core-commerce` (`cd995c5`).
@@ -42,8 +42,8 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 - [x] A3 MOD-54: ya cubierto (dedup, rebuild) + nuevo aislamiento de commerce (`28b8862`).
 - [x] A3 MOD-60: unidad por defecto «Unidades», textos neutros, `bottle` sigue disponible (`d399ca7`).
 - [~] A3 MOD-61/MOD-74: seeds `zapateria-demo` (solo commerce) y `restaurante-demo` (solo hospitality); `seed:commerce` salta negocios sin commerce; E2E `inventory-only.spec.ts` y `hospitality-only.spec.ts` escritos (`0f79053`), falta correrlos contra esta rama.
-- [~] A4 MOD-70…72: matriz de evidencia en redacción (`docs/MOD-002`), corrida final pendiente.
-- [~] A4 MOD-73/75 (P1): runbook en OPERACION-001 en redacción; MOD-74 E2E escritos.
+- [~] A4 MOD-70…72: matriz `docs/MOD-002_matriz_escenarios_plan003.md`; faltan T05, T07, T12-Hospitality con host real (en curso) y la corrida final.
+- [x] A4 MOD-73/75 (P1): runbook OPERACION-001 §9 (y §6 corregido: `outbox:retry` sin dominio solo imprimía uso). Diagnóstico de lag/correlación por producto pendiente. MOD-74 E2E escritos.
 - [ ] Revisión y auditoría Codex de la rama.
 - [ ] PR `test/plan-003-modularidad → pruebas`.
 
@@ -58,6 +58,8 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 
 ## Hallazgos y decisiones
 
+- **Auditoría de docs vs código (14/11):** `/health/ready` no devuelve conteos de outbox fallido (solo log `outbox.failed_pending`); la API de métricas no valida la fuente (solo `/me`); analytics proyecta eventos de negocios sin analytics (OPEN); `analytics:rebuild` exige las cuatro URLs (no sirve en instalación parcial, P1). En curso (`p3/a4-gaps`): T05 y T07/T12-Hospitality con host real, suscriptor de hospitality ignora locales inactivos, separabilidad revisa SQL de migraciones entre esquemas.
+- **Codex A1 (14/11):** P1 el alta no publicaba activación para locales existentes; P2 reactivar recreaba motivos desactivados. Corregidos en `3703a70` (`p3/a1-host`).
 - [x] **Por corregir (responsable, 14/11):** en Bar Demo el plano publicado no pinta las mesas 11 y 12, pero sí llegan llamados de ellas (cola/historial). Causa: `scripts/seed-floor-plans.mjs:60` deja «Mesas 11 y 12 sin ubicar a propósito» en el plano de Primer piso, pero siguen con botón (btn-11, btn-12). Verificado en navegador: el llamado de btn-11 aparece en la cola, no se marca en el plano y el «1 esperando» del piso no lo cuenta. Corregido: `seed:planos-demo` ubica Mesa 11 y 12 en Zona A (escena nueva y, en bases ya sembradas, las agrega al plano publicado sin tocar lo demás; idempotente). Aplicado a la demo y verificado: el llamado de btn-12 se marca en el plano y el piso cuenta «1 esperando». El tablero sigue ADR-003 CU-11 (una mesa sin ubicar recibe llamados solo en la cola).
 - [x] **Hallazgo navegador (14/11):** la venta abierta desde «Venta» en la ficha de la mesa no muestra a qué mesa pertenece («Venta en curso», «Historial» y lista de abiertas sin «Mesa 3»). En el bar, `caja1` (rol Caja) no tiene «Por mesa» (exige `hospitality.calls.read`) y no puede saber qué venta abierta es de qué mesa. Arreglado en `pos/mesas` (`f2a20ae`, migración POS `0003_external_link_label`; Codex pidió incluir la zona → `9ce2dca`, «Primer piso · Mesa 4»). Verificado en navegador: chip de venta abierta, ticket de `caja1` y fila del historial muestran «Primer piso · Mesa 4». ¿Dar «Por mesa» a Caja? Decisión del responsable.
 - [x] **Caso base del bar en navegador (14/11, admin):** botón simulado → llamado en mesa 3 → «Marcar en atención» → «Venta» desde la ficha → artículos (unidad y kg; 0,75 kg × $60.000,50 = $45.000,38 redondeo correcto) → 1,5 unidades rechazado → anular línea → cobro con tarjeta $16.000 → el llamado sigue «en atención» hasta «Finalizar» (independientes) → «Por mesa» retoma la misma venta → historial muestra la cobrada. Duplicado de nombre en minúsculas, precio negativo y con 3 decimales rechazados con mensaje claro. `caja1`: solo «Ventas» (Vender, Historial), URL forzada a tablero redirige.

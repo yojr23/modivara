@@ -53,6 +53,18 @@ describe('casos de uso de plataforma (seed)', () => {
     expect(events.every((e) => e.aggregate_id === e.location_id)).toBe(true);
   });
 
+  it('reprovisionar con un módulo nuevo publica core.module.enabled para los locales que ya existían', async () => {
+    const root = await bootstrap.execute(input);
+    const req = { actor: root, slug: 'zapateria', name: 'Zapatería', locations: [{ name: 'Centro' }], modules: [] as ('commerce')[] };
+    const { locations } = await provision.execute(req);
+    const since = w.outbox.events.length;
+    await provision.execute({ ...req, modules: ['commerce'] });
+    const enabled = w.outbox.events.slice(since).map((e) => moduleEnabledEventSchema.parse(toEventEnvelope(e)));
+    expect(enabled.map((e) => [e.location_id, e.payload.module])).toEqual([[locations[0]!.id, 'commerce']]);
+    await provision.execute({ ...req, modules: ['commerce'] });
+    expect(w.outbox.events).toHaveLength(since + 1);
+  });
+
   it('slugs reservados o inválidos se rechazan; un negocio cliente no puede provisionar', async () => {
     const root = await bootstrap.execute(input);
     for (const slug of ['labs', 'api', 'sim', 'assets', 'login', 'static', 'Mal Slug']) {
