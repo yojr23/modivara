@@ -88,7 +88,7 @@ Implementado en A1 (`edb2fe9`, MOD-14/26, MOD-23 mínimo):
 
 - No se reaprovecha `core.location.created` para activar a posteriori: hay un evento propio, `core.module.enabled`, emitido solo por el endpoint.
 - Toda inicialización por evento es idempotente por diseño (reentrega at-least-once).
-- Backfill de Analytics: solo manual, `pnpm analytics:rebuild` (vacía las tablas y reprocesa el historial completo de los outbox de hospitality y commerce, de todos los negocios, en una transacción; un evento inválido aborta y deja la proyección anterior).
+- Backfill de Analytics: solo manual, `pnpm analytics:rebuild` (compone los dominios de `MODIVARA_DOMAINS`; vacía las tablas y reprocesa el historial completo de los outbox de las fuentes compuestas (hospitality, commerce), de todos los negocios, en una transacción; un evento inválido aborta y deja la proyección anterior).
 - Replay entre productos (p. ej. POS → Inventario): posterior (PLAN-003 §4, T11).
 
 **Retención:** los datos de un módulo suspendido se conservan indefinidamente. **Pendiente:** plazo de retención y purga tras baja definitiva (no implementado ni decidido).
