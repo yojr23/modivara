@@ -238,7 +238,7 @@ function MovementList({ inv, movements, dense = false }: { inv: Inv; movements: 
         return (
           <li key={m.id} className={cn('grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5', dense ? 'py-2.5' : 'py-3', inv.fresh.has(m.id) && 'anim-rise')}>
             <span className="min-w-0">
-              <span className="block truncate font-semibold">{!p ? 'Producto' : p.active ? p.name : 'Producto desactivado'}</span>
+              <span className="block truncate font-semibold">{!p ? 'Producto' : p.active ? p.name : `${p.name} (desactivado)`}</span>
               <span className="block text-muted"><DirTag d={m.direction} reason={inv.reasonName.get(m.reason_id)} /></span>
             </span>
             <span className="text-right font-semibold tabular-nums">{fmtSigned(m.delta, unit)}</span>
