@@ -1,9 +1,9 @@
 import { Controller, Get, Inject, Logger, Module, Optional, ServiceUnavailableException, type DynamicModule, type ModuleMetadata } from '@nestjs/common';
-import { AnalyticsModule } from '@modivara/analytics-api';
-import { COMMERCE_OUTBOX, CommerceModule } from '@modivara/commerce-api';
+import { COMMERCE_OUTBOX } from '@modivara/commerce-api';
 import { CORE_OUTBOX, CORE_PRISMA, CoreModule, coreGlobalProviders, Public } from '@modivara/core-api';
 import type { OutboxPoller } from '@modivara/core-contracts';
-import { HOSPITALITY_OUTBOX, HospitalityModule } from '@modivara/hospitality-api';
+import { HOSPITALITY_OUTBOX } from '@modivara/hospitality-api';
+import { domainModules, selectedDomains } from './domains.js';
 import { IntegrationSubscribersModule } from './integration-subscribers.module.js';
 
 @Controller('health')
@@ -64,10 +64,9 @@ export const hostMetadata = (core: DynamicModule, domains: DynamicModule[]): Mod
   providers: [...coreGlobalProviders],
 });
 
-// El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio. Sumar un dominio = una entrada aquí.
-@Module(hostMetadata(CoreModule.forRoot(), [
-  HospitalityModule.forRoot(),
-  CommerceModule.forRoot(),
-  AnalyticsModule.forRoot(),
-]))
+/** Host desplegable: core + los dominios de `MODIVARA_DOMAINS` (por defecto, todos). Se evalúa al importar este archivo. */
+export const appMetadata = () => hostMetadata(CoreModule.forRoot(), domainModules(selectedDomains()));
+
+// El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio. Sumar un dominio = una entrada en domains.ts.
+@Module(appMetadata())
 export class AppModule {}

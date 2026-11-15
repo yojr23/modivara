@@ -7,6 +7,11 @@ import type { AppUser, Entitlement, Location, LocationMembership, Organization, 
 export interface OrganizationRepository {
   /** Excepción: la organización es la raíz del tenant, su id es el tenant. */
   findById(ref: { id: string }): Promise<Organization | null>;
+  /**
+   * Bloquea la fila del negocio (`FOR UPDATE`) hasta el fin de la transacción en curso: serializa los cambios administrativos de un
+   * mismo negocio (p. ej. entitlements). Solo tiene sentido dentro de `AdminTransactions.withTransaction`.
+   */
+  lockById(ref: { id: string }): Promise<void>;
   /** Excepción: resuelve el tenant a partir del slug del login. */
   findBySlug(ref: { slug: string }): Promise<Organization | null>;
   /** Negocios de clientes (sin la organización de plataforma) con todos sus locales, por nombre. Solo para la consola de plataforma. */

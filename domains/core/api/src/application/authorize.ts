@@ -1,5 +1,6 @@
 import { permissionsFor, type ModuleName, type Permission } from '@modivara/core-contracts';
-import { ModuleDisabledError, PermissionDeniedError } from '../domain/index.js';
+import { ModuleDisabledError } from '../domain/index.js';
+import { assertEffective } from './effective-permissions.js';
 import { ResolveLocationAccess } from './resolve-location-access.js';
 import type { ActorContext } from './actor.js';
 import type { EntitlementRepository, MembershipRepository } from './ports/index.js';
@@ -14,20 +15,22 @@ export class Authorize {
 
   /**
    * Con `locationId`: el permiso debe tenerlo el actor en ese local (un local ajeno responde "no existe").
-   * Sin él: en cualquiera de sus locales, o por ser dueño.
+   * Sin él: en cualquiera de sus locales, o por ser dueño. Además el permiso debe ser efectivo: su módulo y su fuente habilitados
+   * (misma regla que `/me`, `effective-permissions.ts`).
    */
   async permission(input: { actor: ActorContext; permission: Permission; locationId?: string }): Promise<void> {
     const { actor, permission } = input;
     if (actor.isPlatform) return;
     if (input.locationId) {
-      const { permissions } = await this.access.execute({ actor, locationId: input.locationId });
-      if (!permissions.has(permission)) throw new PermissionDeniedError(`${permission} required`);
+      const { granted, modules } = await this.access.execute({ actor, locationId: input.locationId });
+      assertEffective(permission, granted.has(permission), modules);
       return;
     }
+    const { organizationId, actorUserId } = actor;
     // Un dueño es admin en todos sus locales, aunque aún no tenga membresías.
-    if (actor.isOwner && permissionsFor(['admin'], actor).has(permission)) return;
-    const own = await this.memberships.listActiveByUser({ organizationId: actor.organizationId, userId: actor.actorUserId });
-    if (!own.some((m) => permissionsFor(m.roles, actor).has(permission))) throw new PermissionDeniedError(`${permission} required`);
+    const granted = (actor.isOwner && permissionsFor(['admin'], actor).has(permission))
+      || (await this.memberships.listActiveByUser({ organizationId, userId: actorUserId })).some((m) => permissionsFor(m.roles, actor).has(permission));
+    assertEffective(permission, granted, granted ? await this.entitlements.listEnabledModules({ organizationId }) : []);
   }
 
   async module(input: { actor: ActorContext; module: ModuleName }): Promise<void> {

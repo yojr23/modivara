@@ -11,9 +11,11 @@ export interface SetModuleEnabledInput {
 }
 
 /**
- * Habilita o suspende un módulo de un negocio cliente (MOD-14/26; solo superadmin, auditado). Sin cambio, no hace nada.
+ * Habilita o suspende un módulo de un negocio cliente (MOD-14/26; solo superadmin, auditado).
  * En la misma transacción publica `core.module.enabled|disabled` por cada local activo, para que el dominio inicialice
  * los locales que ya existían (activación tardía). Suspender no borra datos: el guard de módulo responde 403 `module_disabled`.
+ * Sin cambio: suspender de nuevo no hace nada; **habilitar de nuevo re-publica** `core.module.enabled` sin auditar (recuperación
+ * del operador si el dominio no estaba compuesto en el host cuando se habilitó; los consumidores son idempotentes, OPERACION-001 §9).
  */
 export class SetModuleEnabled {
   constructor(private readonly admin: AdminTransactions) {}
@@ -22,17 +24,23 @@ export class SetModuleEnabled {
     const { actor, organizationId, module, enabled } = input;
     if (!actor.isPlatform) throw new PermissionDeniedError('platform.entitlements.manage required');
     return this.admin.withTransaction(async (tx) => {
+      // Serializa por negocio: sin el bloqueo, dos peticiones opuestas leen el mismo entitlement y la respuesta no coincide con el
+      // estado final (o se duplican auditoría y eventos). Lo que sigue se lee después de obtenerlo (READ COMMITTED).
+      await tx.organizations.lockById({ id: organizationId });
       const organization = await tx.organizations.findById({ id: organizationId });
       if (!organization || organization.isPlatform) throw new NotFoundError('Organization not found');
       const current = await tx.entitlements.find({ organizationId, module });
       const entitlement = current ?? Entitlement.create({ organizationId, module, enabled: false });
-      if (entitlement.enabled === enabled) return entitlement;
+      const changed = entitlement.enabled !== enabled;
+      if (!changed && !enabled) return entitlement;
 
-      entitlement.setEnabled(enabled);
-      await tx.entitlements.save(entitlement);
       const now = new Date();
-      const action = enabled ? 'entitlement.enabled' : 'entitlement.disabled';
-      await tx.audit.record({ id: newId(), organizationId, actorUserId: actor.actorUserId, action, targetType: 'entitlement', targetId: organizationId, details: { module }, occurredAt: now });
+      if (changed) {
+        entitlement.setEnabled(enabled);
+        await tx.entitlements.save(entitlement);
+        const action = enabled ? 'entitlement.enabled' : 'entitlement.disabled';
+        await tx.audit.record({ id: newId(), organizationId, actorUserId: actor.actorUserId, action, targetType: 'entitlement', targetId: organizationId, details: { module }, occurredAt: now });
+      }
       await appendModuleEvents(tx, { organizationId, module, enabled, actorUserId: actor.actorUserId, locations: await tx.locations.listActive({ organizationId }), now });
       return entitlement;
     });
