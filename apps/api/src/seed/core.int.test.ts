@@ -51,7 +51,7 @@ describe('seed:core', () => {
       };
       expect(await modules('zapateria-demo')).toEqual(['commerce']);
       expect(await modules('restaurante-demo')).toEqual(['hospitality']);
-      expect(await modules('bar-demo')).toEqual(['analytics', 'commerce', 'hospitality']);
+      expect(await modules('bar-demo')).toEqual(['analytics', 'commerce', 'hospitality', 'pos']);
     } finally {
       await app.close();
     }
