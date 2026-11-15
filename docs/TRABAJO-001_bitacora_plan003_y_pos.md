@@ -53,6 +53,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 |---|---|---|
 | 14/11 | Worktree `plan-003` creada desde `origin/pruebas` `18289d6`; planes movidos a `docs/`. | OK |
 | 14/11 | Codex gpt-6.1-terra sobre el último arreglo de POS. | Sin hallazgos. |
+| 15/11 | Navegador, demo combinada, `zapateria-demo/admin`: menú solo Inventario y Usuarios; unidad por defecto «Unidades», textos neutros; producto en kg: entrada «2,5» → +2,5 kg, «1,2345» rechazado con mensaje, «,5» → −0,5 kg. El historial ahora nombra los productos desactivados («Viejo (desactivado)», `d9de751`). | OK |
 | 15/11 | E2E completos contra la demo combinada (`verif/plan003-pos` @ `bb097ae`, 5 negocios): 60/61; `screens.spec.ts:73` falló por URL relativa en una página nueva tras 1 min y pasa sola (intermitente). Incluye pos, pos-edge, pos-tables (etiqueta de mesa), inventory-edge, inventory-only (zapatería 15−2=13) y hospitality-only. | OK |
 | 14/11 | Merge `p3/a1-host` (`fe04225`): 680 unit, integración 787/787 en la subrama. Codex A2: 3 hallazgos P2 corregidos (`6dcd7e1`, `4c44319`). Mesas 11/12 en plano de demo (`20f2add`). | OK |
 | 14/11 | Merge `p3/a2a3-portal` en esta rama (`564b151`). Unit 685 en verde; integración 774/775 (timeout de `seed-history` con la máquina cargada, pasa solo). | OK |
