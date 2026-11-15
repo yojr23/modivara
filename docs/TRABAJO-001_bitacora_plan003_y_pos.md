@@ -41,10 +41,10 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 - [x] A3 MOD-52/53: Métricas muestra pestañas solo con fuente y permiso, «Sin fuentes de datos» sin pedir nada; Espacios no consulta analytics sin módulo (`e5d1159`).
 - [x] A3 MOD-54: ya cubierto (dedup, rebuild) + nuevo aislamiento de commerce (`28b8862`).
 - [x] A3 MOD-60: unidad por defecto «Unidades», textos neutros, `bottle` sigue disponible (`d399ca7`).
-- [~] A3 MOD-61/MOD-74: seeds `zapateria-demo` (solo commerce) y `restaurante-demo` (solo hospitality); `seed:commerce` salta negocios sin commerce; E2E `inventory-only.spec.ts` y `hospitality-only.spec.ts` escritos (`0f79053`), falta correrlos contra esta rama.
-- [~] A4 MOD-70…72: matriz `docs/MOD-002_matriz_escenarios_plan003.md`; T05 (`core-commerce-analytics.int.test.ts`), T07 y T12-Hospitality (`core-hospitality.int.test.ts`) con host real y base solo con sus esquemas (`p3/a4-gaps`, integración 790/791). Falta la corrida final y llenar la matriz con SHA.
+- [x] A3 MOD-61/MOD-74: seeds `zapateria-demo` (solo commerce) y `restaurante-demo` (solo hospitality); `seed:commerce` salta negocios sin commerce; E2E `inventory-only.spec.ts` y `hospitality-only.spec.ts` escritos (`0f79053`), en verde en los E2E combinados (`c9629cb`).
+- [x] A4 MOD-70…72: matriz `docs/MOD-002_matriz_escenarios_plan003.md` con evidencia y PASS (`a44ec58`; E2E combinados `c9629cb`). Sin prueba dedicada (declarado): T14 en host parcial, log `outbox.failed_pending`, reintento conjunto de suscriptores.
 - [x] A4 MOD-73/75 (P1): runbook OPERACION-001 §9 (y §6 corregido: `outbox:retry` sin dominio solo imprimía uso). Diagnóstico de lag/correlación por producto pendiente. MOD-74 E2E escritos.
-- [ ] Revisión y auditoría Codex de la rama.
+- [x] Revisión y auditoría Codex (gpt-6.1-terra, xhigh): revisiones de A1, A2, del rebuild y adversarial de toda la rama; todos los hallazgos corregidos; última revisión sin hallazgos.
 - [ ] PR `test/plan-003-modularidad → pruebas`.
 
 ## Registro
@@ -53,6 +53,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 |---|---|---|
 | 14/11 | Worktree `plan-003` creada desde `origin/pruebas` `18289d6`; planes movidos a `docs/`. | OK |
 | 14/11 | Codex gpt-6.1-terra sobre el último arreglo de POS. | Sin hallazgos. |
+| 15/11 | Corrida final `a44ec58`: build, typecheck, separabilidad, 699 unit, integración 798/798. Verificación combinada `c9629cb` (+ POS, `MODIVARA_DOMAINS` con `pos`): integración 1101/1101, E2E 61/61. Rebuild por fuentes (`f9bbc34`) revisado por Codex sin hallazgos. | OK |
 | 15/11 | Merge `p3/a5-codex` (auditoría adversarial): permisos efectivos también en guards (`a4f0f01`), reactivar re-publica `core.module.enabled` sin nueva auditoría (`e6be2f8`), bloqueo por negocio al cambiar módulos (`75ced3f`), `MODIVARA_DOMAINS` (`e8928f1`), rebuild por fuentes (`565347d`); Codex P1/P2 sobre eso: arranque con el parser de la API y rebuild que no borra fuentes omitidas. T05 ahora espera 403 en llamados sin hospitality. Corrida en `643a736`: build, typecheck, separabilidad, unit 698 e integración 798/798 en verde. Queda: rebuild que vacía solo las fuentes compuestas (Codex P1 de carrera), en curso. | OK |
 | 15/11 | Merge `p3/a4-gaps`: hospitality ignora locales inactivos (`d84ff00`), separabilidad revisa SQL de migraciones (`1860a33`), T07/T12 (`1fca735`), T05 (`2808e64`). `seed-history` con margen de 300 s (pasaba en 117 s de 120 sola). | OK |
 | 15/11 | Navegador, demo combinada, `zapateria-demo/admin`: menú solo Inventario y Usuarios; unidad por defecto «Unidades», textos neutros; producto en kg: entrada «2,5» → +2,5 kg, «1,2345» rechazado con mensaje, «,5» → −0,5 kg. El historial ahora nombra los productos desactivados («Viejo (desactivado)», `d9de751`). | OK |
