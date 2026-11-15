@@ -66,3 +66,27 @@ it('la portada pide el negocio, valida el slug y lleva a su login', async () => 
   fireEvent.submit(input.closest('form')!);
   await waitFor(() => expect(router.state.location.pathname).toBe('/bar-demo'));
 });
+
+// MOD-52/53: cada vista consulta solo las fuentes que el negocio tiene; nada de hospitality sin hospitality.
+const HOSPITALITY_URL = /\/(zones|tables|layouts|service-calls|device-status|gateways|devices)\b/;
+const fetched = () => vi.mocked(fetch).mock.calls.map(([u]) => String(u));
+const api = (body: ReturnType<typeof me>) => async (u?: unknown) => (String(u).endsWith('/me') ? json(body) : json([]));
+
+it('commerce + analytics: Métricas muestra inventario y no consulta nada de hospitality', async () => {
+  mount('/demo/app/metricas', api(me(['commerce', 'analytics'], ['commerce.stock.read', 'analytics.calls.read', 'analytics.inventory.read'])));
+  await waitFor(() => expect(fetched().some((u) => u.includes('/metrics/inventory'))).toBe(true));
+  expect(screen.queryByRole('group', { name: 'Qué medir' })).toBeNull();
+  expect(fetched().filter((u) => HOSPITALITY_URL.test(u))).toEqual([]);
+});
+
+it('Métricas sin fuentes habilitadas lo dice y no consulta métricas', async () => {
+  mount('/demo/app/metricas', api(me(['analytics'], ['analytics.calls.read', 'analytics.inventory.read'])));
+  expect(await screen.findByText('Sin fuentes de datos')).toBeTruthy();
+  expect(fetched().filter((u) => !u.endsWith('/me'))).toEqual([]);
+});
+
+it('Espacios sin analytics no pide métricas de llamados', async () => {
+  mount('/demo/app/espacios', api(me(['hospitality'], ['hospitality.tables.manage', 'hospitality.calls.read'])));
+  await waitFor(() => expect(fetched().some((u) => u.includes('/tables'))).toBe(true));
+  expect(fetched().filter((u) => u.includes('/metrics/'))).toEqual([]);
+});

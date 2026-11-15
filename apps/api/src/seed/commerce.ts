@@ -47,7 +47,9 @@ export async function seedCommerce(app: INestApplicationContext, password: strin
   const provision = app.get(ProvisionOrganization);
 
   for (const b of BUSINESSES) {
-    const { organization, locations } = await provision.execute({ actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: MODULES });
+    const modules = b.modules ?? MODULES;
+    if (!modules.includes('commerce')) continue;
+    const { organization, locations } = await provision.execute({ actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules });
     const ctx: StockContext = { organizationId: organization.id, locationId: locations[0]!.id, actorUserId: root.actorUserId };
 
     await app.get(SeedMovementReasons).execute(ctx);
@@ -56,6 +58,7 @@ export async function seedCommerce(app: INestApplicationContext, password: strin
     const purchase = reasons.find((r) => r.isActive && r.name === 'Compra');
     if (!purchase) throw new Error('El motivo «Compra» no existe: el negocio lo desactivó o cambió; el seed no puede dar entrada inicial.');
 
+    if (!b.slug.startsWith('bar-')) continue; // el surtido es de bar: la zapatería arranca sin productos (MOD-61)
     const existing = new Map((await app.get(ListProducts).execute(ctx)).map((p) => [p.name, p]));
     for (const p of BAR_PRODUCTS) {
       const product = existing.get(p.name) ?? (await app.get(CreateProduct).execute({ ...ctx, name: p.name, unit: p.unit, category: p.category }));

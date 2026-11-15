@@ -3,10 +3,10 @@ import {
   newIdempotencyKey, stockErrorState, useAdjustToCount, useBalances, useCreateProduct, useMovementPages, useMovements, useProducts, useReasons, useRegisterMovement, useStockLocations,
 } from '@modivara/commerce-web';
 import { CircleAlert, CircleMinus, CirclePlus, Minus, Package, PackagePlus, Plus, Scale, type LucideIcon } from 'lucide-react';
-import { useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/ui/Button';
 import { cn } from '@/ui/cn';
-import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen } from './format';
+import { dayKey, dayStart, dec, fmtQty, fmtSigned, fmtWhen, parseDecimal, unitWord } from './format';
 import InventorySettings from './InventorySettings';
 import { Bone, EmptyState, ErrorState, Modal, Page, Segmented, useApp, useToast } from './ui';
 
@@ -22,7 +22,7 @@ const DIR: Record<Direction, { label: string; verb: string; Icon: LucideIcon; ma
   adjust: { label: 'Ajuste por conteo', verb: 'Ajustar al conteo', Icon: Scale, mark: 'text-muted' },
 };
 const DIR_OPTIONS = [['out', 'Salida'], ['in', 'Entrada'], ['adjust', 'Ajuste por conteo']] as const;
-const UNITS: [Unit, string][] = [['bottle', 'Botellas'], ['unit', 'Unidades'], ['kg', 'Kilos'], ['g', 'Gramos'], ['l', 'Litros'], ['ml', 'Mililitros']];
+const UNITS: [Unit, string][] = [['unit', 'Unidades'], ['bottle', 'Botellas'], ['kg', 'Kilos'], ['g', 'Gramos'], ['l', 'Litros'], ['ml', 'Mililitros']];
 const NO_CATEGORY = 'Sin categoría';
 const step = (u: Unit) => (u === 'kg' || u === 'l' ? 0.5 : 1);
 const TODAY_LIMIT = 200; // tope de la API; un día de un local no se acerca
@@ -48,6 +48,7 @@ function useInventory() {
   const adjustM = useAdjustToCount(l);
   const createM = useCreateProduct(l);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const asked = useRef(new Set<string>());
 
   const products = (productsQ.data ?? []).filter((p) => p.active);
   const balances = new Map((balancesQ.data ?? []).map((b) => [b.product_id, Number(b.quantity)]));
@@ -64,6 +65,15 @@ function useInventory() {
     reasonsFor: (d: Direction) => (reasonsQ.data ?? []).filter((r) => r.direction === d && r.active),
     balance: (id: string) => balances.get(id) ?? 0,
     product: (id: string) => products.find((p) => p.id === id),
+    /** Activo o desactivado; undefined si la lista en caché no lo tiene (p. ej. creado en otra sesión). */
+    known: (id: string) => productsQ.data?.find((p) => p.id === id),
+    /** Relee los productos una vez por id desconocido, para no tomar por desactivado lo que solo es nuevo. */
+    refreshFor(ids: string[]) {
+      const pending = ids.filter((id) => !asked.current.has(id));
+      if (!pending.length) return;
+      for (const id of pending) asked.current.add(id);
+      void productsQ.refetch();
+    },
     busy: registerM.isPending || adjustM.isPending,
     /** Valida como la API y registra; devuelve el error en palabras del usuario o null si se registró. */
     async register(input: { productId: string; direction: Direction; reasonId: string; quantity: number; note: string; key: string }): Promise<string | null> {
@@ -127,18 +137,22 @@ function Problem({ text }: { text: string }) {
   return <p role="alert" className="anim-rise flex gap-2 rounded-md border border-danger/40 bg-danger/6 px-3 py-2.5 text-sm"><CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-danger" />{text}</p>;
 }
 
-/** Cantidad con − y + del tamaño del dedo; el teclado numérico sigue funcionando. */
+/**
+ * Cantidad con − y + del tamaño del dedo. Texto con teclado decimal (no `type="number"`): con la coma de es-CO el navegador
+ * descartaba la coma y «0,5» llegaba como 5.
+ */
 function Quantity({ value, onChange, unit, label }: { value: string; onChange: (v: string) => void; unit: Unit; label: string }) {
-  const n = Number(value) || 0;
+  const n = parseDecimal(value) || 0;
   const s = step(unit);
+  const set = (x: number) => onChange(String(Math.round(x * 1000) / 1000).replace('.', ','));
   return (
     <div className="flex items-stretch gap-2">
-      <Button variant="secondary" aria-label="Menos" className="w-12 px-0" onClick={() => onChange(String(Math.max(0, n - s)))}><Minus aria-hidden className="size-4" /></Button>
+      <Button variant="secondary" aria-label="Menos" className="w-12 px-0" onClick={() => set(Math.max(0, n - s))}><Minus aria-hidden className="size-4" /></Button>
       <div className="relative flex-1">
-        <input aria-label={label} inputMode="decimal" type="number" min={0} step="any" value={value} onChange={(e) => onChange(e.target.value)} className={cn(input, 'pr-20 text-center font-display text-xl font-bold tabular-nums')} />
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted">{unit === 'bottle' ? 'botellas' : unit === 'unit' ? 'unidades' : unit}</span>
+        <input aria-label={label} inputMode="decimal" type="text" autoComplete="off" value={value} onChange={(e) => onChange(e.target.value)} className={cn(input, 'pr-20 text-center font-display text-xl font-bold tabular-nums')} />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted">{unitWord(unit, n)}</span>
       </div>
-      <Button variant="secondary" aria-label="Más" className="w-12 px-0" onClick={() => onChange(String(n + s))}><Plus aria-hidden className="size-4" /></Button>
+      <Button variant="secondary" aria-label="Más" className="w-12 px-0" onClick={() => set(n + s)}><Plus aria-hidden className="size-4" /></Button>
     </div>
   );
 }
@@ -159,13 +173,15 @@ function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductD
   // Una clave por intención: reintentar lo mismo no duplica; cambiar cantidad, tipo o motivo es otro movimiento (la API rechaza la misma clave con otros datos).
   const key = useMemo(() => newIdempotencyKey(), [product.id, direction, reasonId, qty]);
   const bal = inv.balance(product.id);
-  const n = Number(qty);
-  const diff = direction === 'adjust' && qty !== '' ? n - bal : null;
+  const n = parseDecimal(qty);
+  const valid = !Number.isNaN(n);
+  const diff = direction === 'adjust' && valid ? n - bal : null;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (qty.trim() !== '' && !valid) return setError('Escribe la cantidad con números, por ejemplo 2 o 0,5 (hasta 3 decimales).');
     if (!reasonId) return setError('Elige el motivo.');
-    const err = await inv.register({ productId: product.id, direction, reasonId, quantity: qty === '' ? NaN : n, note, key });
+    const err = await inv.register({ productId: product.id, direction, reasonId, quantity: n, note, key });
     setError(err);
     if (!err) { setQty(''); setNote(''); }
   }
@@ -197,7 +213,7 @@ function MovementForm({ inv, product, direction }: { inv: Inv; product: ProductD
       )}
       {error && <Problem text={error} />}
       <Button type="submit" size="lg" className="w-full" disabled={inv.busy}>
-        {inv.busy ? 'Registrando…' : direction === 'adjust' && qty !== '' ? `Ajustar a ${fmtQty(n, product.unit)}` : DIR[direction].verb}
+        {inv.busy ? 'Registrando…' : direction === 'adjust' && valid ? `Ajustar a ${fmtQty(n, product.unit)}` : DIR[direction].verb}
       </Button>
     </form>
   );
@@ -211,16 +227,18 @@ function DirTag({ d, reason }: { d: Direction; reason?: string }) {
 
 /** Historial de movimientos: lo nuevo entra con un leve desplazamiento; cantidades con signo y saldo resultante. */
 function MovementList({ inv, movements, dense = false }: { inv: Inv; movements: MovementDto[]; dense?: boolean }) {
+  const unknown = [...new Set(movements.map((m) => m.product_id).filter((id) => !inv.known(id)))].join();
+  useEffect(() => { if (unknown) inv.refreshFor(unknown.split(',')); }, [unknown]);
   if (!movements.length) return <p className="py-6 text-center text-sm text-muted">Sin movimientos todavía.</p>;
   return (
     <ul className="divide-y divide-line">
       {movements.map((m) => {
-        const p = inv.product(m.product_id);
+        const p = inv.known(m.product_id);
         const unit = p?.unit ?? 'unit';
         return (
           <li key={m.id} className={cn('grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5', dense ? 'py-2.5' : 'py-3', inv.fresh.has(m.id) && 'anim-rise')}>
             <span className="min-w-0">
-              <span className="block truncate font-semibold">{p?.name ?? 'Producto desactivado'}</span>
+              <span className="block truncate font-semibold">{!p ? 'Producto' : p.active ? p.name : 'Producto desactivado'}</span>
               <span className="block text-muted"><DirTag d={m.direction} reason={inv.reasonName.get(m.reason_id)} /></span>
             </span>
             <span className="text-right font-semibold tabular-nums">{fmtSigned(m.delta, unit)}</span>
@@ -275,7 +293,7 @@ function HistoryView({ inv }: { inv: Inv }) {
 function ProductDialog({ inv, onClose, onCreated }: { inv: Inv; onClose: () => void; onCreated: (p: ProductDto) => void }) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
-  const [unit, setUnit] = useState<Unit>('bottle');
+  const [unit, setUnit] = useState<Unit>('unit');
   const [sku, setSku] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -297,7 +315,7 @@ function ProductDialog({ inv, onClose, onCreated }: { inv: Inv; onClose: () => v
         <Field label="Nombre"><input value={name} onChange={(e) => { setName(e.target.value); setError(''); }} maxLength={120} className={input} /></Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Categoría">
-            <input list="categories" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={120} placeholder="Licores" className={input} />
+            <input list="categories" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={120} placeholder="Ej.: Insumos" className={input} />
             <datalist id="categories">{inv.categories.filter((c) => c !== NO_CATEGORY).map((c) => <option key={c} value={c} />)}</datalist>
           </Field>
           <Field label="Unidad" hint="No se puede cambiar después.">
@@ -339,7 +357,7 @@ export default function Inventory() {
   } else if (inv.error) {
     body = <ErrorState what="el inventario" onRetry={inv.retry} error={inv.error} />;
   } else if (!product) {
-    body = <EmptyState Icon={Package} title="Aún no hay productos" text="Crea los productos que controlas (botellas, insumos) y registra su stock inicial como una entrada."
+    body = <EmptyState Icon={Package} title="Aún no hay productos" text="Crea los productos que controlas y registra su stock inicial como una entrada."
       action={inv.canCatalog && <Button onClick={() => setCreating(true)}><PackagePlus aria-hidden className="size-4" />Crear el primer producto</Button>} />;
   } else {
     body = (
