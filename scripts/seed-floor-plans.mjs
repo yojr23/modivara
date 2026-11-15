@@ -34,9 +34,26 @@ async function zone(name, position) {
 const primer = await zone('Primer piso', 0);
 const segundo = await zone('Segundo piso', 1);
 
+// Mesa 11 y 12 en Zona A, bajo la mesa 7 (x, y).
+const MESAS_11_12 = [[11, 430, 470], [12, 560, 470]];
 const current = await call('GET', `${L}/layouts/draft?zone_id=${primer.id}`);
 if (current.published?.elements.some((e) => e.type === 'area' && e.name === 'Barra')) {
-  console.log('seed:planos-demo: Bar Demo ya tiene los planos de Primer y Segundo piso; nada que hacer.');
+  // Bases sembradas antes del 14/11 dejaban Mesa 11 y 12 sin ubicar aunque tienen botón: sus llamados no se veían en el plano.
+  // Se agregan a Zona A sobre el plano publicado, sin tocar lo demás.
+  const tables = await call('GET', `${L}/tables`);
+  const missing = MESAS_11_12.filter(([n]) => {
+    const t = tables.find((x) => x.label === `Mesa ${n}` && x.active !== false && x.zone_id === primer.id);
+    return t && !current.published.elements.some((e) => e.table_id === t.id);
+  });
+  if (!missing.length) {
+    console.log('seed:planos-demo: Bar Demo ya tiene los planos de Primer y Segundo piso; nada que hacer.');
+    process.exit(0);
+  }
+  const { canvas_width, canvas_height, elements } = current.published;
+  const added = missing.map(([n, x, y]) => ({ id: crypto.randomUUID(), type: 'table', table_id: tables.find((t) => t.label === `Mesa ${n}` && t.zone_id === primer.id).id, shape: 'square', x, y, width: 70, height: 70, rotation: 0 }));
+  const saved = await call('PUT', `${L}/layouts/draft`, { zone_id: primer.id, revision: current.draft?.revision ?? 0, canvas_width, canvas_height, elements: [...elements, ...added] });
+  const published = await call('POST', `${L}/layouts/publish`, { zone_id: primer.id, revision: saved.revision });
+  console.log(`seed:planos-demo: ${missing.map(([n]) => `Mesa ${n}`).join(' y ')} ubicadas en Primer piso (versión ${published.version}).`);
   process.exit(0);
 }
 
@@ -57,7 +74,7 @@ const box = (type, x, y, width, height) => ({ id: id(), type, x, y, width, heigh
 const text = (t, x, y, rotation = 0) => ({ id: id(), type: 'label', text: t, x, y, rotation });
 const area = (name, x, y, width, height) => ({ id: id(), type: 'area', name, x, y, width, height, rotation: 0 });
 
-// Escena del prototipo elegido (commit 695547b, plan.tsx). Mesas 11 y 12 quedan sin ubicar a propósito.
+// Escena del prototipo elegido (commit 695547b, plan.tsx), más Mesa 11 y 12 (14/11: tienen botón y deben verse en el plano).
 const PLANS = [
   {
     zone: primer, width: 1000, height: 640,
@@ -69,7 +86,7 @@ const PLANS = [
       box('bar', 110, 92, 480, 50),
       at(1, 'round', 120, 180), at(2, 'round', 260, 180), at(3, 'round', 400, 180), at(4, 'round', 540, 180),
       at(5, 'square', 120, 340), at(6, 'square', 260, 340), at(7, 'rect', 400, 340, 140, 70),
-      at(10, 'round', 270, 460, 90),
+      at(10, 'round', 270, 460, 90), ...MESAS_11_12.map(([n, x, y]) => at(n, 'square', x, y)),
       at(8, 'rect', 770, 170, 70, 130), at(9, 'rect', 770, 380, 70, 130),
     ],
   },

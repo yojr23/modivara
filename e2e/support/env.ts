@@ -18,6 +18,7 @@ export function seedPassword(): string {
 export const USERS = [
   ['bar-demo', 'admin'], ['bar-demo', 'barra'], ['bar-demo', 'mesero1'], ['bar-demo', 'inventario1'], ['bar-demo-pisos', 'admin'], ['labs', 'superadmin'],
   ['bar-demo', 'caja1'], ['tienda-demo', 'admin'],
+  ['zapateria-demo', 'admin'], ['zapateria-demo', 'inventario1'], ['restaurante-demo', 'admin'],
 ] as const;
 export type User = (typeof USERS)[number];
 export const authFile = ([slug, user]: User) => join(AUTH_DIR, `${slug}-${user}.json`);

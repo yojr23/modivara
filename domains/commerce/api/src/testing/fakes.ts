@@ -1,7 +1,8 @@
 import type { CoreAccessPort, LocationRef } from '@modivara/core-contracts';
 
 export class FakeCoreAccess implements CoreAccessPort {
-  async isModuleEnabled() { return true; }
+  moduleEnabled = true;
+  async isModuleEnabled() { return this.moduleEnabled; }
   async authenticateSession() { return null; }
   async permissionsAt() { return null; }
   readonly names = new Map<string, string>();

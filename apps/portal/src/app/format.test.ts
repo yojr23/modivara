@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { addDays, agoLabel, bucketLabel, dayKey, dayStart, fmtMoney, fmtWhen } from './format';
+import { addDays, agoLabel, bucketLabel, dayKey, dayStart, fmtMoney, fmtWhen, parseDecimal } from './format';
 
 // Zona del local distinta a la del sistema: Bogotá (UTC−5, sin horario de verano) y Tokio (UTC+9).
 afterEach(() => vi.useRealTimers());
@@ -52,4 +52,9 @@ describe('fmtMoney', () => {
     expect(plain(fmtMoney('999999999999.99', 'COP'))).toBe('$ 999.999.999.999,99'); // máximo del contrato, exacto
     expect(plain(fmtMoney('0.01', 'USD'))).toBe('US$ 0,01');
   });
+});
+
+it('parseDecimal acepta coma o punto, sin cero inicial, hasta 3 decimales', () => {
+  expect(['0,5', '1.5', ',5', '.5', '12', '0,125'].map(parseDecimal)).toEqual([0.5, 1.5, 0.5, 0.5, 12, 0.125]);
+  for (const bad of ['', ',', '1,2345', '1.000,5', '-1', 'abc']) expect(parseDecimal(bad)).toBeNaN();
 });

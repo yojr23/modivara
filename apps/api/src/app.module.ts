@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Logger, Module, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Inject, Logger, Module, Optional, ServiceUnavailableException, type DynamicModule, type ModuleMetadata } from '@nestjs/common';
 import { AnalyticsModule } from '@modivara/analytics-api';
 import { COMMERCE_OUTBOX, CommerceModule } from '@modivara/commerce-api';
 import { CORE_OUTBOX, CORE_PRISMA, CoreModule, coreGlobalProviders, Public } from '@modivara/core-api';
@@ -55,17 +55,22 @@ export class HealthController {
   }
 }
 
-const hospitality = HospitalityModule.forRoot();
-const commerce = CommerceModule.forRoot();
-const analytics = AnalyticsModule.forRoot();
-
-// El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio.
-@Module({
-  imports: [
-    CoreModule.forRoot(), hospitality, commerce, analytics, PosModule.forRoot(), IntegrationSubscribersModule.forDomains({ hospitality, commerce, analytics }),
-  ],
+/**
+ * Composición del host (MOD-13): core, los módulos de dominio dados y sus suscriptores. Los hosts parciales de prueba (Core + Commerce)
+ * usan la misma; un dominio ausente no aporta providers ni consumidores, y no se piden sus variables de entorno.
+ */
+export const hostMetadata = (core: DynamicModule, domains: DynamicModule[]): ModuleMetadata => ({
+  imports: [core, ...domains, IntegrationSubscribersModule.forDomains(domains)],
   controllers: [HealthController],
   // Guards (Origin, sesión, permiso, módulo) y filtro de errores de core: valen para las rutas de todos los dominios.
   providers: [...coreGlobalProviders],
-})
+});
+
+// El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio. Sumar un dominio = una entrada aquí.
+@Module(hostMetadata(CoreModule.forRoot(), [
+  HospitalityModule.forRoot(),
+  CommerceModule.forRoot(),
+  AnalyticsModule.forRoot(),
+  PosModule.forRoot(),
+]))
 export class AppModule {}
