@@ -10,6 +10,7 @@ Se copian de `.env.example` a `.env` (no se versiona). En producción no dejar n
 |---|---|
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Superusuario del contenedor `db`; solo crea esquemas y roles. |
 | `CORE_DB_PASSWORD`, `HOSPITALITY_DB_PASSWORD`, `COMMERCE_DB_PASSWORD`, `ANALYTICS_DB_PASSWORD`, `POS_DB_PASSWORD` | Contraseña del rol `<dominio>_app`. `docker-compose.yml` arma `<DOMINIO>_DATABASE_URL`. Se leen **solo al crear el volumen** (`infra/postgres/init-schemas.sh`): cambiarlas después exige `ALTER ROLE`. |
+| `MODIVARA_DOMAINS` | Dominios que compone la API además de core, separados por coma: `hospitality`, `commerce`, `analytics`, `pos`. Vacía o sin definir = todos (lo de siempre). Un nombre desconocido detiene el arranque con el mensaje `MODIVARA_DOMAINS: dominio desconocido …`. Un dominio fuera de la lista no levanta providers, rutas ni consumidores, no pide su `<DOMINIO>_DATABASE_URL` y `scripts/api-start.sh` no migra su esquema. Debe cubrir los módulos contratados por los negocios de la instalación: habilitar uno que el host no compone deja su activación sin consumidor (recuperación en §9.4). La usa también `analytics:rebuild` (§9.4). |
 | `MQTT_PASSWORD` | Usuario `api` del broker (`scripts/mqtt-user.sh api`). Vacía = la API no se suscribe. |
 | `DOMAIN` | Solo producción; obligatoria en `docker-compose.prod.yml`. Caddy saca el certificado. |
 | `SIM_*`, `SEED_PASSWORD` | Solo demo. El simulador no arranca en producción (perfil `demo`). |
@@ -123,7 +124,7 @@ rm -f "$JAR"
 ```
 
 - Respuesta: `{"module":"commerce","enabled":true}`. 403 si no es superadmin; 400 si el módulo no existe; 404 para el negocio de plataforma o uno inexistente.
-- Repetir el mismo estado no hace nada (ni auditoría ni eventos).
+- Suspender un módulo ya suspendido no hace nada (ni auditoría ni eventos). **Habilitar uno ya habilitado re-publica** `core.module.enabled` por cada local activo, sin nueva fila de auditoría: es la recuperación del §9.4.
 - Con cambio: `core.audit_log` registra `entitlement.enabled|disabled` y el outbox de core publica un `core.module.enabled|disabled` v1 por cada local activo.
 
 **Qué pasa con los datos**
@@ -184,7 +185,8 @@ SELECT event_type, count(*), min(occurred_at) FROM commerce.outbox_events
 
 1. Corregir la causa (log `error` / `last_error`).
 2. Liberar: `docker compose exec api sh -c 'cd /repo/apps/api && node dist/outbox-retry.js <core|hospitality|commerce> [event_id]'` (desarrollo: `pnpm outbox:retry <dominio> [event_id]`). Pone `failed_at = NULL, attempts = 0` y el poller lo entrega en el siguiente ciclo.
-3. Si analytics no vio eventos ya despachados (corrió sin analytics o la proyección quedó mal): `docker compose exec api sh -c 'cd /repo/apps/api && node dist/analytics-rebuild.js'` (desarrollo: `pnpm analytics:rebuild`). Vacía las tablas de analytics y reprocesa todo el historial de los outbox de hospitality y commerce, de todos los negocios, en una transacción; mientras dura, la proyección en vivo espera. Imprime `leídos/aplicados/duplicados/ignorados`. Un evento inválido aborta con su `event_id`, sale con código 1 y deja la proyección anterior.
-4. Ambos comandos levantan los módulos que necesitan y exigen sus URL de base (`outbox:retry`: core + el dominio; `analytics:rebuild`: los cuatro).
+3. **Activación perdida** (se habilitó un módulo cuando el host no lo componía, p. ej. `MODIVARA_DOMAINS` sin `commerce`: el `core.module.enabled` quedó despachado sin consumidor y el local no tiene «Principal» ni motivos): con el host ya componiendo el dominio, repetir el `PUT … {"enabled":true}` del §9.1. Re-publica el evento por local activo; los consumidores son idempotentes y la auditoría no cambia. Verificar con las consultas del §9.1.
+4. Si analytics no vio eventos ya despachados (corrió sin analytics o la proyección quedó mal): `docker compose exec api sh -c 'cd /repo/apps/api && node dist/analytics-rebuild.js'` (desarrollo: `pnpm analytics:rebuild`). Vacía los hechos de las fuentes compuestas (hospitality y/o commerce) y sus eventos procesados, y reprocesa el historial de sus outbox, de todos los negocios, en una transacción; mientras dura, la proyección en vivo espera. Imprime `leídos/aplicados/duplicados/ignorados`. Un evento inválido aborta con su `event_id`, sale con código 1 y deja la proyección anterior.
+5. Ambos comandos levantan los módulos que necesitan y exigen sus URL de base (`outbox:retry`: core + el dominio; `analytics:rebuild`: core + los de `MODIVARA_DOMAINS`, que debe incluir `analytics`). `analytics:rebuild` lee solo el historial de las fuentes compuestas y, si no hay ninguna, aborta antes de vaciar. Los hechos de una fuente ausente no se tocan (no se podrían rehacer): quedan como estaban.
 
 **Restauración:** el backup es de la base completa (§5): restaurar revierte también entitlements y auditoría, no hay restauración por producto. Antes de una suspensión masiva o de un `analytics:rebuild` en producción, `scripts/backup.sh`; después de cualquier restauración, `scripts/restore-check.sh`.

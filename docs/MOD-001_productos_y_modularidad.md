@@ -51,7 +51,7 @@ Hoy: `core-api` depende solo de `core-contracts` (MOD-10, `5ca4aba`). `analytics
 | hospitality → `hospitality.service_call.*` v1 | analytics | Hechos de llamados |
 | commerce → `commerce.stock.{received,issued,adjusted}` v1 | analytics | Hechos de stock |
 
-Composición: `apps/api/src/app.module.ts` (`hostMetadata(core, dominios)`) e `integration-subscribers.module.ts` inyectan solo los suscriptores de los dominios compuestos (MOD-13). Producción sigue componiendo los cuatro; los hosts parciales existen solo en pruebas.
+Composición: `apps/api/src/app.module.ts` (`hostMetadata(core, dominios)`) e `integration-subscribers.module.ts` inyectan solo los suscriptores de los dominios compuestos (MOD-13). El host desplegable elige sus dominios con `MODIVARA_DOMAINS` (`apps/api/src/domains.ts`; por defecto todos; nombre desconocido → no arranca; OPERACION-001 §1).
 
 ## 3. Invariantes de venta transversal (MOD-03, para la rama `pos/mesas`)
 
@@ -77,7 +77,7 @@ Implementado en A1 (`edb2fe9`, MOD-14/26, MOD-23 mínimo):
 | Acción | Qué hace el código | Prueba |
 |---|---|---|
 | Alta con módulos | `ProvisionOrganization` (solo seed; no hay endpoint de alta de negocios) crea entitlements y un `core.location.created` por local. | `platform.test.ts` |
-| Habilitar / suspender | `PUT /api/v1/platform/organizations/:organizationId/modules/:module` con `{ "enabled": bool }`. Permiso `platform.entitlements.manage` (solo superadmin); `module ∈ hospitality, commerce, analytics` (otro → 400); el negocio de plataforma → 404. Sin cambio de estado: no audita ni emite. Con cambio, en una transacción: entitlement, `audit_log` `entitlement.enabled|disabled` y un `core.module.enabled|disabled` v1 **por local activo**. | `core-commerce.int.test.ts` (T11, T12), `platform.test.ts` |
+| Habilitar / suspender | `PUT /api/v1/platform/organizations/:organizationId/modules/:module` con `{ "enabled": bool }`. Permiso `platform.entitlements.manage` (solo superadmin); `module ∈ hospitality, commerce, analytics` (otro → 400); el negocio de plataforma → 404. Suspender lo ya suspendido no hace nada; habilitar lo ya habilitado re-publica `core.module.enabled` por local sin auditar (recuperación, OPERACION-001 §9.4). Peticiones concurrentes del mismo negocio se serializan (`FOR UPDATE` sobre la fila del negocio). Con cambio, en una transacción: entitlement, `audit_log` `entitlement.enabled|disabled` y un `core.module.enabled|disabled` v1 **por local activo**. | `core-commerce.int.test.ts` (T11, T12), `platform.test.ts` |
 | Activación tardía de Inventario | Commerce maneja `core.module.enabled` (solo `module = commerce`) y `core.location.created`. En ambos, si el local no está activo o no es del negocio, o el negocio no tiene `commerce` **al momento de procesar**, no hace nada (sin error, sin `failed_at`). Si no, siembra motivos y «Principal» de forma idempotente. | `location-created.subscriber.test.ts`, T11 |
 | Activación tardía de Hospitality | No existe a propósito: sin fila en `location_settings` valen los valores por defecto. | — |
 | Activación tardía de Analytics | Analytics no consume eventos de módulo. Proyecta los eventos de hospitality/commerce de **todos** los negocios, tenga o no `analytics` (el suscriptor no mira el entitlement); la lectura la protege `@RequireModule('analytics')` + permiso. Si un host corrió sin analytics, los eventos quedaron despachados sin él y se recuperan con `pnpm analytics:rebuild`. | `analytics-rebuild.int.test.ts` |
@@ -88,7 +88,7 @@ Implementado en A1 (`edb2fe9`, MOD-14/26, MOD-23 mínimo):
 
 - No se reaprovecha `core.location.created` para activar a posteriori: hay un evento propio, `core.module.enabled`, emitido solo por el endpoint.
 - Toda inicialización por evento es idempotente por diseño (reentrega at-least-once).
-- Backfill de Analytics: solo manual, `pnpm analytics:rebuild` (vacía las tablas y reprocesa el historial completo de los outbox de hospitality y commerce, de todos los negocios, en una transacción; un evento inválido aborta y deja la proyección anterior).
+- Backfill de Analytics: solo manual, `pnpm analytics:rebuild` (compone los dominios de `MODIVARA_DOMAINS`; vacía las tablas y reprocesa el historial completo de los outbox de las fuentes compuestas (hospitality, commerce), de todos los negocios, en una transacción; un evento inválido aborta y deja la proyección anterior).
 - Replay entre productos (p. ej. POS → Inventario): posterior (PLAN-003 §4, T11).
 
 **Retención:** los datos de un módulo suspendido se conservan indefinidamente. **Pendiente:** plazo de retención y purga tras baja definitiva (no implementado ni decidido).
@@ -105,9 +105,9 @@ Implementado en A1 (`edb2fe9`, MOD-14/26, MOD-23 mínimo):
 
 - Analytics lee **solo sus propios hechos** (`service_call_facts`, `stock_movement_facts`, deduplicados por `processed_events`). Nunca consulta otro esquema.
 - `domains/analytics/api/src/application/event-registry.ts` es el único lugar que decide qué `event_type` entiende; lo demás se ignora.
-- `PERMISSION_SOURCES` (`core-contracts/permissions.ts`) liga cada permiso de métrica a su fuente: `analytics.calls.read → hospitality`, `analytics.inventory.read → commerce`. `GetMe` lo usa para no entregar el permiso sin su fuente (MOD-25).
+- `PERMISSION_SOURCES` (`core-contracts/permissions.ts`) liga cada permiso de métrica a su fuente: `analytics.calls.read → hospitality`, `analytics.inventory.read → commerce`.
+- **Permisos efectivos, una sola regla** (`core-api/application/effective-permissions.ts`): un permiso vale si el rol lo da, el módulo de su prefijo está habilitado y, si tiene fuente, también la fuente. La usan `GetMe` (navegación, MOD-25), `Authorize` (guard de permiso) y `CoreAccessPort.permissionsAt`. En el backend: sin el permiso por rol → 403 `permission_denied`; con él pero sin módulo o fuente → 403 `module_disabled` (p. ej. `GET /metrics/inventory` con commerce suspendido). El superadmin pasa siempre (ADR-002 D3). Prueba: `effective-permissions.int.test.ts`.
 - El portal (`Metrics.tsx`, constante `SOURCES`) repite ese mapeo para decidir pestañas (MOD-52/53).
-- **La API de métricas no exige la fuente**: solo `analytics` + permiso. `PERMISSION_SOURCES` filtra navegación, no autoriza (comentario en `get-me.ts`). Pendiente si se quiere exigir en el backend.
 
 **Contrato mínimo de una fuente nueva (diseño, no implementado):**
 

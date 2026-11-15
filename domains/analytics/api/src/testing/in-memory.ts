@@ -80,8 +80,8 @@ export class InMemoryProcessedEventStore implements ProcessedEventStore {
     this.ids.set(eventId, eventType);
     return true;
   }
-  async clear() {
-    this.ids.clear();
+  async clear(sources: readonly string[]) {
+    for (const [id, type] of this.ids) if (sources.some((s) => type.startsWith(`${s}.`))) this.ids.delete(id);
   }
 }
 

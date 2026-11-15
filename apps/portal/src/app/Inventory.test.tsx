@@ -74,5 +74,5 @@ it('un movimiento de un producto que la caché no tiene relee los productos en v
   mount({ products: [[limon, viejo], [limon, viejo, zapato]], today: [{ ...movement(zapato.id, '2.000') }, { ...movement(viejo.id, '1.000'), id: ID(1) }] });
   const feed = await screen.findByRole('complementary', {}, { timeout: 5000 });
   await waitFor(() => expect(within(feed).getByText('Zapato 40')).toBeTruthy(), { timeout: 5000 });
-  expect(within(feed).getByText('Producto desactivado')).toBeTruthy();
+  expect(within(feed).getByText('Viejo (desactivado)')).toBeTruthy();
 }, 15_000);

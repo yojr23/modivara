@@ -74,7 +74,7 @@ describe('casos de uso de plataforma (seed)', () => {
     await expect(provision.execute({ actor: client, slug: 'otro', name: 'X', locations: [], modules: [] })).rejects.toThrow(PermissionDeniedError);
   });
 
-  it('SetModuleEnabled (MOD-14/26): auditado, un evento por local activo, sin cambios no hace nada; solo superadmin y solo negocios cliente', async () => {
+  it('SetModuleEnabled (MOD-14/26): auditado, un evento por local activo, re-habilitar re-publica sin auditar, re-suspender no hace nada; solo superadmin y solo negocios cliente', async () => {
     const root = await bootstrap.execute(input);
     const { organization, locations } = await provision.execute({ actor: root, slug: 'zapateria', name: 'Z', locations: [{ name: 'A' }, { name: 'B' }], modules: [] });
     const set = new SetModuleEnabled(w.admin);
@@ -82,13 +82,15 @@ describe('casos de uso de plataforma (seed)', () => {
     const since = w.outbox.events.length;
 
     expect((await run(true)).enabled).toBe(true);
-    await run(true);
+    await run(true); // recuperación: mismos eventos otra vez, sin otra fila de auditoría
     expect(await w.entitlements.listEnabledModules({ organizationId: organization.id })).toEqual(['commerce']);
     const enabled = w.outbox.events.slice(since).map((e) => moduleEnabledEventSchema.parse(toEventEnvelope(e)));
-    expect(enabled.map((e) => [e.location_id, e.payload.module, e.aggregate_id])).toEqual(locations.map((l) => [l.id, 'commerce', organization.id]));
+    const perLocation = locations.map((l) => [l.id, 'commerce', organization.id]);
+    expect(enabled.map((e) => [e.location_id, e.payload.module, e.aggregate_id])).toEqual([...perLocation, ...perLocation]);
 
     expect((await run(false)).enabled).toBe(false);
-    expect(w.outbox.events.slice(since + 2).map((e) => moduleDisabledEventSchema.parse(toEventEnvelope(e)).location_id)).toEqual(locations.map((l) => l.id));
+    await run(false);
+    expect(w.outbox.events.slice(since + 4).map((e) => moduleDisabledEventSchema.parse(toEventEnvelope(e)).location_id)).toEqual(locations.map((l) => l.id));
     expect(w.audit.entries.filter((e) => e.action.startsWith('entitlement.')).map((e) => [e.action, e.details])).toEqual([
       ['entitlement.enabled', { module: 'commerce' }], ['entitlement.disabled', { module: 'commerce' }],
     ]);

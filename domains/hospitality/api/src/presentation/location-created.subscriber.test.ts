@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type IntegrationEvent, newId } from '@modivara/core-contracts';
 import { EnsureLocationSettings } from '../application/index.js';
-import { LocationUnavailableError } from '../domain/errors.js';
 import { buildWorld } from '../testing/world.js';
 import { LocationCreatedSubscriber } from './location-created.subscriber.js';
 
@@ -25,10 +24,18 @@ describe('LocationCreatedSubscriber (hospitality)', () => {
     expect(await w.settings.get(w.ctx)).toEqual({ callVisibility: 'all' });
   });
 
-  it('un local que core no reconoce para ese negocio no recibe fila', async () => {
+  it('un local inactivo o ajeno al negocio se ignora sin error (no agota los reintentos) y no recibe fila', async () => {
     const w = buildWorld();
     const subscriber = new LocationCreatedSubscriber(new EnsureLocationSettings(w.core, w.settings));
-    await expect(subscriber.handle(event(newId(), w.ctx.locationId))).rejects.toThrow(LocationUnavailableError);
+    await expect(subscriber.handle(event(newId(), w.ctx.locationId))).resolves.toBeUndefined();
+    w.core.add({ id: w.ctx.locationId, organizationId: w.ctx.organizationId, timezone: 'America/Bogota', active: false });
+    await expect(subscriber.handle(event(w.ctx.organizationId, w.ctx.locationId))).resolves.toBeUndefined();
     expect(w.settings.has(w.ctx.locationId)).toBe(false);
+  });
+
+  it('un payload inválido se rechaza (el poller lo reintenta)', async () => {
+    const w = buildWorld();
+    const subscriber = new LocationCreatedSubscriber(new EnsureLocationSettings(w.core, w.settings));
+    await expect(subscriber.handle({ ...event(w.ctx.organizationId, w.ctx.locationId), payload: { location_id: 'x' } })).rejects.toThrow();
   });
 });

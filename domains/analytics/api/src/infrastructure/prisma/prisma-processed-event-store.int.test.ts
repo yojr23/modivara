@@ -18,9 +18,10 @@ describe('PrismaProcessedEventStore', () => {
     expect(await db.processedEvent.count()).toBe(1);
   });
 
-  it('clear vacía la tabla', async () => {
-    await store.add(newId(), 'a');
-    await store.clear();
-    expect(await db.processedEvent.count()).toBe(0);
+  it('clear borra solo los eventos de las fuentes pedidas', async () => {
+    await store.add(newId(), 'hospitality.service_call.created');
+    await store.add(newId(), 'commerce.stock.received');
+    await store.clear(['commerce']);
+    expect(await db.processedEvent.findMany({ select: { eventType: true } })).toEqual([{ eventType: 'hospitality.service_call.created' }]);
   });
 });
