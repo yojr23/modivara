@@ -33,6 +33,7 @@ const ROUTES: Route[] = [
   r('put', CO.userLocationRoles, 'core.users.manage'),
   r('get', CO.platformOrganizations, 'platform.organizations.manage'),
   r('put', CO.actingOrganization, 'platform.organizations.manage'),
+  r('put', CO.platformOrganizationModule, 'platform.entitlements.manage'),
   r('get', CA.serviceCalls, 'hospitality.calls.read'),
   r('get', CA.serviceCall, 'hospitality.calls.read'),
   r('post', CA.acknowledge, 'hospitality.calls.acknowledge'),

@@ -2,7 +2,8 @@ import { type IntegrationEvent, type IntegrationEventSubscriber, locationCreated
 import type { EnsureLocationSettings } from '../application/index.js';
 
 /** Q-05: ante un local nuevo de core, crea sus ajustes por defecto. Idempotente, así que la reentrega es inocua. */
-// OPEN: igual que commerce: no filtra por entitlement y un local ya inactivo agota los 10 intentos (failed_at) en vez de ignorarse.
+// OPEN: no filtra por entitlement y un local ya inactivo agota los 10 intentos (failed_at) en vez de ignorarse (commerce ya lo corrigió, MOD-14).
+// Sin activación tardía a propósito: sin fila de location_settings valen los valores por defecto, así que no hace falta `core.module.enabled`.
 export class LocationCreatedSubscriber implements IntegrationEventSubscriber {
   readonly name = 'hospitality.location-created';
 

@@ -4,7 +4,7 @@ import {
 } from '@modivara/core-contracts';
 import {
   Authorize, AuthenticateSession, BootstrapPlatform, ChangePassword, CoreAccessService, CreateUser, DeactivateUser, GetMe, ListOrganizations, ListUsers, Login, Logout,
-  ProvisionOrganization, ResetPassword, ResolveLocationAccess, RevokeUserSessions, SelectActingOrganization, SetLocationRoles,
+  ProvisionOrganization, ResetPassword, ResolveLocationAccess, RevokeUserSessions, SelectActingOrganization, SetLocationRoles, SetModuleEnabled,
 } from './application/index.js';
 import type { AdminTransactions, AuditLog, EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, PasswordHasher, SessionRepository, SessionTokenService, UserRepository } from './application/ports/index.js';
 import { AuthController, LoginRateLimiter, PlatformActionSubscriber, PlatformController, UsersController } from './presentation/index.js';
@@ -56,6 +56,7 @@ const useCases = [
   [ListUsers, [USERS, MEMBERSHIPS]],
   [ListOrganizations, [ORGANIZATIONS]],
   [ProvisionOrganization, [ADMIN_TRANSACTIONS]],
+  [SetModuleEnabled, [ADMIN_TRANSACTIONS]],
   [BootstrapPlatform, [ADMIN_TRANSACTIONS, PASSWORD_HASHER]],
 ] as const;
 
