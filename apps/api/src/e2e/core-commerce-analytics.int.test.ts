@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AnalyticsModule } from '@modivara/analytics-api';
-import { ANALYTICS_API_PATHS as P, inventoryMetricsSchema, serviceCallMetricsSchema } from '@modivara/analytics-contracts';
+import { ANALYTICS_API_PATHS as P, inventoryMetricsSchema } from '@modivara/analytics-contracts';
 import { COMMERCE_OUTBOX, CommerceModule } from '@modivara/commerce-api';
 import { CORE_PRISMA } from '@modivara/core-api';
 import { INTEGRATION_EVENT_SUBSCRIBERS } from '@modivara/core-contracts';
@@ -27,7 +27,7 @@ describe('T05 host Core + Commerce + Analytics (sin Hospitality)', () => {
     expect(schemas.map((s) => s.nspname)).toEqual(['analytics', 'commerce', 'core']);
   });
 
-  it('un movimiento de commerce llega a métricas de inventario tras el tick del outbox; las de llamados quedan en cero sin error', async () => {
+  it('un movimiento de commerce llega a métricas de inventario tras el tick del outbox; las de llamados responden 403 module_disabled (sin fuente)', async () => {
     const { locationId } = await host.provision('tienda', ['commerce', 'analytics'], { inventario: 'inventory', admin: 'admin' });
     await host.tickCore(); // core.location.created → commerce siembra motivos y «Principal»
     const inv = host.as(await host.login('tienda', 'inventario'));
@@ -50,8 +50,7 @@ describe('T05 host Core + Commerce + Analytics (sin Hospitality)', () => {
     expect(metrics.balances.map((b) => [b.product_id, Number(b.balance)])).toEqual([[product.body.id, 7]]);
 
     const calls = await host.as(await host.login('tienda', 'admin')).get(`${P.serviceCallMetrics.replace(':locationId', locationId)}?range=today`);
-    expect(calls.status).toBe(200);
-    const body = serviceCallMetricsSchema.parse(calls.body);
-    expect([body.totals.calls, body.by_table, body.by_zone]).toEqual([0, [], []]);
+    // Permisos efectivos: `analytics.calls.read` exige la fuente hospitality, que este negocio no tiene.
+    expect([calls.status, calls.body.code]).toEqual([403, 'module_disabled']);
   });
 });
