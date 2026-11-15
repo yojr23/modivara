@@ -51,7 +51,7 @@ Hoy: `core-api` depende solo de `core-contracts` (MOD-10, `5ca4aba`). `analytics
 | hospitality → `hospitality.service_call.*` v1 | analytics | Hechos de llamados |
 | commerce → `commerce.stock.{received,issued,adjusted}` v1 | analytics | Hechos de stock |
 
-Composición: `apps/api/src/app.module.ts` (`hostMetadata(core, dominios)`) e `integration-subscribers.module.ts` inyectan solo los suscriptores de los dominios compuestos (MOD-13). Producción sigue componiendo los cuatro; los hosts parciales existen solo en pruebas.
+Composición: `apps/api/src/app.module.ts` (`hostMetadata(core, dominios)`) e `integration-subscribers.module.ts` inyectan solo los suscriptores de los dominios compuestos (MOD-13). El host desplegable elige sus dominios con `MODIVARA_DOMAINS` (`apps/api/src/domains.ts`; por defecto todos; nombre desconocido → no arranca; OPERACION-001 §1).
 
 ## 3. Invariantes de venta transversal (MOD-03, para la rama `pos/mesas`)
 

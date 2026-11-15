@@ -10,7 +10,7 @@ import { CommerceModule } from '@modivara/commerce-api';
 import { BootstrapPlatform, CORE_OUTBOX, CORE_PRISMA, CoreModule, CreateUser, ProvisionOrganization, SetLocationRoles } from '@modivara/core-api';
 import { SEEDED_MOVEMENT_REASONS } from '@modivara/commerce-contracts';
 import { INTEGRATION_EVENT_SUBSCRIBERS, SESSION_COOKIE } from '@modivara/core-contracts';
-import { hostMetadata } from '../app.module.js';
+import { appMetadata, hostMetadata } from '../app.module.js';
 
 // MOD-12 (T01): host Core + Commerce, con la misma composición que AppModule, sobre una base propia con SOLO los esquemas core y commerce
 // migrados y sin variables de Hospitality/Analytics. Requiere db-test (usa su superusuario de pruebas para crear la base).
@@ -38,7 +38,8 @@ function createCoreCommerceDatabase() {
 
 let app: INestApplication;
 let origin: string;
-const saved = { hospitality: process.env.HOSPITALITY_DATABASE_URL, analytics: process.env.ANALYTICS_DATABASE_URL };
+const ENV = ['HOSPITALITY_DATABASE_URL', 'ANALYTICS_DATABASE_URL', 'CORE_DATABASE_URL', 'COMMERCE_DATABASE_URL', 'MODIVARA_DOMAINS'] as const;
+const saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]));
 const get = <T>(token: string | (new (...a: never[]) => T)) => app.get<T>(token as never, { strict: false });
 type Raw = { $executeRawUnsafe(sql: string): Promise<unknown>; $queryRawUnsafe<T>(sql: string): Promise<T> };
 const tickCore = () => get<{ tick(): Promise<number> }>(CORE_OUTBOX).tick();
@@ -84,7 +85,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
-  for (const [domain, value] of Object.entries(saved)) if (value !== undefined) process.env[`${domain.toUpperCase()}_DATABASE_URL`] = value;
+  for (const [key, value] of Object.entries(saved)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
 });
 
 describe('MOD-12 host Core + Commerce (sin Hospitality ni Analytics)', () => {
@@ -256,5 +260,22 @@ describe('MOD-12 host Core + Commerce (sin Hospitality ni Analytics)', () => {
       "SELECT nspname FROM pg_namespace WHERE nspname IN ('core', 'commerce', 'hospitality', 'analytics') ORDER BY nspname",
     );
     expect(schemas.map((s) => s.nspname)).toEqual(['commerce', 'core']);
+  });
+
+  it('Codex #4: el AppModule desplegable con MODIVARA_DOMAINS=commerce arranca sin variables de Hospitality/Analytics y /health/ready responde 200', async () => {
+    Object.assign(process.env, { MODIVARA_DOMAINS: 'commerce', CORE_DATABASE_URL: url('core'), COMMERCE_DATABASE_URL: url('commerce') });
+    @Module(appMetadata())
+    class Deployed {}
+    const deployed = (await Test.createTestingModule({ imports: [Deployed] }).compile()).createNestApplication();
+    deployed.setGlobalPrefix('api/v1');
+    await deployed.listen(0, '127.0.0.1');
+    try {
+      for (const token of ['HOSPITALITY_PRISMA', 'ANALYTICS_PRISMA']) expect(() => deployed.get(token, { strict: false })).toThrow();
+      expect(deployed.get('COMMERCE_PRISMA', { strict: false })).toBeDefined();
+      const ready = await request(deployed.getHttpServer()).get('/api/v1/health/ready');
+      expect([ready.status, ready.body]).toEqual([200, { status: 'ok', database: 'up' }]);
+    } finally {
+      await deployed.close();
+    }
   });
 });
