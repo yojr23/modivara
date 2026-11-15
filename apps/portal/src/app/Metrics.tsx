@@ -246,9 +246,8 @@ export default function Metrics() {
         <Segmented label="Período" options={RANGE_OPTIONS} value={range as (typeof RANGE_OPTIONS)[number][0]} onChange={setRange} />
       </div>}
     >
-      {tab === 'calls' ? <CallsOnPlan range={range} /> : tab === 'stock' ? <StockByProduct range={range} /> : (
-        <EmptyState Icon={ChartColumn} title="Sin fuentes de datos" text="Las métricas salen de los llamados de mesas o del inventario. Este negocio no tiene ninguno de los dos habilitado." />
-      )}
+      {/* Sin fuente habilitada no hay permisos `analytics.*` en /me y la ruta ni aparece (MOD-53). */}
+      {tab === 'calls' ? <CallsOnPlan range={range} /> : tab === 'stock' && <StockByProduct range={range} />}
     </Page>
   );
 }

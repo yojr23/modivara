@@ -5,7 +5,8 @@ import { apiAs, json, locationOf } from './support/api';
 // MOD-61 / MOD-74 (PLAN-003 T01): zapatería con Core + Commerce solamente. Alta del SKU ZAP-NEG-40 en unidades, 15 de entrada,
 // 2 salidas de 1, saldo 13 e historial; navegación solo de inventario; URL forzadas vuelven; nada pide mesas, llamados ni métricas.
 
-const SKU = 'ZAP-NEG-40';
+// Sufijo por corrida: el SKU es único entre activos y la prueba no toca productos que no creó.
+const SKU = `ZAP-NEG-40-${Date.now() % 1e6}`;
 const FOREIGN = /\/(zones|tables|layouts|service-calls|device-status|gateways|devices|metrics)\b|\/socket\.io/;
 
 /** Registra cada URL de la API que pide la página, para afirmar qué productos NO se consultaron. */
@@ -18,10 +19,6 @@ const watch = (page: Page) => {
 test('zapatería: entrada de 15, dos salidas de 1, saldo 13 e historial, sin consultas de mesas ni métricas', async ({ browser }) => {
   const api = await apiAs(['zapateria-demo', 'inventario1']);
   const loc = await locationOf(api);
-  // Repetible: el SKU es único entre productos activos, así que se desactiva el de una corrida anterior.
-  for (const p of await json<any[]>(api, 'GET', `/locations/${loc}/products`)) {
-    if (p.sku === SKU && p.active) await json(api, 'POST', `/locations/${loc}/products/${p.id}/deactivate`);
-  }
 
   const page = await pageAs(browser, ['zapateria-demo', 'inventario1']);
   const urls = watch(page);

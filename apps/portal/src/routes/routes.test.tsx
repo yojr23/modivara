@@ -79,12 +79,6 @@ it('commerce + analytics: Métricas muestra inventario y no consulta nada de hos
   expect(fetched().filter((u) => HOSPITALITY_URL.test(u))).toEqual([]);
 });
 
-it('Métricas sin fuentes habilitadas lo dice y no consulta métricas', async () => {
-  mount('/demo/app/metricas', api(me(['analytics'], ['analytics.calls.read', 'analytics.inventory.read'])));
-  expect(await screen.findByText('Sin fuentes de datos')).toBeTruthy();
-  expect(fetched().filter((u) => !u.endsWith('/me'))).toEqual([]);
-});
-
 it('Espacios sin analytics no pide métricas de llamados', async () => {
   mount('/demo/app/espacios', api(me(['hospitality'], ['hospitality.tables.manage', 'hospitality.calls.read'])));
   await waitFor(() => expect(fetched().some((u) => u.includes('/tables'))).toBe(true));
