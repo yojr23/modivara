@@ -50,3 +50,12 @@ it('superadmin actuando sobre un negocio conserva platform.* y pierde los módul
   expect(perms).toContain('hospitality.calls.read');
   expect(perms.some((p) => p.startsWith('commerce.') || p.startsWith('analytics.'))).toBe(false);
 });
+
+it('cajero: permisos de pos solo si el negocio tiene pos', async () => {
+  const sin = await solWith(['hospitality', 'commerce', 'analytics']);
+  const caja = await sin.getMe.execute({ actor: sin.w.actorOf(await sin.w.addUser(sin.w.sol, 'caja', { roles: ['cashier'], location: sin.w.solCenter })) });
+  expect(caja.locations[0]!.permissions).toEqual([]);
+  const con = await solWith(['pos']);
+  const caja2 = await con.getMe.execute({ actor: con.w.actorOf(await con.w.addUser(con.w.sol, 'caja', { roles: ['cashier'], location: con.w.solCenter })) });
+  expect(caja2.locations[0]!.permissions).toEqual(['pos.sales.operate', 'pos.sales.read']);
+});
