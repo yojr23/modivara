@@ -1,4 +1,4 @@
-import type { ProcessedEventStore } from '../../application/index.js';
+import type { AnalyticsSource, ProcessedEventStore } from '../../application/index.js';
 import type { Db } from './db.js';
 
 export class PrismaProcessedEventStore implements ProcessedEventStore {
@@ -14,7 +14,8 @@ export class PrismaProcessedEventStore implements ProcessedEventStore {
     return count === 1;
   }
 
-  async clear(): Promise<void> {
-    await this.db.processedEvent.deleteMany();
+  async clear(sources: readonly AnalyticsSource[]): Promise<void> {
+    if (!sources.length) return;
+    await this.db.processedEvent.deleteMany({ where: { OR: sources.map((s) => ({ eventType: { startsWith: `${s}.` } })) } });
   }
 }
