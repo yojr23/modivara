@@ -41,9 +41,23 @@ describe('analytics:rebuild según MODIVARA_DOMAINS', () => {
     try {
       expect(() => ctx.get('HOSPITALITY_PRISMA', { strict: false })).toThrow();
       expect(ctx.get<unknown[]>(EVENT_HISTORY_READERS)).toHaveLength(1);
-      const summary = await rebuildAnalytics(ctx);
+      const summary = await rebuildAnalytics(ctx, ['commerce', 'analytics']);
       expect(summary.applied).toBeGreaterThan(0);
       expect(await facts(ctx.get<Raw>('ANALYTICS_PRISMA', { strict: false }))).toBeGreaterThan(0);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  it('quedan hechos de una fuente que no está compuesta: aborta sin vaciar nada', async () => {
+    const ctx = await rebuildContext(['commerce', 'analytics']);
+    try {
+      const db = ctx.get<Raw>('ANALYTICS_PRISMA', { strict: false });
+      const before = await facts(db);
+      expect(before).toBeGreaterThan(0);
+      // Como si MODIVARA_DOMAINS ya no incluyera commerce, que proyectó esos hechos.
+      await expect(rebuildAnalytics(ctx, ['hospitality', 'analytics'])).rejects.toThrow(/hecho\(s\) de commerce.*No se vació nada/);
+      expect(await facts(db)).toBe(before);
     } finally {
       await ctx.close();
     }
@@ -56,7 +70,7 @@ describe('analytics:rebuild según MODIVARA_DOMAINS', () => {
       const db = ctx.get<Raw>('ANALYTICS_PRISMA', { strict: false });
       const before = await facts(db);
       expect(before).toBeGreaterThan(0);
-      await expect(rebuildAnalytics(ctx)).rejects.toThrow(/ninguna fuente/);
+      await expect(rebuildAnalytics(ctx, ['analytics'])).rejects.toThrow(/ninguna fuente/);
       expect(await facts(db)).toBe(before);
     } finally {
       await ctx.close();

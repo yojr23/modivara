@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { fileURLToPath } from 'node:url';
 import { Module, type INestApplicationContext, type ModuleMetadata } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { RebuildProjections, type RebuildSummary } from '@modivara/analytics-api';
+import { ANALYTICS_PRISMA, RebuildProjections, type RebuildSummary } from '@modivara/analytics-api';
 import { CoreModule } from '@modivara/core-api';
 import { EVENT_HISTORY_READERS, type EventHistoryReader } from '@modivara/core-contracts';
 import { domainModules, selectedDomains, type DomainName } from './domains.js';
@@ -19,13 +19,22 @@ export function rebuildMetadata(names: readonly DomainName[] = selectedDomains()
   return { imports: [CoreModule.forRoot({ outbox: false }), ...domains, IntegrationSubscribersModule.forDomains(domains)] };
 }
 
+/** Hechos que solo su fuente puede rehacer (tabla de analytics por dominio emisor). */
+const FACTS_OF: Partial<Record<DomainName, string>> = { hospitality: 'service_call_facts', commerce: 'stock_movement_facts' };
+
 /**
- * Vacía y reconstruye. Sin ninguna fuente compuesta, aborta antes de vaciar (dejaría la proyección vacía sin poder rehacerla).
- * Ojo: los hechos de una fuente que no está en MODIVARA_DOMAINS también se vacían y no se rehacen; correrlo con la lista de la API.
+ * Vacía y reconstruye con las fuentes de `names` (las de MODIVARA_DOMAINS). Aborta antes de vaciar si no hay ninguna fuente, o si quedan
+ * hechos de una fuente que no está compuesta: vaciarlos los perdería sin poder rehacerlos.
  */
-export async function rebuildAnalytics(app: INestApplicationContext): Promise<RebuildSummary> {
+export async function rebuildAnalytics(app: INestApplicationContext, names: readonly DomainName[] = selectedDomains()): Promise<RebuildSummary> {
   const readers = app.get<EventHistoryReader[]>(EVENT_HISTORY_READERS);
   if (!readers.length) throw new Error('analytics:rebuild: ninguna fuente con historial en MODIVARA_DOMAINS; no se vacía nada.');
+  const db = app.get<{ $queryRawUnsafe<T>(sql: string): Promise<T> }>(ANALYTICS_PRISMA, { strict: false });
+  for (const [source, table] of Object.entries(FACTS_OF)) {
+    if (names.includes(source as DomainName)) continue;
+    const [{ n }] = await db.$queryRawUnsafe<[{ n: number }]>(`SELECT count(*)::int AS n FROM ${table}`);
+    if (n > 0) throw new Error(`analytics:rebuild: hay ${n} hecho(s) de ${source} y ${source} no está en MODIVARA_DOMAINS; reconstruir los borraría sin poder rehacerlos. No se vació nada.`);
+  }
   return app.get(RebuildProjections).execute(readers);
 }
 
