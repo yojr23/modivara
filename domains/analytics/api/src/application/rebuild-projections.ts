@@ -1,5 +1,5 @@
 import type { EventHistoryReader, IntegrationEvent } from '@modivara/core-contracts';
-import type { ProjectionTransaction } from './ports/index.js';
+import type { AnalyticsSource, ProjectionTransaction } from './ports/index.js';
 
 export interface RebuildSummary {
   total: number;
@@ -34,16 +34,16 @@ async function* merge(streams: AsyncIterable<IntegrationEvent>[]): AsyncGenerato
 }
 
 /**
- * Vacía las tablas de analytics y reproceso el historial de los emisores (DATA-001 §5, Q-09) en una sola transacción:
+ * Vacía los hechos de `sources` (y sus eventos procesados) y reprocesa el historial de esos emisores (DATA-001 §5, Q-09) en una sola transacción:
  * los eventos en vivo esperan al commit y luego se deduplican por `processed_events`. El historial se mezcla por (occurred_at, id)
- * para que un `acknowledged` nunca se procese antes de su `created`.
+ * para que un `acknowledged` nunca se procese antes de su `created`. Lo de una fuente fuera de `sources` no se toca: no se podría rehacer.
  */
 export class RebuildProjections {
   constructor(private readonly transaction: ProjectionTransaction) {}
 
-  execute(readers: readonly EventHistoryReader[]): Promise<RebuildSummary> {
+  execute(readers: readonly EventHistoryReader[], sources: readonly AnalyticsSource[]): Promise<RebuildSummary> {
     return this.transaction.run(async (projector) => {
-      await projector.clear();
+      await projector.clear(sources);
       const summary: RebuildSummary = { total: 0, applied: 0, duplicates: 0, ignored: 0 };
       for await (const event of merge(readers.map((r) => r.read()))) {
         summary.total++;

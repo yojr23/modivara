@@ -1,5 +1,6 @@
 export { ANALYTICS_EVENT_SUBSCRIBER, ANALYTICS_PRISMA, AnalyticsModule, type AnalyticsModuleOptions } from './analytics.module.js';
 export {
+  ANALYTICS_SOURCES,
   AnalyticsEventSubscriber,
   GetInventoryMetrics,
   GetServiceCallMetrics,
@@ -8,6 +9,7 @@ export {
   RebuildProjections,
 } from './application/index.js';
 export type {
+  AnalyticsSource,
   CoreAccessPort,
   EventSubscriber,
   GetInventoryMetricsInput,

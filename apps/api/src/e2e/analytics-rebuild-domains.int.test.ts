@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { EVENT_HISTORY_READERS } from '@modivara/core-contracts';
+import { EVENT_HISTORY_READERS, newId, type IntegrationEventSubscriber } from '@modivara/core-contracts';
 import { rebuildAnalytics, rebuildMetadata } from '../analytics-rebuild.js';
 import type { DomainName } from '../domains.js';
 import { startHost } from './testing.js';
 
 // Codex #5: analytics:rebuild compone solo los dominios elegidos (MODIVARA_DOMAINS): con commerce + analytics funciona sin
-// HOSPITALITY_DATABASE_URL, y sin fuentes aborta antes de vaciar la proyección. Requiere db-test.
+// HOSPITALITY_DATABASE_URL, no toca los hechos de una fuente no compuesta y sin fuentes aborta antes de vaciar la proyección. Requiere db-test.
 const url = (domain: string) => `postgresql://${domain}_app:test@127.0.0.1:55432/modivara_test?schema=${domain}`;
 const ENV = ['CORE_DATABASE_URL', 'COMMERCE_DATABASE_URL', 'ANALYTICS_DATABASE_URL', 'HOSPITALITY_DATABASE_URL'] as const;
 const saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]));
@@ -18,7 +18,8 @@ async function rebuildContext(names: DomainName[]) {
   class RebuildModule {}
   return (await Test.createTestingModule({ imports: [RebuildModule] }).compile()).init();
 }
-const facts = async (db: Raw) => (await db.$queryRawUnsafe<[{ n: number }]>('SELECT count(*)::int AS n FROM stock_movement_facts'))[0].n;
+const count = async (db: Raw, sql: string) => (await db.$queryRawUnsafe<[{ n: number }]>(`SELECT count(*)::int AS n FROM ${sql}`))[0].n;
+const facts = (db: Raw) => count(db, 'stock_movement_facts');
 
 beforeAll(async () => {
   // El host completo limpia las bases y siembra commerce: su stock inicial deja eventos en el outbox de commerce.
@@ -49,15 +50,22 @@ describe('analytics:rebuild según MODIVARA_DOMAINS', () => {
     }
   });
 
-  it('quedan hechos de una fuente que no está compuesta: aborta sin vaciar nada', async () => {
+  it('rebuilding with commerce only keeps hospitality facts and their processed_events intact', async () => {
     const ctx = await rebuildContext(['commerce', 'analytics']);
     try {
       const db = ctx.get<Raw>('ANALYTICS_PRISMA', { strict: false });
-      const before = await facts(db);
-      expect(before).toBeGreaterThan(0);
-      // Como si MODIVARA_DOMAINS ya no incluyera commerce, que proyectó esos hechos.
-      await expect(rebuildAnalytics(ctx, ['hospitality', 'analytics'])).rejects.toThrow(/hecho\(s\) de commerce.*No se vació nada/);
-      expect(await facts(db)).toBe(before);
+      // Un llamado que hospitality proyectó cuando estaba compuesto: commerce + analytics no puede rehacerlo.
+      const call = newId();
+      await ctx.get<IntegrationEventSubscriber>('ANALYTICS_EVENT_SUBSCRIBER', { strict: false }).handle({
+        event_id: newId(), event_type: 'hospitality.service_call.created', event_version: 1, occurred_at: '2026-10-19T15:00:00Z',
+        organization_id: newId(), location_id: newId(), aggregate_id: call, correlation_id: newId(), causation_id: null,
+        payload: { service_call_id: call, table_id: newId(), table_label: 'M2', zone_id: null, zone_name: null, call_type: 'attention', created_at: '2026-10-19T15:00:00Z' },
+      });
+      const hospitality = async () => [await count(db, 'service_call_facts'), await count(db, "processed_events WHERE event_type LIKE 'hospitality.%'")];
+      expect(await hospitality()).toEqual([1, 1]);
+      expect((await rebuildAnalytics(ctx, ['commerce', 'analytics'])).applied).toBeGreaterThan(0);
+      expect(await hospitality()).toEqual([1, 1]);
+      expect(await facts(db)).toBeGreaterThan(0);
     } finally {
       await ctx.close();
     }
