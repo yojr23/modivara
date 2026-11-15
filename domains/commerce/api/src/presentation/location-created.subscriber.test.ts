@@ -19,7 +19,7 @@ describe('LocationCreatedSubscriber (commerce)', () => {
     return { h, subscriber: new LocationCreatedSubscriber(h.seedMovementReasons, h.ensureDefaultStockLocation, h.core) };
   };
 
-  it('solo maneja core.location.created', () => {
+  it('maneja core.location.created y core.module.enabled', () => {
     const { subscriber } = build();
     expect(['core.location.created', 'core.module.enabled', 'core.module.disabled', 'hospitality.service_call.created'].map((t) => subscriber.handles(t)))
       .toEqual([true, true, false, false]);
