@@ -77,3 +77,13 @@ export function findLayerViolations(files) {
     });
   });
 }
+
+/**
+ * MOD-11: la migración de un dominio no nombra el esquema de otro (`"hospitality".` dentro de domains/commerce): sin FK ni consultas
+ * entre esquemas. `migrations` = [{ file, domain, content }]; `domains` = todos los dominios.
+ */
+export function findMigrationSchemaViolations(migrations, domains) {
+  return migrations.flatMap(({ file, domain, content }) =>
+    domains.filter((d) => d !== domain && new RegExp(`"${d}"\\s*\\.`).test(content)).map((d) => `${file}: referencia el esquema de ${d}`),
+  );
+}
