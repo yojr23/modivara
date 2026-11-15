@@ -28,22 +28,22 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 
 - [x] MOD-09 línea base sobre `18289d6` (Node 24.22.0, pnpm 10.18.3): build, typecheck, separabilidad, unit e integración (51 archivos, 775 pruebas) en verde. E2E se corre al final contra esta rama.
 - [~] Subramas en paralelo: `p3/a1-host` (worktree `p3-a1`: MOD-10…15, 26, 23 mínimo) y `p3/a2a3-portal` (worktree `p3-a2`: MOD-25, 52, 53, 60, 61, 74). Se integran en `test/plan-003-modularidad`. Bloqueo de `db-test`: directorio `scratchpad/dbtest.lock` (mkdir/rmdir).
-- [ ] A0 MOD-00…05: ADR-006 copiado igual que en `pos/mesas` (Propuesto) [!] aprobación del responsable; MOD-01…05 documentales.
-- [ ] A1 MOD-10 `core-api` sin `hospitality-contracts`.
-- [ ] A1 MOD-11 `check:separability` falla ante dependencia inversa.
-- [ ] A1 MOD-12 host Core + Commerce con PostgreSQL real.
-- [ ] A1 MOD-13 `AppModule`/subscribers por composición.
-- [ ] A1 MOD-14 activación tardía de Commerce.
-- [ ] A1 MOD-15 consumidores ausentes, outbox y replay.
+- [~] A0 MOD-00…05: ADR-006 copiado igual que en `pos/mesas` (Propuesto) [!] aprobación del responsable; MOD-01…05 en redacción (`docs/MOD-001`).
+- [x] A1 MOD-10: esquema de auditoría de plataforma en `core-contracts/platform-events.ts` (mismo tipo de evento v1); `core-api` sin `hospitality-contracts` (`5ca4aba`).
+- [x] A1 MOD-11: regla única (deps e imports), core sin dominios, prueba de regresión (`1d2344e`).
+- [x] A1 MOD-12: `core-commerce.int.test.ts` en base propia con solo esquemas core y commerce; `pnpm test:composition:core-commerce` (`cd995c5`).
+- [x] A1 MOD-13: `hostMetadata(core, domains[])`, `forDomains(DynamicModule[])` con suscriptores opcionales (`bda8878`).
+- [x] A1 MOD-14/26/23 mínimo: `PUT /platform/organizations/:id/modules/:module` (auditado), eventos `core.module.enabled/disabled` v1, commerce siembra al activar y omite `location.created` sin módulo; T11/T12 en integración (`edb2fe9`).
+- [x] A1 MOD-15/54/72: movimiento de commerce confirma con analytics caído; entrega única al recuperar (`28b8862`).
 - [x] A2 MOD-25: `/me` entrega solo permisos de módulos habilitados (prefijo vs `MODULES`) y `analytics.*` solo con su fuente (`PERMISSION_SOURCES`) (`fb470a3`, `3dac32a`).
-- [ ] A2 MOD-26 suspensión/reactivación Commerce/Hospitality.
-- [ ] A2 MOD-23 (P1) alta sin seeds: evaluar.
+- [x] A2 MOD-26: cubierto por el endpoint de A1 (datos se conservan, 403 `module_disabled`, reactivar sin duplicar).
+- [~] A2 MOD-23 (P1): habilitar/suspender módulos por API hecho; crear negocios por API pendiente.
 - [x] A3 MOD-52/53: Métricas muestra pestañas solo con fuente y permiso, «Sin fuentes de datos» sin pedir nada; Espacios no consulta analytics sin módulo (`e5d1159`).
-- [ ] A3 MOD-54 proyecciones: dedup, rebuild, fallo aislado.
+- [x] A3 MOD-54: ya cubierto (dedup, rebuild) + nuevo aislamiento de commerce (`28b8862`).
 - [x] A3 MOD-60: unidad por defecto «Unidades», textos neutros, `bottle` sigue disponible (`d399ca7`).
 - [~] A3 MOD-61/MOD-74: seeds `zapateria-demo` (solo commerce) y `restaurante-demo` (solo hospitality); `seed:commerce` salta negocios sin commerce; E2E `inventory-only.spec.ts` y `hospitality-only.spec.ts` escritos (`0f79053`), falta correrlos contra esta rama.
-- [ ] A4 MOD-70…72 matriz T01/T05/T07/T09/T11/T12/T14, negativos y fallos.
-- [ ] A4 MOD-73…75 (P1) diagnóstico, E2E paquetes, runbook.
+- [~] A4 MOD-70…72: matriz de evidencia en redacción (`docs/MOD-002`), corrida final pendiente.
+- [~] A4 MOD-73/75 (P1): runbook en OPERACION-001 en redacción; MOD-74 E2E escritos.
 - [ ] Revisión y auditoría Codex de la rama.
 - [ ] PR `test/plan-003-modularidad → pruebas`.
 
@@ -53,6 +53,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 |---|---|---|
 | 14/11 | Worktree `plan-003` creada desde `origin/pruebas` `18289d6`; planes movidos a `docs/`. | OK |
 | 14/11 | Codex gpt-6.1-terra sobre el último arreglo de POS. | Sin hallazgos. |
+| 14/11 | Merge `p3/a1-host` (`fe04225`): 680 unit, integración 787/787 en la subrama. Codex A2: 3 hallazgos P2 corregidos (`6dcd7e1`, `4c44319`). Mesas 11/12 en plano de demo (`20f2add`). | OK |
 | 14/11 | Merge `p3/a2a3-portal` en esta rama (`564b151`). Unit 685 en verde; integración 774/775 (timeout de `seed-history` con la máquina cargada, pasa solo). | OK |
 
 ## Hallazgos y decisiones
