@@ -35,13 +35,13 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 - [ ] A1 MOD-13 `AppModule`/subscribers por composición.
 - [ ] A1 MOD-14 activación tardía de Commerce.
 - [ ] A1 MOD-15 consumidores ausentes, outbox y replay.
-- [ ] A2 MOD-25 navegación por entitlement + permiso + fuente.
+- [x] A2 MOD-25: `/me` entrega solo permisos de módulos habilitados (prefijo vs `MODULES`) y `analytics.*` solo con su fuente (`PERMISSION_SOURCES`) (`fb470a3`, `3dac32a`).
 - [ ] A2 MOD-26 suspensión/reactivación Commerce/Hospitality.
 - [ ] A2 MOD-23 (P1) alta sin seeds: evaluar.
-- [ ] A3 MOD-52/53 Metrics por fuente disponible.
+- [x] A3 MOD-52/53: Métricas muestra pestañas solo con fuente y permiso, «Sin fuentes de datos» sin pedir nada; Espacios no consulta analytics sin módulo (`e5d1159`).
 - [ ] A3 MOD-54 proyecciones: dedup, rebuild, fallo aislado.
-- [ ] A3 MOD-60 unidad `unit` por defecto, sin jerga de bar.
-- [ ] A3 MOD-61 E2E zapatería Core + Commerce (15 entradas, 2 salidas, saldo 13).
+- [x] A3 MOD-60: unidad por defecto «Unidades», textos neutros, `bottle` sigue disponible (`d399ca7`).
+- [~] A3 MOD-61/MOD-74: seeds `zapateria-demo` (solo commerce) y `restaurante-demo` (solo hospitality); `seed:commerce` salta negocios sin commerce; E2E `inventory-only.spec.ts` y `hospitality-only.spec.ts` escritos (`0f79053`), falta correrlos contra esta rama.
 - [ ] A4 MOD-70…72 matriz T01/T05/T07/T09/T11/T12/T14, negativos y fallos.
 - [ ] A4 MOD-73…75 (P1) diagnóstico, E2E paquetes, runbook.
 - [ ] Revisión y auditoría Codex de la rama.
@@ -53,14 +53,15 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 |---|---|---|
 | 14/11 | Worktree `plan-003` creada desde `origin/pruebas` `18289d6`; planes movidos a `docs/`. | OK |
 | 14/11 | Codex gpt-6.1-terra sobre el último arreglo de POS. | Sin hallazgos. |
+| 14/11 | Merge `p3/a2a3-portal` en esta rama (`564b151`). Unit 685 en verde; integración 774/775 (timeout de `seed-history` con la máquina cargada, pasa solo). | OK |
 
 ## Hallazgos y decisiones
 
 - [x] **Por corregir (responsable, 14/11):** en Bar Demo el plano publicado no pinta las mesas 11 y 12, pero sí llegan llamados de ellas (cola/historial). Causa: `scripts/seed-floor-plans.mjs:60` deja «Mesas 11 y 12 sin ubicar a propósito» en el plano de Primer piso, pero siguen con botón (btn-11, btn-12). Verificado en navegador: el llamado de btn-11 aparece en la cola, no se marca en el plano y el «1 esperando» del piso no lo cuenta. Corregido: `seed:planos-demo` ubica Mesa 11 y 12 en Zona A (escena nueva y, en bases ya sembradas, las agrega al plano publicado sin tocar lo demás; idempotente). Aplicado a la demo y verificado: el llamado de btn-12 se marca en el plano y el piso cuenta «1 esperando». El tablero sigue ADR-003 CU-11 (una mesa sin ubicar recibe llamados solo en la cola).
 - [x] **Hallazgo navegador (14/11):** la venta abierta desde «Venta» en la ficha de la mesa no muestra a qué mesa pertenece («Venta en curso», «Historial» y lista de abiertas sin «Mesa 3»). En el bar, `caja1` (rol Caja) no tiene «Por mesa» (exige `hospitality.calls.read`) y no puede saber qué venta abierta es de qué mesa. Arreglado en `pos/mesas` (`f2a20ae`, migración POS `0003_external_link_label`; Codex pidió incluir la zona → `9ce2dca`, «Primer piso · Mesa 4»). Verificado en navegador: chip de venta abierta, ticket de `caja1` y fila del historial muestran «Primer piso · Mesa 4». ¿Dar «Por mesa» a Caja? Decisión del responsable.
 - [x] **Caso base del bar en navegador (14/11, admin):** botón simulado → llamado en mesa 3 → «Marcar en atención» → «Venta» desde la ficha → artículos (unidad y kg; 0,75 kg × $60.000,50 = $45.000,38 redondeo correcto) → 1,5 unidades rechazado → anular línea → cobro con tarjeta $16.000 → el llamado sigue «en atención» hasta «Finalizar» (independientes) → «Por mesa» retoma la misma venta → historial muestra la cobrada. Duplicado de nombre en minúsculas, precio negativo y con 3 decimales rechazados con mensaje claro. `caja1`: solo «Ventas» (Vender, Historial), URL forzada a tablero redirige.
-- [~] **Bug Inventario (navegador, 14/11, grave):** la cantidad es `type="number"` (`Inventory.tsx:138`): «0,5» kg queda «05» (= 5) y «1,5» botellas queda «15»; la coma decimal, que la propia UI muestra («160,5 kg»), se pierde en silencio → movimiento 10× mayor. Asignado al agente del portal (`p3/a2a3-portal`).
-- [~] **Hallazgo Inventario (14/11):** el panel «Hoy» dice «Producto desactivado» para productos que solo faltan en la lista cacheada (creados en otra sesión). Asignado junto con el anterior.
+- [x] **Bug Inventario (navegador, 14/11, grave)** — arreglado en `a448bd7` (`parseDecimal`, campo de texto): la cantidad es `type="number"` (`Inventory.tsx:138`): «0,5» kg queda «05» (= 5) y «1,5» botellas queda «15»; la coma decimal, que la propia UI muestra («160,5 kg»), se pierde en silencio → movimiento 10× mayor. Asignado al agente del portal (`p3/a2a3-portal`).
+- [x] **Hallazgo Inventario (14/11)** — arreglado en `7bcf033`: el panel «Hoy» dice «Producto desactivado» para productos que solo faltan en la lista cacheada (creados en otra sesión). Asignado junto con el anterior.
 - [x] **Inventario en navegador (14/11, `inventario1`):** salida mayor al saldo rechazada con mensaje y saldo intacto; conteo igual al saldo rechazado («no hay nada que ajustar»); solo ve Métricas e Inventario.
 - [ ] **Hallazgo navegador (14/11):** «Por mesa» no distingue qué mesas tienen venta abierta; el catálogo lista primero decenas de artículos «Inactivo» de E2E; los campos del diálogo «Nuevo artículo» no tienen nombre accesible (lectores de pantalla).
 - [ ] **Hallazgo navegador (14/11):** Bar Demo no trae artículos de venta sembrados; el caso base del bar empieza con catálogo vacío.
