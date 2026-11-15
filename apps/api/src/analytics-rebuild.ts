@@ -15,7 +15,7 @@ const commerce = CommerceModule.forRoot({ outbox: false });
 const analytics = AnalyticsModule.forRoot();
 
 @Module({
-  imports: [CoreModule.forRoot({ outbox: false }), hospitality, commerce, analytics, IntegrationSubscribersModule.forDomains({ hospitality, commerce, analytics })],
+  imports: [CoreModule.forRoot({ outbox: false }), hospitality, commerce, analytics, IntegrationSubscribersModule.forDomains([hospitality, commerce, analytics])],
 })
 class RebuildModule {}
 

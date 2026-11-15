@@ -6,11 +6,11 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AnalyticsModule } from '@modivara/analytics-api';
 import { COMMERCE_OUTBOX, CommerceModule } from '@modivara/commerce-api';
-import { CoreModule, coreGlobalProviders } from '@modivara/core-api';
+import { CoreModule } from '@modivara/core-api';
 import { SESSION_COOKIE, type MeResponse } from '@modivara/core-contracts';
 import { HOSPITALITY_OUTBOX, HospitalityModule } from '@modivara/hospitality-api';
 import { GATEWAY_API_PATHS, GATEWAY_KEY_HEADER } from '@modivara/hospitality-contracts';
-import { IntegrationSubscribersModule } from '../integration-subscribers.module.js';
+import { hostMetadata } from '../app.module.js';
 import { seedCommerce } from '../seed/commerce.js';
 import { seedCore } from '../seed/core.js';
 import { resetBoth, resetCommerceDb } from '../seed/testing.js';
@@ -20,17 +20,11 @@ export const PASSWORD = 'Secret123';
 const url = (role: string, schema: string) => `postgresql://${role}_app:test@127.0.0.1:55432/modivara_test?schema=${schema}`;
 const MANUAL = { outbox: { intervalMs: 3_600_000 } };
 
-const hospitality = HospitalityModule.forRoot({ databaseUrl: url('hospitality', 'hospitality'), mqtt: null, ...MANUAL });
-const commerce = CommerceModule.forRoot({ databaseUrl: url('commerce', 'commerce'), ...MANUAL });
-const analytics = AnalyticsModule.forRoot({ databaseUrl: url('analytics', 'analytics') });
-
-@Module({
-  imports: [
-    CoreModule.forRoot({ databaseUrl: url('core', 'core'), ...MANUAL }), hospitality, commerce, analytics,
-    IntegrationSubscribersModule.forDomains({ hospitality, commerce, analytics }),
-  ],
-  providers: [...coreGlobalProviders],
-})
+@Module(hostMetadata(CoreModule.forRoot({ databaseUrl: url('core', 'core'), ...MANUAL }), [
+  HospitalityModule.forRoot({ databaseUrl: url('hospitality', 'hospitality'), mqtt: null, ...MANUAL }),
+  CommerceModule.forRoot({ databaseUrl: url('commerce', 'commerce'), ...MANUAL }),
+  AnalyticsModule.forRoot({ databaseUrl: url('analytics', 'analytics') }),
+]))
 class HostModule {}
 
 type Raw = { $executeRawUnsafe(sql: string): Promise<unknown>; $queryRawUnsafe<T>(sql: string): Promise<T> };

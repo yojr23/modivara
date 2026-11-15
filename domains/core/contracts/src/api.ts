@@ -14,6 +14,7 @@ export const CORE_API_PATHS = {
   userLocationRoles: '/users/:userId/locations/:locationId/roles',
   actingOrganization: '/platform/acting-organization',
   platformOrganizations: '/platform/organizations',
+  platformOrganizationModule: '/platform/organizations/:organizationId/modules/:module',
 } as const;
 
 /** Cookie de sesión: HttpOnly, Secure, SameSite=Strict (TECH-001 §16.3). El valor es el token en claro; la base guarda su SHA-256. */
@@ -108,3 +109,9 @@ export type PlatformOrganizationsResponse = z.infer<typeof platformOrganizations
 
 /** Identificador en una ruta (`:userId`, `:locationId`): un valor mal formado es 400, no un error de la base. */
 export const idParamSchema = z.uuid();
+export const moduleNameSchema = z.enum(MODULES);
+
+/** `PUT /platform/organizations/:organizationId/modules/:module` (MOD-14/26): habilita o suspende un módulo; solo superadmin. */
+export const moduleEntitlementRequestSchema = z.object({ enabled: z.boolean() });
+export const moduleEntitlementResponseSchema = z.object({ module: moduleNameSchema, enabled: z.boolean() });
+export type ModuleEntitlementResponse = z.infer<typeof moduleEntitlementResponseSchema>;

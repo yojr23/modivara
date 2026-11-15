@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { locationCreatedEventSchema, toEventEnvelope, ValidationError } from '@modivara/core-contracts';
+import { locationCreatedEventSchema, moduleDisabledEventSchema, moduleEnabledEventSchema, NotFoundError, toEventEnvelope, ValidationError } from '@modivara/core-contracts';
 import { PermissionDeniedError } from '../domain/index.js';
 import { TEST_PASSWORD, World } from '../testing/index.js';
 import { BootstrapPlatform } from './bootstrap-platform.js';
 import { ProvisionOrganization } from './provision-organization.js';
+import { SetModuleEnabled } from './set-module-enabled.js';
 
 describe('casos de uso de plataforma (seed)', () => {
   let w: World;
@@ -59,5 +60,29 @@ describe('casos de uso de plataforma (seed)', () => {
     }
     const client = w.actorOf(await w.addUser(w.sol, 'duena', { isOwner: true }));
     await expect(provision.execute({ actor: client, slug: 'otro', name: 'X', locations: [], modules: [] })).rejects.toThrow(PermissionDeniedError);
+  });
+
+  it('SetModuleEnabled (MOD-14/26): auditado, un evento por local activo, sin cambios no hace nada; solo superadmin y solo negocios cliente', async () => {
+    const root = await bootstrap.execute(input);
+    const { organization, locations } = await provision.execute({ actor: root, slug: 'zapateria', name: 'Z', locations: [{ name: 'A' }, { name: 'B' }], modules: [] });
+    const set = new SetModuleEnabled(w.admin);
+    const run = (enabled: boolean) => set.execute({ actor: root, organizationId: organization.id, module: 'commerce', enabled });
+    const since = w.outbox.events.length;
+
+    expect((await run(true)).enabled).toBe(true);
+    await run(true);
+    expect(await w.entitlements.listEnabledModules({ organizationId: organization.id })).toEqual(['commerce']);
+    const enabled = w.outbox.events.slice(since).map((e) => moduleEnabledEventSchema.parse(toEventEnvelope(e)));
+    expect(enabled.map((e) => [e.location_id, e.payload.module, e.aggregate_id])).toEqual(locations.map((l) => [l.id, 'commerce', organization.id]));
+
+    expect((await run(false)).enabled).toBe(false);
+    expect(w.outbox.events.slice(since + 2).map((e) => moduleDisabledEventSchema.parse(toEventEnvelope(e)).location_id)).toEqual(locations.map((l) => l.id));
+    expect(w.audit.entries.filter((e) => e.action.startsWith('entitlement.')).map((e) => [e.action, e.details])).toEqual([
+      ['entitlement.enabled', { module: 'commerce' }], ['entitlement.disabled', { module: 'commerce' }],
+    ]);
+
+    const client = w.actorOf(await w.addUser(w.sol, 'duena2', { isOwner: true }));
+    await expect(set.execute({ actor: client, organizationId: organization.id, module: 'commerce', enabled: true })).rejects.toThrow(PermissionDeniedError);
+    await expect(set.execute({ actor: root, organizationId: root.organizationId, module: 'commerce', enabled: true })).rejects.toThrow(NotFoundError);
   });
 });

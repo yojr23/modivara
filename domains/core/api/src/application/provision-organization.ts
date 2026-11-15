@@ -68,6 +68,8 @@ export class ProvisionOrganization {
       locations.push(location);
     }
 
+    // OPEN: habilitar aquí un módulo en un negocio que ya tenía locales no publica `core.module.enabled` (solo lo hace SetModuleEnabled,
+    // el camino de la API); los locales nuevos sí se inicializan por `core.location.created`. ¿Unificar si el alta deja de ser solo por seed?
     for (const module of input.modules) {
       const current = await tx.entitlements.find({ organizationId: organization.id, module });
       if (current?.enabled) continue;
