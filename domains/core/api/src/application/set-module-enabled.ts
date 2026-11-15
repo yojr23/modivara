@@ -1,7 +1,7 @@
 import { newId, NotFoundError, type ModuleEnabledEvent, type ModuleName } from '@modivara/core-contracts';
 import { Entitlement, PermissionDeniedError } from '../domain/index.js';
 import type { ActorContext } from './actor.js';
-import type { AdminTransactions } from './ports/index.js';
+import type { AdminTransaction, AdminTransactions } from './ports/index.js';
 
 export interface SetModuleEnabledInput {
   actor: ActorContext;
@@ -33,14 +33,22 @@ export class SetModuleEnabled {
       const now = new Date();
       const action = enabled ? 'entitlement.enabled' : 'entitlement.disabled';
       await tx.audit.record({ id: newId(), organizationId, actorUserId: actor.actorUserId, action, targetType: 'entitlement', targetId: organizationId, details: { module }, occurredAt: now });
-      for (const location of await tx.locations.listActive({ organizationId })) {
-        await tx.outbox.append({
-          eventId: newId(), eventType: enabled ? 'core.module.enabled' : 'core.module.disabled', eventVersion: 1, occurredAt: now, organizationId,
-          locationId: location.id, aggregateId: organizationId, correlationId: newId(), causationId: null,
-          payload: { module, organization_id: organizationId, location_id: location.id, changed_by: actor.actorUserId } satisfies ModuleEnabledEvent['payload'],
-        });
-      }
+      await appendModuleEvents(tx, { organizationId, module, enabled, actorUserId: actor.actorUserId, locations: await tx.locations.listActive({ organizationId }), now });
       return entitlement;
+    });
+  }
+}
+
+/** `core.module.enabled|disabled` por local, en la transacción de quien cambia el entitlement (también ProvisionOrganization). */
+export async function appendModuleEvents(
+  tx: AdminTransaction,
+  e: { organizationId: string; module: ModuleName; enabled: boolean; actorUserId: string; locations: readonly { id: string }[]; now: Date },
+): Promise<void> {
+  for (const location of e.locations) {
+    await tx.outbox.append({
+      eventId: newId(), eventType: e.enabled ? 'core.module.enabled' : 'core.module.disabled', eventVersion: 1, occurredAt: e.now, organizationId: e.organizationId,
+      locationId: location.id, aggregateId: e.organizationId, correlationId: newId(), causationId: null,
+      payload: { module: e.module, organization_id: e.organizationId, location_id: location.id, changed_by: e.actorUserId } satisfies ModuleEnabledEvent['payload'],
     });
   }
 }
