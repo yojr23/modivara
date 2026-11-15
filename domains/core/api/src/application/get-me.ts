@@ -1,6 +1,7 @@
-import { MODULES, NotFoundError, PERMISSION_SOURCES, permissionsFor, type ModuleName, type Permission } from '@modivara/core-contracts';
+import { NotFoundError, permissionsFor, type ModuleName, type Permission } from '@modivara/core-contracts';
 import { SessionInvalidError } from '../domain/index.js';
 import { effectiveOrganizationId, type ActorContext } from './actor.js';
+import { effectivePermissions } from './effective-permissions.js';
 import type { EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, UserRepository } from './ports/index.js';
 
 export interface MeOutput {
@@ -42,7 +43,7 @@ export class GetMe {
     const locations = active.flatMap((l) => {
       const roles = own?.find((m) => m.locationId === l.id)?.roles;
       if (own && !roles) return [];
-      return [{ id: l.id, name: l.name, timezone: l.timezone, permissions: [...permissionsFor(roles ?? [], actor)].filter((p) => usable(p, modules)) }];
+      return [{ id: l.id, name: l.name, timezone: l.timezone, permissions: [...effectivePermissions(permissionsFor(roles ?? [], actor), modules)] }];
     });
     return {
       ...base,
@@ -53,13 +54,3 @@ export class GetMe {
   }
 }
 
-/**
- * Solo los permisos efectivos: los de un módulo de producto (prefijo en `MODULES`) exigen ese módulo habilitado y
- * los de `PERMISSION_SOURCES`, su fuente. `core.*` y `platform.*` no dependen de módulos. Un módulo nuevo
- * (p. ej. `pos`) queda cubierto al agregarse a `MODULES`. Es información de navegación: los guards no cambian.
- */
-function usable(permission: Permission, modules: readonly ModuleName[]): boolean {
-  const prefix = permission.split('.')[0] as ModuleName;
-  const source = PERMISSION_SOURCES[permission];
-  return (!MODULES.includes(prefix) || modules.includes(prefix)) && (!source || modules.includes(source));
-}

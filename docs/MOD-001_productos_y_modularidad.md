@@ -105,9 +105,9 @@ Implementado en A1 (`edb2fe9`, MOD-14/26, MOD-23 mínimo):
 
 - Analytics lee **solo sus propios hechos** (`service_call_facts`, `stock_movement_facts`, deduplicados por `processed_events`). Nunca consulta otro esquema.
 - `domains/analytics/api/src/application/event-registry.ts` es el único lugar que decide qué `event_type` entiende; lo demás se ignora.
-- `PERMISSION_SOURCES` (`core-contracts/permissions.ts`) liga cada permiso de métrica a su fuente: `analytics.calls.read → hospitality`, `analytics.inventory.read → commerce`. `GetMe` lo usa para no entregar el permiso sin su fuente (MOD-25).
+- `PERMISSION_SOURCES` (`core-contracts/permissions.ts`) liga cada permiso de métrica a su fuente: `analytics.calls.read → hospitality`, `analytics.inventory.read → commerce`.
+- **Permisos efectivos, una sola regla** (`core-api/application/effective-permissions.ts`): un permiso vale si el rol lo da, el módulo de su prefijo está habilitado y, si tiene fuente, también la fuente. La usan `GetMe` (navegación, MOD-25), `Authorize` (guard de permiso) y `CoreAccessPort.permissionsAt`. En el backend: sin el permiso por rol → 403 `permission_denied`; con él pero sin módulo o fuente → 403 `module_disabled` (p. ej. `GET /metrics/inventory` con commerce suspendido). El superadmin pasa siempre (ADR-002 D3). Prueba: `effective-permissions.int.test.ts`.
 - El portal (`Metrics.tsx`, constante `SOURCES`) repite ese mapeo para decidir pestañas (MOD-52/53).
-- **La API de métricas no exige la fuente**: solo `analytics` + permiso. `PERMISSION_SOURCES` filtra navegación, no autoriza (comentario en `get-me.ts`). Pendiente si se quiere exigir en el backend.
 
 **Contrato mínimo de una fuente nueva (diseño, no implementado):**
 
