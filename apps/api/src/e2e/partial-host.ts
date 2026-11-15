@@ -15,6 +15,8 @@ import { hostMetadata } from '../app.module.js';
 export type Domain = 'hospitality' | 'commerce' | 'analytics';
 export const PASSWORD = 'Secret123';
 export const MANUAL = { outbox: { intervalMs: 3_600_000 } };
+/** Para el `beforeAll`: crear la base y migrar lanza varios `prisma` (más de 60 s con la máquina cargada). */
+export const HOST_TIMEOUT = 180_000;
 export type Raw = { $executeRawUnsafe(sql: string): Promise<unknown>; $queryRawUnsafe<T>(sql: string): Promise<T> };
 
 const root = path.resolve(import.meta.dirname, '../../../..');

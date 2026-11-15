@@ -4,7 +4,7 @@ import { CORE_PRISMA } from '@modivara/core-api';
 import { INTEGRATION_EVENT_SUBSCRIBERS } from '@modivara/core-contracts';
 import { HospitalityModule } from '@modivara/hospitality-api';
 import { GATEWAY_API_PATHS, GATEWAY_KEY_HEADER, serviceCallPageSchema, serviceCallSchema } from '@modivara/hospitality-contracts';
-import { MANUAL, type Raw, startPartialHost } from './partial-host.js';
+import { HOST_TIMEOUT, MANUAL, type Raw, startPartialHost } from './partial-host.js';
 
 // PLAN-003 T07 + T12 (hospitality): host Core + Hospitality, sin Commerce ni Analytics (ni variables, ni módulos, ni esquemas).
 let host: Awaited<ReturnType<typeof startPartialHost>>;
@@ -12,7 +12,7 @@ beforeAll(async () => {
   host = await startPartialHost('modivara_core_hospitality', ['hospitality'], (url) => [
     HospitalityModule.forRoot({ databaseUrl: url('hospitality'), mqtt: null, ...MANUAL }),
   ]);
-});
+}, HOST_TIMEOUT);
 afterAll(() => host?.close());
 
 describe('T07 host Core + Hospitality (sin Commerce ni Analytics)', () => {

@@ -4,7 +4,7 @@ import { CommerceModule } from '@modivara/commerce-api';
 import { CORE_PRISMA } from '@modivara/core-api';
 import { SEEDED_MOVEMENT_REASONS } from '@modivara/commerce-contracts';
 import { INTEGRATION_EVENT_SUBSCRIBERS, type ModuleName } from '@modivara/core-contracts';
-import { MANUAL, type Raw, startPartialHost } from './partial-host.js';
+import { HOST_TIMEOUT, MANUAL, type Raw, startPartialHost } from './partial-host.js';
 
 // MOD-12 (T01): host Core + Commerce, con la misma composición que AppModule, sobre una base propia con SOLO los esquemas core y commerce
 // migrados y sin variables de Hospitality/Analytics.
@@ -21,7 +21,7 @@ const provision = (slug: string, modules: ModuleName[], staff = false) =>
 beforeAll(async () => {
   host = await startPartialHost('modivara_core_commerce', ['commerce'], (url) => [CommerceModule.forRoot({ databaseUrl: url('commerce'), ...MANUAL })]);
   origin = host.origin;
-});
+}, HOST_TIMEOUT);
 afterAll(() => host?.close());
 
 describe('MOD-12 host Core + Commerce (sin Hospitality ni Analytics)', () => {
