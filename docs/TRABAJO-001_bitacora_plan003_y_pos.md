@@ -42,7 +42,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 - [x] A3 MOD-54: ya cubierto (dedup, rebuild) + nuevo aislamiento de commerce (`28b8862`).
 - [x] A3 MOD-60: unidad por defecto «Unidades», textos neutros, `bottle` sigue disponible (`d399ca7`).
 - [~] A3 MOD-61/MOD-74: seeds `zapateria-demo` (solo commerce) y `restaurante-demo` (solo hospitality); `seed:commerce` salta negocios sin commerce; E2E `inventory-only.spec.ts` y `hospitality-only.spec.ts` escritos (`0f79053`), falta correrlos contra esta rama.
-- [~] A4 MOD-70…72: matriz `docs/MOD-002_matriz_escenarios_plan003.md`; faltan T05, T07, T12-Hospitality con host real (en curso) y la corrida final.
+- [~] A4 MOD-70…72: matriz `docs/MOD-002_matriz_escenarios_plan003.md`; T05 (`core-commerce-analytics.int.test.ts`), T07 y T12-Hospitality (`core-hospitality.int.test.ts`) con host real y base solo con sus esquemas (`p3/a4-gaps`, integración 790/791). Falta la corrida final y llenar la matriz con SHA.
 - [x] A4 MOD-73/75 (P1): runbook OPERACION-001 §9 (y §6 corregido: `outbox:retry` sin dominio solo imprimía uso). Diagnóstico de lag/correlación por producto pendiente. MOD-74 E2E escritos.
 - [ ] Revisión y auditoría Codex de la rama.
 - [ ] PR `test/plan-003-modularidad → pruebas`.
@@ -53,6 +53,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 |---|---|---|
 | 14/11 | Worktree `plan-003` creada desde `origin/pruebas` `18289d6`; planes movidos a `docs/`. | OK |
 | 14/11 | Codex gpt-6.1-terra sobre el último arreglo de POS. | Sin hallazgos. |
+| 15/11 | Merge `p3/a4-gaps`: hospitality ignora locales inactivos (`d84ff00`), separabilidad revisa SQL de migraciones (`1860a33`), T07/T12 (`1fca735`), T05 (`2808e64`). `seed-history` con margen de 300 s (pasaba en 117 s de 120 sola). | OK |
 | 15/11 | Navegador, demo combinada, `zapateria-demo/admin`: menú solo Inventario y Usuarios; unidad por defecto «Unidades», textos neutros; producto en kg: entrada «2,5» → +2,5 kg, «1,2345» rechazado con mensaje, «,5» → −0,5 kg. El historial ahora nombra los productos desactivados («Viejo (desactivado)», `d9de751`). | OK |
 | 15/11 | E2E completos contra la demo combinada (`verif/plan003-pos` @ `bb097ae`, 5 negocios): 60/61; `screens.spec.ts:73` falló por URL relativa en una página nueva tras 1 min y pasa sola (intermitente). Incluye pos, pos-edge, pos-tables (etiqueta de mesa), inventory-edge, inventory-only (zapatería 15−2=13) y hospitality-only. | OK |
 | 14/11 | Merge `p3/a1-host` (`fe04225`): 680 unit, integración 787/787 en la subrama. Codex A2: 3 hallazgos P2 corregidos (`6dcd7e1`, `4c44319`). Mesas 11/12 en plano de demo (`20f2add`). | OK |
