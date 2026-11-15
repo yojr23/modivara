@@ -2,7 +2,7 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { findDependencyViolations, findImportViolations, findLayerViolations } from './separability.mjs';
+import { findDependencyViolations, findImportViolations, findLayerViolations, findMigrationSchemaViolations } from './separability.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const dirs = (p) => readdirSync(p, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
@@ -31,13 +31,20 @@ const pkgs = domains.flatMap((d) =>
 const files = units.flatMap((unitRoot) =>
   sourceFiles(unitRoot).map((file) => ({ file, unitRoot, content: readFileSync(file, 'utf8') })),
 );
+const migrations = domains.flatMap((domain) => {
+  const dir = path.join(root, 'domains', domain, 'api/src/infrastructure/prisma/migrations');
+  return readdirSync(dir, { recursive: true }).filter((f) => path.basename(f) === 'migration.sql')
+    .map((f) => ({ file: path.join(dir, f), domain, content: readFileSync(path.join(dir, f), 'utf8') }));
+});
 
-const violations = [...findDependencyViolations(pkgs), ...findImportViolations(files), ...findLayerViolations(files)].map((v) => v.replaceAll(root + path.sep, ''));
+const violations = [
+  ...findDependencyViolations(pkgs), ...findImportViolations(files), ...findLayerViolations(files), ...findMigrationSchemaViolations(migrations, domains),
+].map((v) => v.replaceAll(root + path.sep, ''));
 if (violations.length) {
   console.error(`Separabilidad: ${violations.length} violación(es)\n- ${violations.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`Separabilidad estática OK (${pkgs.length} paquetes, ${files.length} archivos).`);
+console.log(`Separabilidad estática OK (${pkgs.length} paquetes, ${files.length} archivos, ${migrations.length} migraciones).`);
 
 // Cada dominio compila y pasa sus pruebas solo, con sus dependencias declaradas (solo contracts ajenos).
 for (const d of domains) {

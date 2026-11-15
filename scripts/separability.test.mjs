@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { findDependencyViolations, findImportViolations, findLayerViolations } from './separability.mjs';
+import { findDependencyViolations, findImportViolations, findLayerViolations, findMigrationSchemaViolations } from './separability.mjs';
 
 const unitRoot = path.resolve('/repo/domains/hospitality');
 const file = path.join(unitRoot, 'api/src/application/x.ts');
@@ -60,5 +60,18 @@ describe('findLayerViolations', () => {
   it('apps/api no importa domain/ ni application/', () => {
     expect(layer('apps/api/src/x.ts', `import { U } from '@modivara/core-api/domain/user.js';`)).toHaveLength(1);
     expect(layer('apps/api/src/x.ts', `import { CoreModule } from '@modivara/core-api';`)).toEqual([]);
+  });
+});
+
+describe('findMigrationSchemaViolations', () => {
+  const domains = ['core', 'hospitality', 'commerce', 'analytics'];
+  const check = (content) => findMigrationSchemaViolations([{ file: 'commerce/0002/migration.sql', domain: 'commerce', content }], domains);
+  it('MOD-11: una migración de commerce no nombra el esquema de otro dominio', () => {
+    expect(check('ALTER TABLE "products" ADD CONSTRAINT fk FOREIGN KEY ("table_id") REFERENCES "hospitality"."dining_tables"("id");'))
+      .toEqual(['commerce/0002/migration.sql: referencia el esquema de hospitality']);
+    expect(check('SELECT 1 FROM "core" . "locations";')).toHaveLength(1);
+  });
+  it('acepta su propio esquema y tablas sin calificar', () => {
+    expect(check('CREATE TABLE "commerce"."products" ("id" UUID); CREATE INDEX ON "stock_movements" ("core_location_id");')).toEqual([]);
   });
 });
