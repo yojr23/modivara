@@ -22,7 +22,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 - [x] Codex gpt-6.1-terra sobre `c59f7d1` (doble toque): sin hallazgos.
 - [x] E2E Playwright ampliado (`4d039bb`, empujado): `e2e/pos-edge.spec.ts` (9) y `e2e/inventory-edge.spec.ts` (5), todos en verde: cantidades por unidad, venta vacía, anular línea, venta cobrada solo lectura, duplicados, inactivos, permisos de Caja/mesero/inventario, idempotencia, aislamiento entre negocios, historial paginado, `currency_mismatch` a 390 px y escritorio; stock insuficiente, conteo igual al saldo, permisos de inventario, replay de movimientos, aislamiento. Suite completa 54/55: falló `service-call.spec.ts:78` (reconexión tras reiniciar la API, timeout de 60 s mientras `db-test` se recreaba), pasa sola. No detecta el bug de la coma: Playwright llena «0.5» con punto.
 - [ ] Pruebas manuales en navegador (Brave + extensión Claude) de POS e Inventario: casos y casos borde.
-- [ ] Actualizar desde `pruebas` cuando entre PLAN-003 y abrir PR `pos/mesas → pruebas`.
+- [!] PR `pos/mesas → pruebas` (borrador, después del de PLAN-003): mismo bloqueo. Al entrar PLAN-003: `git merge origin/pruebas` en `pos/mesas`; la resolución ya está hecha y probada en `verif/plan003-pos` (empujada).
 
 ### PLAN-003 (`test/plan-003-modularidad`)
 
@@ -45,7 +45,7 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho · `[!]` bloqueado/dec
 - [x] A4 MOD-70…72: matriz `docs/MOD-002_matriz_escenarios_plan003.md` con evidencia y PASS (`a44ec58`; E2E combinados `c9629cb`). Sin prueba dedicada (declarado): T14 en host parcial, log `outbox.failed_pending`, reintento conjunto de suscriptores.
 - [x] A4 MOD-73/75 (P1): runbook OPERACION-001 §9 (y §6 corregido: `outbox:retry` sin dominio solo imprimía uso). Diagnóstico de lag/correlación por producto pendiente. MOD-74 E2E escritos.
 - [x] Revisión y auditoría Codex (gpt-6.1-terra, xhigh): revisiones de A1, A2, del rebuild y adversarial de toda la rama; todos los hallazgos corregidos; última revisión sin hallazgos.
-- [ ] PR `test/plan-003-modularidad → pruebas`.
+- [!] PR `test/plan-003-modularidad → pruebas`: texto listo (`scratchpad/pr-plan003.md` de la sesión, resumido en la bitácora); abrirlo quedó bloqueado por permisos del entorno: lo abre el responsable o autoriza `gh pr create`.
 
 ## Registro
 
