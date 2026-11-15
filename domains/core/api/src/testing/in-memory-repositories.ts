@@ -20,6 +20,8 @@ import type {
 export class InMemoryOrganizationRepository implements OrganizationRepository {
   readonly items = new Map<string, Organization>();
   async findById({ id }: { id: string }) { return this.items.get(id) ?? null; }
+  /** En memoria no hay concurrencia real entre transacciones: no-op. */
+  async lockById() {}
   async findBySlug({ slug }: { slug: string }) { return [...this.items.values()].find((o) => o.slug === slug) ?? null; }
   constructor(private readonly locations?: () => Iterable<Location>) {}
   async save(o: Organization) { this.items.set(o.id, o); }

@@ -24,6 +24,9 @@ export class SetModuleEnabled {
     const { actor, organizationId, module, enabled } = input;
     if (!actor.isPlatform) throw new PermissionDeniedError('platform.entitlements.manage required');
     return this.admin.withTransaction(async (tx) => {
+      // Serializa por negocio: sin el bloqueo, dos peticiones opuestas leen el mismo entitlement y la respuesta no coincide con el
+      // estado final (o se duplican auditoría y eventos). Lo que sigue se lee después de obtenerlo (READ COMMITTED).
+      await tx.organizations.lockById({ id: organizationId });
       const organization = await tx.organizations.findById({ id: organizationId });
       if (!organization || organization.isPlatform) throw new NotFoundError('Organization not found');
       const current = await tx.entitlements.find({ organizationId, module });

@@ -187,6 +187,37 @@ describe('MOD-12 host Core + Commerce (sin Hospitality ni Analytics)', () => {
     expect(audit.map((a) => a.action)).toEqual(['entitlement.enabled']);
   });
 
+  it('Codex #3: PUT de módulo concurrentes se serializan por negocio: una auditoría por cambio real y estado final coherente', async () => {
+    const superadmin = as(await login('labs', 'superadmin'));
+    const entitlementAudit = async (organizationId: string) => {
+      const rows = await get<Raw>(CORE_PRISMA).$queryRawUnsafe<Array<{ action: string }>>(
+        `SELECT action FROM audit_log WHERE organization_id = '${organizationId}' AND action LIKE 'entitlement.%'`,
+      );
+      return { enabled: rows.filter((r) => r.action === 'entitlement.enabled').length, disabled: rows.filter((r) => r.action === 'entitlement.disabled').length };
+    };
+    const enabledNow = async (organizationId: string) =>
+      (await get<Raw>(CORE_PRISMA).$queryRawUnsafe<Array<{ enabled: boolean }>>(
+        `SELECT enabled FROM entitlements WHERE organization_id = '${organizationId}' AND module = 'commerce'`,
+      ))[0]?.enabled === true;
+
+    // Duplicados: 6 habilitaciones a la vez sobre un negocio sin commerce → un solo cambio.
+    const dup = await provision('concurrente-dup', []);
+    const dupPath = `/platform/organizations/${dup.organizationId}/modules/commerce`;
+    const dupRes = await Promise.all(Array.from({ length: 6 }, () => superadmin.put(dupPath, { enabled: true })));
+    expect(dupRes.map((r) => r.status)).toEqual(Array(6).fill(200));
+    expect(await entitlementAudit(dup.organizationId)).toEqual({ enabled: 1, disabled: 0 });
+    expect(await enabledNow(dup.organizationId)).toBe(true);
+
+    // Opuestas: partiendo de suspendido, cada cambio real alterna; el estado final es el del último cambio confirmado.
+    const mix = await provision('concurrente-mix', []);
+    const mixPath = `/platform/organizations/${mix.organizationId}/modules/commerce`;
+    const wanted = [true, false, true, true, false, true, false, true];
+    const mixRes = await Promise.all(wanted.map((enabled) => superadmin.put(mixPath, { enabled })));
+    expect(mixRes.map((r) => [r.status, r.body.enabled])).toEqual(wanted.map((e) => [200, e]));
+    const { enabled, disabled } = await entitlementAudit(mix.organizationId);
+    expect(enabled - disabled).toBe((await enabledNow(mix.organizationId)) ? 1 : 0);
+  });
+
   it('T12 (MOD-26): suspender → 403 module_disabled sin borrar nada; reactivar conserva los datos sin duplicar defaults', async () => {
     const { organizationId, locationId } = await provision('suspendida', ['commerce']);
     await tickCore();
