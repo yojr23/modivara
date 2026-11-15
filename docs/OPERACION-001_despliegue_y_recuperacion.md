@@ -115,7 +115,7 @@ rm -f "$JAR"
 ```
 
 - Respuesta: `{"module":"commerce","enabled":true}`. 403 si no es superadmin; 400 si el módulo no existe; 404 para el negocio de plataforma o uno inexistente.
-- Repetir el mismo estado no hace nada (ni auditoría ni eventos).
+- Suspender un módulo ya suspendido no hace nada (ni auditoría ni eventos). **Habilitar uno ya habilitado re-publica** `core.module.enabled` por cada local activo, sin nueva fila de auditoría: es la recuperación del §9.4.
 - Con cambio: `core.audit_log` registra `entitlement.enabled|disabled` y el outbox de core publica un `core.module.enabled|disabled` v1 por cada local activo.
 
 **Qué pasa con los datos**
@@ -176,7 +176,8 @@ SELECT event_type, count(*), min(occurred_at) FROM commerce.outbox_events
 
 1. Corregir la causa (log `error` / `last_error`).
 2. Liberar: `docker compose exec api sh -c 'cd /repo/apps/api && node dist/outbox-retry.js <core|hospitality|commerce> [event_id]'` (desarrollo: `pnpm outbox:retry <dominio> [event_id]`). Pone `failed_at = NULL, attempts = 0` y el poller lo entrega en el siguiente ciclo.
-3. Si analytics no vio eventos ya despachados (corrió sin analytics o la proyección quedó mal): `docker compose exec api sh -c 'cd /repo/apps/api && node dist/analytics-rebuild.js'` (desarrollo: `pnpm analytics:rebuild`). Vacía las tablas de analytics y reprocesa todo el historial de los outbox de hospitality y commerce, de todos los negocios, en una transacción; mientras dura, la proyección en vivo espera. Imprime `leídos/aplicados/duplicados/ignorados`. Un evento inválido aborta con su `event_id`, sale con código 1 y deja la proyección anterior.
-4. Ambos comandos levantan los módulos que necesitan y exigen sus URL de base (`outbox:retry`: core + el dominio; `analytics:rebuild`: los cuatro).
+3. **Activación perdida** (se habilitó un módulo cuando el host no lo componía, p. ej. `MODIVARA_DOMAINS` sin `commerce`: el `core.module.enabled` quedó despachado sin consumidor y el local no tiene «Principal» ni motivos): con el host ya componiendo el dominio, repetir el `PUT … {"enabled":true}` del §9.1. Re-publica el evento por local activo; los consumidores son idempotentes y la auditoría no cambia. Verificar con las consultas del §9.1.
+4. Si analytics no vio eventos ya despachados (corrió sin analytics o la proyección quedó mal): `docker compose exec api sh -c 'cd /repo/apps/api && node dist/analytics-rebuild.js'` (desarrollo: `pnpm analytics:rebuild`). Vacía las tablas de analytics y reprocesa todo el historial de los outbox de hospitality y commerce, de todos los negocios, en una transacción; mientras dura, la proyección en vivo espera. Imprime `leídos/aplicados/duplicados/ignorados`. Un evento inválido aborta con su `event_id`, sale con código 1 y deja la proyección anterior.
+5. Ambos comandos levantan los módulos que necesitan y exigen sus URL de base (`outbox:retry`: core + el dominio; `analytics:rebuild`: los cuatro).
 
 **Restauración:** el backup es de la base completa (§5): restaurar revierte también entitlements y auditoría, no hay restauración por producto. Antes de una suspensión masiva o de un `analytics:rebuild` en producción, `scripts/backup.sh`; después de cualquier restauración, `scripts/restore-check.sh`.

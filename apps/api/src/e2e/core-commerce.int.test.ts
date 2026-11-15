@@ -158,7 +158,7 @@ describe('MOD-12 host Core + Commerce (sin Hospitality ni Analytics)', () => {
     expect((await superadmin.put(`/platform/organizations/${late.organizationId}/modules/desconocido`, { enabled: true })).status).toBe(400);
     const res = await superadmin.put(path, { enabled: true });
     expect([res.status, res.body]).toEqual([200, { module: 'commerce', enabled: true }]);
-    expect((await superadmin.put(path, { enabled: true })).status).toBe(200); // ya habilitado: sin cambios ni eventos
+    expect((await superadmin.put(path, { enabled: true })).status).toBe(200); // ya habilitado: re-publica sin auditar (idempotente)
     await tickCore();
     await tickCore();
     expect([await commerceRows(late.organizationId), await commerceRows(never.organizationId)]).toEqual([SEEDED, NOTHING]);
@@ -166,6 +166,25 @@ describe('MOD-12 host Core + Commerce (sin Hospitality ni Analytics)', () => {
     const audit = await get<Raw>(CORE_PRISMA).$queryRawUnsafe<Array<{ action: string }>>(`SELECT action FROM audit_log WHERE organization_id = '${late.organizationId}' AND action LIKE 'entitlement.%'`);
     expect(audit.map((a) => a.action)).toEqual(['entitlement.enabled']);
     expect((await as(await login('tardia', 'inventario')).get(`/locations/${late.locationId}/products`)).status).toBe(200);
+  });
+
+  it('Codex #2: activación perdida (core.module.enabled despachado sin commerce compuesto) → habilitar de nuevo la recupera sin otra auditoría', async () => {
+    const lost = await provision('perdida', []);
+    await tickCore();
+    const superadmin = as(await login('labs', 'superadmin'));
+    const path = `/platform/organizations/${lost.organizationId}/modules/commerce`;
+    expect((await superadmin.put(path, { enabled: true })).status).toBe(200);
+    // Lo que hace el poller de un host sin commerce: marca el evento despachado sin consumidor.
+    const coreDb = get<Raw>(CORE_PRISMA);
+    await coreDb.$executeRawUnsafe(`UPDATE outbox_events SET dispatched_at = now() WHERE organization_id = '${lost.organizationId}' AND dispatched_at IS NULL`);
+    await tickCore();
+    expect(await commerceRows(lost.organizationId)).toEqual(NOTHING);
+
+    expect((await superadmin.put(path, { enabled: true })).body).toEqual({ module: 'commerce', enabled: true });
+    await tickCore();
+    expect(await commerceRows(lost.organizationId)).toEqual(SEEDED);
+    const audit = await coreDb.$queryRawUnsafe<Array<{ action: string }>>(`SELECT action FROM audit_log WHERE organization_id = '${lost.organizationId}' AND action LIKE 'entitlement.%'`);
+    expect(audit.map((a) => a.action)).toEqual(['entitlement.enabled']);
   });
 
   it('T12 (MOD-26): suspender → 403 module_disabled sin borrar nada; reactivar conserva los datos sin duplicar defaults', async () => {
