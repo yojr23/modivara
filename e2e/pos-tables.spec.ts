@@ -64,7 +64,7 @@ test('la venta de la mesa: tablero, «Por mesa» en celular y Caja llegan a la m
   const phone = await ctx.newPage();
   await phone.goto('/bar-demo/app/ventas');
   await view(phone, 'Por mesa').click();
-  await phone.getByRole('button', { name: TABLE, exact: true }).click();
+  await phone.getByRole('button', { name: new RegExp(`· ${TABLE}$`) }).click(); // «zona · mesa»
   await expect(view(phone, 'Vender')).toHaveAttribute('aria-pressed', 'true');
   expect(saleIdOf(phone)).toBe(saleId);
   await expect(ticket(phone).getByRole('listitem').filter({ hasText: ITEM })).toContainText('1 unidad');

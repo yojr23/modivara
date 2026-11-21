@@ -6,7 +6,7 @@ import { authFile, type User } from './support/env';
 
 // Casos borde de Ventas (POS) que no cubren pos.spec ni pos-tables.spec: cantidades por unidad, venta vacía, anular una línea,
 // venta registrada de solo lectura, catálogo duplicado o desactivado, permisos de Caja y del personal sin POS, idempotencia,
-// aislamiento entre negocios, historial por estado y páginas, y cambio de moneda del local (se restaura al final).
+// aislamiento entre negocios, historial por estado y páginas, y cambio de moneda bloqueado con artículos activos.
 
 const TIENDA: User = ['tienda-demo', 'admin'];
 const BAR: User = ['bar-demo', 'admin'];
@@ -276,29 +276,16 @@ test('historial: «Anuladas» filtra por estado y la API pagina con cursor sin r
   await expectError(await tienda.get(`/api/v1${sales()}?cursor=no-es-un-cursor`), 400);
 });
 
-test('moneda: tras cambiarla, un artículo de la moneda anterior no se vende (currency_mismatch); se restaura', async ({ browser }) => {
+test('moneda: con artículos activos no se cambia (currency_locked, 409) y la del local sigue igual', async ({ browser }) => {
   const settings = `/locations/${loc}/pos/settings`;
   const { currency } = await json(tienda, 'GET', settings);
   const other = currency === 'USD' ? 'EUR' : 'USD';
   const page = await pageAs(browser, TIENDA);
-  try {
-    await page.goto('/tienda-demo/app/ventas');
-    await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Catálogo' }).click();
-    await page.getByLabel('Moneda (código ISO 4217)').fill(other);
-    await page.getByRole('button', { name: 'Guardar moneda' }).click();
-    await expect(page.getByText(`Moneda del local: ${other}.`)).toBeVisible();
-
-    await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Vender' }).click();
-    await tap(page, UNIT.name, '1');
-    await expect(page.getByRole('alert')).toHaveText('Ese artículo tiene otra moneda que la venta. Revisa la moneda del local en Catálogo.');
-    await expect(page).toHaveURL(/venta=/);
-    const saleId = saleIdOf(page)!;
-    const sale = await json(tienda, 'GET', `${sales()}/${saleId}`);
-    expect([sale.currency, sale.lines.length]).toEqual([other, 0]);
-    await expectError(await pos(tienda, `${sales()}/${saleId}/lines`, { sellable_item_id: ids[UNIT.name], quantity: '1' }), 409, 'currency_mismatch');
-    await posPost(tienda, `${sales()}/${saleId}/void`);
-  } finally {
-    await json(tienda, 'PUT', settings, { currency });
-  }
+  await page.goto('/tienda-demo/app/ventas');
+  await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Catálogo' }).click();
+  await page.getByLabel('Moneda (código ISO 4217)').fill(other);
+  await page.getByRole('button', { name: 'Guardar moneda' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'No se puede cambiar la moneda' })).toBeVisible();
+  await expectError(await tienda.put(`/api/v1${settings}`, { data: { currency: other } }), 409, 'currency_locked');
   expect((await json(tienda, 'GET', settings)).currency).toBe(currency);
 });
