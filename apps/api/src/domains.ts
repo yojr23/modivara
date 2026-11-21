@@ -2,6 +2,7 @@ import type { DynamicModule } from '@nestjs/common';
 import { AnalyticsModule } from '@modivara/analytics-api';
 import { CommerceModule } from '@modivara/commerce-api';
 import { HospitalityModule } from '@modivara/hospitality-api';
+import { PosModule } from '@modivara/pos-api';
 
 /**
  * Dominios opcionales que compone un host, por su nombre en `MODIVARA_DOMAINS` (core va siempre). `standalone`: sin pollers de
@@ -11,6 +12,7 @@ const DOMAIN_MODULES = {
   hospitality: (standalone: boolean) => HospitalityModule.forRoot(standalone ? { outbox: false, mqtt: null } : {}),
   commerce: (standalone: boolean) => CommerceModule.forRoot(standalone ? { outbox: false } : {}),
   analytics: () => AnalyticsModule.forRoot(),
+  pos: (standalone: boolean) => PosModule.forRoot(standalone ? { outbox: false } : {}),
 } satisfies Record<string, (standalone: boolean) => DynamicModule>;
 
 export type DomainName = keyof typeof DOMAIN_MODULES;

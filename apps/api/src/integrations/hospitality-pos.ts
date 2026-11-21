@@ -25,9 +25,10 @@ export class HospitalityTableValidator implements ExternalReferenceValidator {
   }
 }
 
-/** Proveedor del host: requiere `ListTables` (HospitalityModule) a la vista; sin Hospitality en el host no se registra. */
+/** Proveedor del host: usa `ListTables` (HospitalityModule) si está a la vista; un host sin Hospitality (MOD-13) no aporta validadores. */
 export const posReferenceValidators = {
   provide: POS_REFERENCE_VALIDATORS,
-  inject: [ListTables, CORE_ACCESS_PORT],
-  useFactory: (listTables: ListTables, core: CoreAccessPort): ExternalReferenceValidator[] => [new HospitalityTableValidator(listTables, core)],
+  inject: [{ token: ListTables, optional: true }, CORE_ACCESS_PORT],
+  useFactory: (listTables: ListTables | undefined, core: CoreAccessPort): ExternalReferenceValidator[] =>
+    listTables ? [new HospitalityTableValidator(listTables, core)] : [],
 };
