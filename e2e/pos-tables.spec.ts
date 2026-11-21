@@ -72,7 +72,7 @@ test('la venta de la mesa: tablero, «Por mesa» en celular y Caja llegan a la m
   await expect(ticket(phone)).toContainText('27.000');
   await ctx.close();
 
-  // Caja (sin hospitality.calls.read): no ve «Por mesa» ni el tablero, pero vincular la mesa por la API devuelve la misma venta.
+  // Caja (sin hospitality.calls.read, con hospitality.tables.link_sale): ve «Por mesa» pero no el tablero; vincular la mesa por la API devuelve la misma venta.
   const caja = await apiAs([...CAJA]);
   const again = await link(caja);
   expect([again.sale.id, again.replayed]).toEqual([saleId, true]);
