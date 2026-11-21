@@ -443,3 +443,7 @@ No abrir cinco repositorios ni introducir microservicios por adelantado. **Sí m
 | POS-43 | Hecho: build, typecheck, test, separabilidad, integración y E2E (41) en verde; revisiones de Codex aplicadas. |
 
 **Pendiente del responsable:** aprobar ADR-006; revisar en el navegador la pantalla «Ventas» y la acción «Venta» del tablero antes de pasar a `main`; decidir si vincular una mesa debe exigir también `hospitality.calls.read` (hoy basta `pos.sales.operate`); qué pasa con artículos en otra moneda al cambiar la moneda del local (hoy no se pueden vender: `currency_mismatch`). **Límites:** cobro declarado, sin pagos procesados, impuestos ni factura electrónica.
+
+## Estado (21/11/2026, rama `pos/cierre-v2`, PLAN-POS-001 v2)
+
+Cierre según el plan v2 (puertas G0–G8 en verde): evidencia en [`docs/evidence/pos-closure/EVIDENCIA.md`](evidence/pos-closure/EVIDENCIA.md). Decisiones del responsable del 21/11: ADR-006 aceptado (5 dominios técnicos, 4 productos contratables); vincular una venta a una mesa exige `hospitality.tables.link_sale` (Caja y admin, solo con Hospitality contratado); una moneda por local, cambiarla responde 409 `currency_locked` con artículos activos en otra moneda o ventas abiertas; el stock nunca queda negativo (POS-32…35). Lo anterior de «Pendiente del responsable» queda resuelto salvo la revisión en el navegador.
