@@ -1,6 +1,6 @@
 # ADR-006 — POS como quinto producto horizontal e independiente
 
-> **Estado:** Propuesto — aplicado en `pos/mesas` a pedido del responsable (13/11/2026); aprobación formal pendiente.
+> **Estado:** Aceptado por el responsable (21/11/2026). Aplicado en `pos/mesas` desde el 13/11/2026.
 > **Fecha:** 13/11/2026. **Enmienda:** ADR-001 (POS dentro de `commerce`, cuatro dominios). **Supera:** ADR-005 en su orientación por mesa. No edita el texto de ADR-001/002/003.
 
 ## Contexto
@@ -22,6 +22,7 @@
 - Core suma el módulo `pos`, los permisos `pos.*` y el rol de local `cashier` (migración incremental de enums, sin tocar tablas de otros dominios).
 - Un negocio puede contratar solo POS; Hospitality, Inventario y Analytics siguen funcionando sin POS.
 - El destino de repositorios pasa de cuatro a cinco; `check:separability` y la prueba de agnosticismo de `domains/pos` vigilan la independencia.
+- **Stock nunca negativo** (decisión del responsable, 21/11/2026): cuando POS descuente inventario (POS-32…35), ningún movimiento puede dejar el saldo por debajo de cero; se mantiene la regla actual de commerce (`insufficient_stock`).
 - ADR-001/002/003 conservan su texto; los documentos derivados (`README.md`, `STATUS-001`) apuntan a este ADR.
 
 ## Referencias
