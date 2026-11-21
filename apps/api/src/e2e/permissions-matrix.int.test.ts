@@ -21,9 +21,11 @@ import { PASSWORD, startHost } from './testing.js';
 
 type Method = 'get' | 'post' | 'put' | 'patch';
 type Host = Awaited<ReturnType<typeof startHost>>;
-interface Route { method: Method; path: string; permission: Permission | null }
+/** Con varios permisos basta uno (p. ej. leer mesas: llamados o vincular ventas). */
+type Needs = Permission | readonly Permission[];
+interface Route { method: Method; path: string; permission: Needs | null }
 
-const r = (method: Method, path: string, permission: Permission | null): Route => ({ method, path, permission });
+const r = (method: Method, path: string, permission: Needs | null): Route => ({ method, path, permission });
 const ROUTES: Route[] = [
   r('get', CO.me, null),
   r('get', CO.users, 'core.users.manage'),
@@ -39,11 +41,11 @@ const ROUTES: Route[] = [
   r('get', CA.serviceCall, 'hospitality.calls.read'),
   r('post', CA.acknowledge, 'hospitality.calls.acknowledge'),
   r('post', CA.complete, 'hospitality.calls.complete'),
-  r('get', HO.zones, 'hospitality.calls.read'),
+  r('get', HO.zones, ['hospitality.calls.read', 'hospitality.tables.link_sale']),
   r('post', HO.zones, 'hospitality.tables.manage'),
   r('patch', HO.zone, 'hospitality.tables.manage'),
   r('post', HO.zoneDeactivate, 'hospitality.tables.manage'),
-  r('get', HO.tables, 'hospitality.calls.read'),
+  r('get', HO.tables, ['hospitality.calls.read', 'hospitality.tables.link_sale']),
   r('post', HO.tables, 'hospitality.tables.manage'),
   r('patch', HO.table, 'hospitality.tables.manage'),
   r('post', HO.tableDeactivate, 'hospitality.tables.manage'),
@@ -99,7 +101,7 @@ const PUBLIC_ROUTES = new Set([
 const ZERO = '00000000-0000-4000-8000-000000000000';
 const ROLES = ['admin', 'staff', 'inventory', 'cashier'] as const satisfies readonly LocationRole[];
 const USER_OF: Record<(typeof ROLES)[number], [string, string]> = { admin: ['bar-demo', 'admin'], staff: ['bar-demo', 'barra'], inventory: ['bar-demo', 'inventario1'], cashier: ['bar-demo', 'caja1'] };
-const hasPermission = (role: LocationRole, p: Permission) => permissionsFor([role], { isOwner: false, isPlatform: false }).has(p);
+const hasPermission = (role: LocationRole, p: Needs) => [p].flat().some((x) => permissionsFor([role], { isOwner: false, isPlatform: false }).has(x));
 const fill = (path: string, locationId: string) => path.replace(':locationId', locationId).replace(/:\w+/g, ZERO);
 const hasLocation = (route: Route) => route.path.includes(':locationId');
 const label = (route: Route) => `${route.method.toUpperCase()} ${route.path}`;
@@ -165,7 +167,7 @@ afterAll(() => h.app.close());
 describe('la matriz cubre todas las rutas reales', () => {
   // Evita que una ruta nueva (o un permiso cambiado) quede fuera de la matriz sin que nadie lo decida.
   const discovered = () => {
-    const out: Array<{ key: string; publicRoute: boolean; permission: Permission | null }> = [];
+    const out: Array<{ key: string; publicRoute: boolean; permission: Needs | null }> = [];
     for (const mod of h.app.get(ModulesContainer).values()) {
       for (const { metatype } of mod.controllers.values()) {
         if (!metatype) continue;
@@ -180,7 +182,7 @@ describe('la matriz cubre todas las rutas reales', () => {
           for (const p of [Reflect.getMetadata('path', handler)].flat() as string[]) {
             for (const pre of [prefix].flat()) {
               const path = `/${pre}/${p}`.replace(/\/+/g, '/').replace(/(.)\/$/, '$1');
-              out.push({ key: `${method} ${path}`, publicRoute: meta<boolean>(IS_PUBLIC_KEY) === true, permission: meta<Permission>(REQUIRED_PERMISSION_KEY) ?? null });
+              out.push({ key: `${method} ${path}`, publicRoute: meta<boolean>(IS_PUBLIC_KEY) === true, permission: meta<Needs>(REQUIRED_PERMISSION_KEY) ?? null });
             }
           }
         }
@@ -192,8 +194,8 @@ describe('la matriz cubre todas las rutas reales', () => {
   it('toda ruta con sesión está en la tabla con su permiso; toda ruta pública está declarada', () => {
     const found = discovered();
     expect(found.filter((f) => f.publicRoute).map((f) => f.key).sort()).toEqual([...PUBLIC_ROUTES].sort());
-    const guarded = found.filter((f) => !f.publicRoute).map((f) => `${f.key} ${f.permission}`).sort();
-    expect(guarded).toEqual(ROUTES.map((x) => `${x.method} ${x.path} ${x.permission}`).sort());
+    const guarded = found.filter((f) => !f.publicRoute).map((f) => `${f.key} ${[f.permission].flat().join(',')}`).sort();
+    expect(guarded).toEqual(ROUTES.map((x) => `${x.method} ${x.path} ${[x.permission].flat().join(',')}`).sort());
   });
 });
 
@@ -381,7 +383,7 @@ describe('Socket.IO: lo que las suites de realtime aún no fijaban', () => {
 });
 
 describe('POS: rol, módulo y entitlement (POS-41)', () => {
-  const POS_ROUTES = ROUTES.filter((x) => x.permission?.startsWith('pos.'));
+  const POS_ROUTES = ROUTES.filter((x) => typeof x.permission === 'string' && x.permission.startsWith('pos.'));
   const key = () => ({ [IDEMPOTENCY_KEY_HEADER]: crypto.randomUUID() });
 
   it('caja vende y consulta; admin además gestiona catálogo y anula', async () => {

@@ -131,7 +131,7 @@ export class SalesController {
     const idempotencyKey = keyOf(key);
     const dto = openLinkedSaleSchema.parse(body);
     return reply(await this.openLinked.execute({
-      ...contextOf(actor, locationId), provider: dto.provider, resourceType: dto.resource_type, resourceId: dto.resource_id, idempotencyKey,
+      ...contextOf(actor, locationId), provider: dto.provider, resourceType: dto.resource_type, resourceId: dto.resource_id, idempotencyKey, actor,
     }), res);
   }
 }

@@ -13,7 +13,7 @@ export const API_BASE = '/api/v1';
 export type ErrorState = 'forbidden' | 'conflict' | 'not_found' | 'validation' | 'unauthorized' | 'network' | 'invalid_response' | 'unknown';
 /** Los `code` de negocio de POS que la UI explica con un mensaje propio (todos 409/400 en la API). */
 const POS_STATES = [
-  POS_ERROR_CODES.saleNotOpen, POS_ERROR_CODES.emptySale, POS_ERROR_CODES.currencyMismatch, POS_ERROR_CODES.invalidQuantity,
+  POS_ERROR_CODES.saleNotOpen, POS_ERROR_CODES.emptySale, POS_ERROR_CODES.currencyMismatch, POS_ERROR_CODES.currencyLocked, POS_ERROR_CODES.invalidQuantity,
   POS_ERROR_CODES.inactiveEntity, POS_ERROR_CODES.idempotencyKeyReused,
 ] as const;
 export type PosErrorState = ErrorState | (typeof POS_STATES)[number];

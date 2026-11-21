@@ -8,6 +8,7 @@ export type LocationRole = (typeof LOCATION_ROLES)[number];
 export const PERMISSIONS = [
   'core.users.manage',
   'hospitality.tables.manage',
+  'hospitality.tables.link_sale',
   'hospitality.calls.read',
   'hospitality.calls.acknowledge',
   'hospitality.calls.complete',
@@ -49,6 +50,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<LocationRole, readonly Permission
   admin: [
     'core.users.manage',
     'hospitality.tables.manage',
+    'hospitality.tables.link_sale',
     'hospitality.calls.read',
     'hospitality.calls.acknowledge',
     'hospitality.calls.complete',
@@ -66,7 +68,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<LocationRole, readonly Permission
   ],
   staff: ['hospitality.calls.read', 'hospitality.calls.acknowledge', 'hospitality.calls.complete', 'hospitality.devices.status'],
   inventory: ['commerce.catalog.manage', 'commerce.stock.read', 'commerce.stock.write', 'analytics.inventory.read'],
-  cashier: ['pos.sales.operate', 'pos.sales.read'],
+  cashier: ['pos.sales.operate', 'pos.sales.read', 'hospitality.tables.link_sale'],
 };
 
 export interface PermissionContext {

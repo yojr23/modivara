@@ -48,14 +48,16 @@ export class TestAuthGuard implements CanActivate {
     req[REQUEST_ACTOR_KEY] = caller.actor;
     if (caller.actor.isPlatform) return true;
 
-    const permission = meta<Permission>(REQUIRED_PERMISSION_KEY);
+    const required = meta<Permission | Permission[]>(REQUIRED_PERMISSION_KEY);
+    const anyOf = [required ?? []].flat(); // varios permisos = cualquiera de ellos
+    const permission = anyOf[0];
     if (permission) {
       const locationId = req.params[LOCATION_ID_PARAM];
       if (locationId !== undefined) {
         const granted = caller.permissions[locationId];
         if (!granted) throw new NotFoundError('location');
-        if (!granted.includes(permission)) throw new TestAuthError('permission_denied', `${permission} required`);
-      } else if (!Object.values(caller.permissions).some((p) => p.includes(permission))) {
+        if (!anyOf.some((p) => granted.includes(p))) throw new TestAuthError('permission_denied', `${permission} required`);
+      } else if (!Object.values(caller.permissions).some((g) => anyOf.some((p) => g.includes(p)))) {
         throw new TestAuthError('permission_denied', `${permission} required`);
       }
     }

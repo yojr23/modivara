@@ -3,7 +3,7 @@ import { toEventEnvelope } from '@modivara/core-contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId } from '@modivara/core-contracts';
 import {
-  ConflictError, CurrencyMismatchError, EmptySaleError, IdempotencyKeyReusedError, InvalidQuantityError, InvalidValueError, LocationUnavailableError,
+  ConflictError, CurrencyLockedError, CurrencyMismatchError, EmptySaleError, IdempotencyKeyReusedError, InvalidQuantityError, InvalidValueError, LocationUnavailableError,
   NotFoundError, SaleNotOpenError,
 } from '../domain/errors.js';
 import { FakeCore, FakeReferenceValidator, InMemoryPosSettings, InMemorySales, InMemorySellableItems } from '../testing/in-memory.js';
@@ -32,7 +32,7 @@ function wire() {
     updateItem: new UpdateSellableItem(items, core),
     listItems: new ListSellableItems(items, core),
     getSettings: new GetPosSettings(settings, core),
-    updateSettings: new UpdatePosSettings(settings, core),
+    updateSettings: new UpdatePosSettings(settings, items, sales, core),
     openLinked: new OpenLinkedSale(sales, settings, [validator], core),
     listSales: new ListSales(sales, core),
     openSale, addLine, voidLine, complete, voidSale,
@@ -143,7 +143,7 @@ describe('reglas de venta', () => {
   it('moneda distinta entre artículo y venta se rechaza', async () => {
     await uc.updateSettings.execute({ ...ctx, currency: 'USD' });
     const usd = await item('Gift card', 'unit', '10');
-    await uc.updateSettings.execute({ ...ctx, currency: 'COP' });
+    settings.rows.set(`${ORG}:${LOC}`, 'COP'); // ya no se puede por la API (currency_locked): el local queda con un artículo en otra moneda
     const sale = await uc.open(ctx);
     await expect(uc.add({ ...ctx, saleId: sale.id, sellableItemId: usd.id, quantity: '1' })).rejects.toThrow(CurrencyMismatchError);
   });
@@ -180,6 +180,28 @@ describe('moneda por local (POS-09)', () => {
     expect((await uc.open(ctx)).currency).toBe('USD');
     expect(await uc.getSettings.execute({ ...ctx, locationId: OTHER_LOC })).toEqual({ currency: 'COP' });
     await expect(uc.updateSettings.execute({ ...ctx, currency: 'usd' })).rejects.toThrow(InvalidValueError);
+  });
+});
+
+describe('cambio de moneda bloqueado (currency_locked)', () => {
+  it('con un artículo activo en otra moneda → currency_locked; inactivo, sí deja', async () => {
+    const tinto = await item('Tinto', 'unit', '2500'); // COP
+    await expect(uc.updateSettings.execute({ ...ctx, currency: 'USD' })).rejects.toThrow(CurrencyLockedError);
+    expect(await uc.getSettings.execute(ctx)).toEqual({ currency: 'COP' });
+    items.rows.get(tinto.id)!.deactivatedAt = new Date();
+    await uc.updateSettings.execute({ ...ctx, currency: 'USD' });
+    expect(await uc.getSettings.execute(ctx)).toEqual({ currency: 'USD' });
+  });
+  it('con una venta abierta → currency_locked; al cerrarla o anularla, sí deja', async () => {
+    const sale = await uc.open(ctx);
+    await expect(uc.updateSettings.execute({ ...ctx, currency: 'USD' })).rejects.toThrow(CurrencyLockedError);
+    await uc.cancel({ ...ctx, saleId: sale.id });
+    await uc.updateSettings.execute({ ...ctx, currency: 'USD' });
+  });
+  it('repetir la moneda vigente nunca se bloquea; ventas de otro local no cuentan', async () => {
+    await uc.open(ctx);
+    await uc.updateSettings.execute({ ...ctx, currency: 'COP' });
+    await uc.updateSettings.execute({ ...ctx, locationId: OTHER_LOC, currency: 'USD' });
   });
 });
 

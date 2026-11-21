@@ -6,7 +6,8 @@ import {
 import type { ActorContext } from '../application/support.js';
 
 // Mismos metadatos que leen los guards globales de core; se declaran aquí para no importar core-api (ADR-002 D1).
-export const RequirePermission = (permission: Permission) => SetMetadata(REQUIRED_PERMISSION_KEY, permission);
+/** Con varios permisos basta uno (los lee `PermissionGuard` de core). */
+export const RequirePermission = (...permissions: [Permission, ...Permission[]]) => SetMetadata(REQUIRED_PERMISSION_KEY, permissions.length === 1 ? permissions[0] : permissions);
 export const RequireModule = (module: ModuleName) => SetMetadata(REQUIRED_MODULE_KEY, module);
 
 /** El actor autenticado que dejó el guard de sesión de core. */

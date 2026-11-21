@@ -149,7 +149,7 @@ const hospitalityReqs = (reqs: Req[]) => reqs.filter((r) => /\/(tables|zones|lay
 
 it('Tablero: «Venta» en la ficha de la mesa abre o recupera su venta (POST links con Idempotency-Key) y lleva a Ventas', async () => {
   const reqs: Req[] = [];
-  const { router } = mount('/demo/app/tablero', barApi(me(['hospitality', 'pos'], ['hospitality.calls.read', 'pos.sales.read', 'pos.sales.operate']), reqs));
+  const { router } = mount('/demo/app/tablero', barApi(me(['hospitality', 'pos'], ['hospitality.calls.read', 'hospitality.tables.link_sale', 'pos.sales.read', 'pos.sales.operate']), reqs));
   fireEvent.click(await screen.findByRole('button', { name: /^Mesa 3: Sin llamados/ }));
   const sheet = await screen.findByRole('region', { name: 'Detalle de Mesa 3' });
   expect(within(sheet).queryByRole('button', { name: 'Marcar en atención' })).toBeNull(); // sin llamado: la venta no depende de él
@@ -162,7 +162,7 @@ it('Tablero: «Venta» en la ficha de la mesa abre o recupera su venta (POST lin
 });
 
 it('Tablero: sin el módulo pos o sin pos.sales.operate no hay «Venta» ni peticiones a POS', async () => {
-  for (const m of [me(['hospitality', 'pos'], ['hospitality.calls.read', 'pos.sales.read']), me(['hospitality'], ['hospitality.calls.read', 'pos.sales.operate'])]) {
+  for (const m of [me(['hospitality', 'pos'], ['hospitality.calls.read', 'hospitality.tables.link_sale', 'pos.sales.read']), me(['hospitality'], ['hospitality.calls.read', 'hospitality.tables.link_sale', 'pos.sales.operate']), me(['hospitality', 'pos'], ['hospitality.calls.read', 'pos.sales.read', 'pos.sales.operate'])]) {
     const reqs: Req[] = [];
     mount('/demo/app/tablero', barApi(m, reqs));
     fireEvent.click(await screen.findByRole('button', { name: /^Mesa 3: Sin llamados/ }));
@@ -175,7 +175,7 @@ it('Tablero: sin el módulo pos o sin pos.sales.operate no hay «Venta» ni peti
 
 it('Ventas «Por mesa»: con Hospitality lista las mesas sin plano publicado y tocar una abre su venta en Vender', async () => {
   const reqs: Req[] = [];
-  const { router } = mount('/demo/app/ventas', barApi(me(['hospitality', 'pos'], ['hospitality.calls.read', 'pos.sales.read', 'pos.sales.operate']), reqs, { layouts: [] }));
+  const { router } = mount('/demo/app/ventas', barApi(me(['hospitality', 'pos'], ['hospitality.tables.link_sale', 'pos.sales.read', 'pos.sales.operate']), reqs, { layouts: [] }));
   fireEvent.click(await screen.findByRole('button', { name: 'Por mesa' }));
   const group = await screen.findByRole('group', { name: 'Salón principal' });
   fireEvent.click(within(group).getByRole('button', { name: 'Mesa 3' }));
@@ -209,8 +209,8 @@ it('Caja sin «Por mesa»: la etiqueta de la venta dice de qué mesa es, en la v
   expect(await screen.findByText('Mesa 3 · 1 artículo · Tarjeta')).toBeTruthy();
 });
 
-it('Ventas «Por mesa»: oculto en un negocio solo POS (sin peticiones a Hospitality) y sin hospitality.calls.read', async () => {
-  for (const m of [me(['pos'], ['pos.sales.read', 'pos.sales.operate', 'hospitality.calls.read']), me(['hospitality', 'pos'], ['pos.sales.read', 'pos.sales.operate'])]) {
+it('Ventas «Por mesa»: oculto en un negocio solo POS (sin peticiones a Hospitality) y sin hospitality.tables.link_sale', async () => {
+  for (const m of [me(['pos'], ['pos.sales.read', 'pos.sales.operate', 'hospitality.tables.link_sale']), me(['hospitality', 'pos'], ['pos.sales.read', 'pos.sales.operate', 'hospitality.calls.read'])]) {
     const reqs: Req[] = [];
     mount('/demo/app/ventas', barApi(m, reqs));
     expect(await screen.findByRole('button', { name: 'Vender' })).toBeTruthy();

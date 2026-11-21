@@ -169,15 +169,27 @@ describe('reglas de la venta por HTTP', () => {
     expect([inactive.status, inactive.body.code]).toEqual([409, 'inactive_entity']);
   });
 
-  it('moneda del local: artículos nuevos la toman; mezclar monedas en una venta 409', async () => {
+  it('moneda del local: la toman los artículos nuevos; con venta abierta o artículos activos en otra moneda → 409 currency_locked', async () => {
     const saleId = result(await t.as(cashier).post(path(service, '/sales'), undefined, key())).sale.id;
+    const locked = await t.as(admin).put(path(service, '/settings'), { currency: 'USD' });
+    expect([locked.status, locked.body.code]).toEqual([409, 'currency_locked']);
+    // Otras pruebas de este local pudieron dejar ventas abiertas: se anulan todas antes de cambiar la moneda.
+    const open = (await t.as(admin).get(path(service, '/sales?status=open&limit=200'))).body as Array<{ id: string }>;
+    expect(open.some((x) => x.id === saleId)).toBe(true);
+    for (const o of open) expect((await t.as(admin).post(path(service, `/sales/${o.id}/void`), undefined, key())).status).toBe(201);
+    const still = await t.as(admin).put(path(service, '/settings'), { currency: 'USD' });
+    expect([still.status, still.body.code]).toEqual([409, 'currency_locked']); // sin ventas, pero con artículos activos en COP
+    for (const i of (await t.as(admin).get(path(service, '/items'))).body as Array<{ id: string; active: boolean }>) {
+      if (i.active) expect((await t.as(admin).post(path(service, `/items/${i.id}/deactivate`))).status).toBe(204);
+    }
     expect(posSettingsSchema.parse((await t.as(admin).put(path(service, '/settings'), { currency: 'USD' })).body)).toEqual({ currency: 'USD' });
     const usd = await item(service, { name: 'Consulting', unit: 'h', price: '50' });
     expect(usd.currency).toBe('USD');
-    const mixed = await t.as(cashier).post(path(service, `/sales/${saleId}/lines`), { sellable_item_id: usd.id, quantity: '1' }, key());
-    expect([mixed.status, mixed.body.code]).toEqual([409, 'currency_mismatch']);
+    const back = await t.as(admin).put(path(service, '/settings'), { currency: 'COP' });
+    expect([back.status, back.body.code]).toEqual([409, 'currency_locked']); // artículo activo en USD
     expect((await t.as(admin).put(path(service, '/settings'), { currency: 'usd' })).status).toBe(400);
-    await t.as(admin).put(path(service, '/settings'), { currency: 'COP' });
+    expect((await t.as(admin).post(path(service, `/items/${usd.id}/deactivate`))).status).toBe(204);
+    expect((await t.as(admin).put(path(service, '/settings'), { currency: 'COP' })).status).toBe(200);
   });
 
   it('catálogo: duplicado 409, edición conserva unidad y moneda, cuerpo inválido 400', async () => {

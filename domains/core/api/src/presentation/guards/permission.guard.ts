@@ -10,13 +10,23 @@ export class PermissionGuard implements CanActivate {
   constructor(@Inject(Authorize) private readonly authorize: Authorize) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const permission = metadataOf<Permission>(REQUIRED_PERMISSION_KEY, context);
-    if (!permission) return true;
+    const required = metadataOf<Permission | Permission[]>(REQUIRED_PERMISSION_KEY, context);
+    if (!required) return true;
     const req = context.switchToHttp().getRequest<HttpRequest>();
     const actor = req[REQUEST_ACTOR_KEY];
     if (!actor) throw new Error('PermissionGuard needs SessionGuard before it');
     const raw = req.params[LOCATION_ID_PARAM];
-    await this.authorize.permission({ actor, permission, ...(raw !== undefined && { locationId: idParamSchema.parse(raw) }) });
+    const locationId = raw !== undefined ? idParamSchema.parse(raw) : undefined;
+    // Varios permisos = cualquiera de ellos; si ninguno vale, falla con el error del último.
+    const options = [required].flat();
+    for (const [i, permission] of options.entries()) {
+      try {
+        await this.authorize.permission({ actor, permission, ...(locationId && { locationId }) });
+        return true;
+      } catch (e) {
+        if (i === options.length - 1) throw e;
+      }
+    }
     return true;
   }
 }
