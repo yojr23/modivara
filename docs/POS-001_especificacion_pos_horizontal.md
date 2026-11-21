@@ -21,14 +21,14 @@ POS no conoce mesas, cartas, meseros, tallas ni tipos de negocio. `domains/pos/a
 | 1 | Agregado `Sale` / `SaleLine`; evento `pos.sale.completed.v1`. | Elegida por el responsable (13/11). |
 | 2 | Cantidad NUMERIC(12,3) > 0. Unidades de medida neutrales: `unit`, `kg`, `g`, `l`, `ml`, `m`, `h`; solo `unit` exige enteros. | Provisional. |
 | 3 | Un solo cobro declarado por venta: `cash`, `card`, `transfer`, `other`. Sin multi-tender. | Provisional. |
-| 4 | Referencias externas: fuera del agregado `Sale`, en `pos.sale_external_links` validado por un adaptador registrado (POS-15, POS-27). | Pendiente de implementar; bloqueado por ADR-006. |
-| 5 | Moneda ISO 4217 por artículo y por venta; deben coincidir. Precio NUMERIC(14,2) ≥ 0. Total = suma de líneas, cada línea `precio × cantidad` redondeada a centésimas, mitad hacia arriba. Sin impuestos ni factura. | Provisional. Todas las monedas con 2 decimales (ver `ponytail:` en `catalog.ts`). |
+| 4 | Referencias externas: fuera del agregado `Sale`, en `pos.sale_external_links` validado por un adaptador registrado (POS-15, POS-27). | Implementado: adaptador del host `apps/api/src/integrations/hospitality-pos.ts`. Vincular una mesa exige `pos.sales.operate` y `hospitality.tables.link_sale` (decisión del responsable, 21/11/2026); cualquier referencia inválida —recurso inexistente, de otro local o negocio, inactivo, proveedor ausente, negocio sin Hospitality o actor sin el permiso— responde el mismo 404 `not_found`, sin revelar existencia. |
+| 5 | Moneda ISO 4217 por artículo y por venta; deben coincidir. Precio NUMERIC(14,2) ≥ 0. Total = suma de líneas, cada línea `precio × cantidad` redondeada a centésimas, mitad hacia arriba. Sin impuestos ni factura. | Solo se admiten monedas de 2 decimales (ver `ponytail:` en `catalog.ts`); monedas de 0 o 3 decimales (CLP, JPY, KWD) quedan fuera de este alcance. |
 | 6 | Producto «Inventario» = dominio técnico `commerce`; no se renombra en esta rama. | Del plan. |
 | 7 | Integración con Core solo por `CoreAccessPort` y `core-contracts`. | Implementado. |
 
 ## 3. Reglas de la venta
 
-- Abrir: local activo del negocio del actor (`CoreAccessPort`); moneda en el comando (`// OPEN:` hasta la configuración por local, POS-09).
+- Abrir: local activo del negocio del actor (`CoreAccessPort`); la moneda es la del local (POS-09), el cliente no la envía.
 - Agregar línea: venta abierta, artículo activo del mismo negocio y local (si no, `not_found`), misma moneda (`currency_mismatch`), cantidad válida para la unidad (`invalid_quantity`).
 - Anular línea: queda guardada con `voidedAt`/`voidedBy` y sale del total.
 - Cerrar: al menos una línea vigente (`empty_sale`), cobro declarado válido; registra `pos.sale.completed.v1` para el outbox. Cerrada o anulada no admite cambios (`sale_not_open`).
@@ -64,7 +64,7 @@ Orden de commits: Core → persistencia → API y host → web y pantalla → ad
 
 **Concurrencia e idempotencia (POS-18).** Cada mutación de venta corre en una transacción con `SELECT … FOR UPDATE` de la venta. `Idempotency-Key` (uuid, header) obligatorio en abrir, agregar línea, anular línea, cerrar y anular venta: `idempotency_keys(organization_id, key, operation, fingerprint, sale_id)`; misma clave y misma petición → 200 con el estado actual (`replayed: true`); misma clave con otra petición → 409 `idempotency_key_reused`.
 
-**Moneda por local (POS-09).** `GET/PUT /locations/:locationId/pos/settings`; sin fila, `COP`. Artículos y ventas toman la moneda del local; el cliente no la envía.
+**Moneda por local (POS-09).** `GET/PUT /locations/:locationId/pos/settings`; sin fila, `COP`. Artículos y ventas toman la moneda del local; el cliente no la envía. Una sola moneda por local y sin conversión: cambiarla responde 409 `currency_locked` si hay artículos activos en otra moneda o ventas abiertas (decisión del responsable, 21/11/2026).
 
 **API (POS-16, POS-17).** Bajo `/api/v1/locations/:locationId/pos/`: `items` (GET, POST), `items/:itemId` (PATCH), `items/:itemId/deactivate` (POST), `settings` (GET, PUT), `sales` (GET con `status`, `limit`, `cursor`; POST), `sales/:saleId` (GET), `sales/:saleId/lines` (POST), `sales/:saleId/lines/:lineId/void`, `sales/:saleId/complete`, `sales/:saleId/void` (POST), `links` (POST). Módulo `pos` en todas; permisos: leer catálogo, ventas y ajustes `pos.sales.read`; gestionar catálogo y ajustes `pos.catalog.manage`; operar y vínculos `pos.sales.operate`; anular venta `pos.sales.void`.
 
