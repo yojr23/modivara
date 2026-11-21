@@ -67,6 +67,76 @@ describe('PrismaSaleStore: ida y vuelta', () => {
   });
 });
 
+describe('atomicidad: un fallo dentro de la transacción no deja nada (INV-07)', () => {
+  /** Cliente que lanza al llamar `modelo.método` dentro de `$transaction` mientras `failAt.point` coincida. */
+  const failing = (failAt: { point: string | null }) =>
+    new Proxy(db, {
+      get(target, prop) {
+        if (prop !== '$transaction') return Reflect.get(target, prop);
+        return (fn: (tx: unknown) => unknown, opts: object) =>
+          target.$transaction(
+            (tx) =>
+              fn(
+                new Proxy(tx, {
+                  get: (t, model: string) => {
+                    const v = Reflect.get(t, model);
+                    if (typeof v !== 'object' || v === null) return typeof v === 'function' ? v.bind(t) : v;
+                    return new Proxy(v, {
+                      get: (m, method: string) => (...args: unknown[]) => {
+                        if (failAt.point === `${model}.${method}`) throw new Error('fallo inducido');
+                        return (m as Record<string, (...a: unknown[]) => unknown>)[method]!(...args);
+                      },
+                    });
+                  },
+                }),
+              ),
+            opts,
+          );
+      },
+    });
+  const rows = async () => ({
+    sales: await db.sale.count(), lines: await db.saleLine.count(), keys: await db.idempotencyKey.count(),
+    links: await db.saleExternalLink.count(), outbox: await db.outboxEvent.count(),
+  });
+
+  it('abrir vinculada: ni venta, ni vínculo, ni clave; el reintento con la misma clave funciona', async () => {
+    const failAt = { point: null as string | null };
+    const w = integrationWorld(failing(failAt) as typeof db);
+    const resourceId = newId();
+    w.validator.known.add(`spot:${resourceId}`);
+    const cmd = { ...w.actor, provider: 'ext', resourceType: 'spot', resourceId, idempotencyKey: newId() };
+    failAt.point = 'idempotencyKey.create'; // después de crear venta y vínculo
+    await expect(w.openLinked.execute(cmd)).rejects.toThrow('fallo inducido');
+    expect(await rows()).toEqual({ sales: 0, lines: 0, keys: 0, links: 0, outbox: 0 });
+    failAt.point = null;
+    expect(await w.openLinked.execute(cmd)).toMatchObject({ replayed: false, sale: { status: 'open' } });
+    expect(await rows()).toMatchObject({ sales: 1, keys: 1, links: 1 });
+  });
+
+  it('cerrar: sin evento, sin clave, venta abierta y vínculo activo; el reintento cierra una sola vez', async () => {
+    const failAt = { point: null as string | null };
+    const w = integrationWorld(failing(failAt) as typeof db);
+    const resourceId = newId();
+    w.validator.known.add(`spot:${resourceId}`);
+    const { sale } = await w.openLinked.execute({ ...w.actor, provider: 'ext', resourceType: 'spot', resourceId, idempotencyKey: newId() });
+    const item = await w.createItem.execute({ ...w.actor, name: 'Tinto', unit: 'unit', price: '2500' });
+    await w.addLine.execute({ ...w.actor, saleId: sale.id, sellableItemId: item.id, quantity: '1', idempotencyKey: newId() });
+    const before = await rows();
+    const cmd = { ...w.actor, saleId: sale.id, paymentMethod: 'cash', idempotencyKey: newId() };
+
+    failAt.point = 'idempotencyKey.create'; // última escritura: ya se actualizó la venta y se insertó el evento
+    await expect(w.complete.execute(cmd)).rejects.toThrow('fallo inducido');
+    expect(await rows()).toEqual(before);
+    expect(await db.sale.findUnique({ where: { id: sale.id } })).toMatchObject({ status: 'open', paymentMethod: null, closedAt: null });
+    expect(await db.saleExternalLink.count({ where: { saleId: sale.id, active: true } })).toBe(1);
+
+    failAt.point = null;
+    expect(await w.complete.execute(cmd)).toMatchObject({ replayed: false, sale: { status: 'completed' } });
+    expect(await db.outboxEvent.count({ where: { aggregateId: sale.id } })).toBe(1);
+    expect((await w.complete.execute(cmd)).replayed).toBe(true);
+  });
+});
+
 describe('aislamiento por negocio y local', () => {
   it('venta o artículo de otro negocio o local no existen', async () => {
     const w = integrationWorld(db);
