@@ -73,7 +73,7 @@ describe('atomicidad: un fallo dentro de la transacción no deja nada (INV-07)',
     new Proxy(db, {
       get(target, prop) {
         if (prop !== '$transaction') return Reflect.get(target, prop);
-        return (fn: (tx: unknown) => unknown, opts: object) =>
+        return (fn: (tx: unknown) => Promise<unknown>, opts: object) =>
           target.$transaction(
             (tx) =>
               fn(
