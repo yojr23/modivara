@@ -1,4 +1,5 @@
 import type { LocationScope, PosSettingsRepository } from '../../application/ports.js';
+import { DEFAULT_CURRENCY } from '../../application/use-cases.js';
 import type { PosPrisma } from './client.js';
 import { lockCurrency } from './db.js';
 
@@ -10,23 +11,18 @@ export class PrismaPosSettingsRepository implements PosSettingsRepository {
     return r?.currency ?? null;
   }
 
-  async saveCurrency({ organizationId, locationId, currency, actorUserId }: LocationScope & { currency: string; actorUserId: string }) {
-    const data = { currency, updatedAt: new Date(), updatedBy: actorUserId };
-    await this.db.locationSettings.upsert({
-      where: { organizationId_locationId: { organizationId, locationId } },
-      create: { organizationId, locationId, ...data },
-      update: data,
-    });
-  }
-
-  /**
-   * ponytail: `fn` usa otras conexiones del pool mientras esta transacción solo guarda el candado; con el pool agotado por altas
-   * esperando el candado fallaría por timeout del pool (no se cuelga). Si hace falta, pasar la transacción a `fn`.
-   */
-  withCurrencyLock<T>({ locationId }: LocationScope, fn: () => Promise<T>): Promise<T> {
+  /** Todo sobre el mismo `tx` que tiene el candado exclusivo: no pide más conexiones al pool mientras espera a las altas. */
+  changeCurrency({ organizationId, locationId, currency, actorUserId }: LocationScope & { currency: string; actorUserId: string }) {
     return this.db.$transaction(async (tx) => {
       await lockCurrency(tx, locationId, 'exclusive');
-      return fn();
+      const key = { organizationId_locationId: { organizationId, locationId } };
+      const current = (await tx.locationSettings.findUnique({ where: key }))?.currency ?? DEFAULT_CURRENCY;
+      if (current !== currency
+        && ((await tx.sellableItem.count({ where: { organizationId, locationId, deactivatedAt: null, currency: { not: currency } } })) > 0
+          || (await tx.sale.count({ where: { organizationId, locationId, status: 'open' } })) > 0)) return 'locked' as const;
+      const data = { currency, updatedAt: new Date(), updatedBy: actorUserId };
+      await tx.locationSettings.upsert({ where: key, create: { organizationId, locationId, ...data }, update: data });
+      return 'ok' as const;
     }, { timeout: 15_000, maxWait: 15_000 });
   }
 }

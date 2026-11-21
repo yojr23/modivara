@@ -80,7 +80,9 @@ export class TestErrorFilter implements ExceptionFilter {
 export async function createPosTestApp() {
   const core = new FakeCore();
   const validator = new FakeReferenceValidator();
-  const repos = { items: new InMemorySellableItems(), sales: new InMemorySales(), settings: new InMemoryPosSettings() };
+  const items = new InMemorySellableItems();
+  const sales = new InMemorySales();
+  const repos = { items, sales, settings: new InMemoryPosSettings(items, sales) };
 
   // Global como lo haría el host: PosModule ve CORE_ACCESS_PORT y los validadores sin importarlos.
   @Global()

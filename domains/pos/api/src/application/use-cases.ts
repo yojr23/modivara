@@ -116,8 +116,6 @@ export class GetPosSettings {
 export class UpdatePosSettings {
   constructor(
     private readonly settings: PosSettingsRepository,
-    private readonly items: SellableItemRepository,
-    private readonly sales: SaleStore,
     private readonly core: CoreAccessPort,
   ) {}
 
@@ -129,15 +127,10 @@ export class UpdatePosSettings {
     await requireLocation(this.core, cmd);
     const currency = requireCurrency(cmd.currency);
     const scope = { organizationId: cmd.organizationId, locationId: cmd.locationId };
-    // Conteos y escritura bajo el candado de moneda: sin él, una venta o artículo en la moneda vieja podría entrar entre ambos.
-    return this.settings.withCurrencyLock(scope, async () => {
-      if ((await locationCurrency(this.settings, cmd)) !== currency
-        && ((await this.items.countActiveOutsideCurrency({ ...scope, currency })) > 0 || (await this.sales.countOpen(scope)) > 0)) {
-        throw new CurrencyLockedError('Currency cannot change while there are active items in another currency or open sales');
-      }
-      await this.settings.saveCurrency({ ...scope, currency, actorUserId: cmd.actorUserId });
-      return { currency };
-    });
+    if (await this.settings.changeCurrency({ ...scope, currency, actorUserId: cmd.actorUserId }) === 'locked') {
+      throw new CurrencyLockedError('Currency cannot change while there are active items in another currency or open sales');
+    }
+    return { currency };
   }
 }
 

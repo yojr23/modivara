@@ -1,10 +1,12 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '@modivara/core-contracts';
 import { CurrencyLockedError, CurrencyMismatchError } from '../../domain/errors.js';
-import type { PosSettingsRepository } from '../../application/ports.js';
 import { UpdatePosSettings } from '../../application/use-cases.js';
 import { integrationWorld, posPrismaForTests, resetPos } from '../../testing/integration.js';
+import type { PosPrisma } from './client.js';
 import { lockCurrency } from './db.js';
+import type { Prisma } from './generated/client.js';
+import { PrismaPosSettingsRepository } from './prisma-pos-settings-repository.js';
 
 // Carrera cambio de moneda vs alta de venta/artículo con barreras reales en PostgreSQL: uno gana, el otro falla, y nunca queda
 // una venta abierta ni un artículo activo en moneda distinta a la del local.
@@ -33,16 +35,26 @@ async function stillPending(p: Promise<unknown>) {
   return (await Promise.race([p.then(() => 'done', () => 'done'), new Promise((r) => setTimeout(() => r(marker), 200))])) === marker;
 }
 
-/** `UpdatePosSettings` que se detiene con el candado ya tomado, antes de contar y escribir. */
-function pausedUpdate(w: ReturnType<typeof integrationWorld>) {
+/**
+ * `UpdatePosSettings` que se detiene con el candado exclusivo ya tomado, antes de leer la moneda vigente: el cliente que ve el
+ * repositorio es una envoltura de `client` cuya transacción espera en `release` justo en esa primera lectura.
+ */
+function pausedUpdate(w: ReturnType<typeof integrationWorld>, client: PosPrisma = db) {
   const entered = deferred();
   const release = deferred();
-  const settings: PosSettingsRepository = {
-    findCurrency: (q) => w.settings.findCurrency(q),
-    saveCurrency: (q) => w.settings.saveCurrency(q),
-    withCurrencyLock: (q, fn) => w.settings.withCurrencyLock(q, async () => { entered.resolve(); await release.promise; return fn(); }),
-  };
-  return { entered, release, update: new UpdatePosSettings(settings, w.items, w.sales, w.core) };
+  const paused = {
+    locationSettings: client.locationSettings,
+    $transaction: (fn: (tx: Prisma.TransactionClient) => Promise<unknown>, opts: object) => client.$transaction((tx) => fn(new Proxy(tx, {
+      get(t, k) {
+        if (k === 'locationSettings') {
+          return { upsert: (a: never) => t.locationSettings.upsert(a), findUnique: async (a: never) => { entered.resolve(); await release.promise; return t.locationSettings.findUnique(a); } };
+        }
+        const v = Reflect.get(t, k, t);
+        return typeof v === 'function' ? v.bind(t) : v;
+      },
+    })), opts),
+  } as unknown as PosPrisma;
+  return { entered, release, update: new UpdatePosSettings(new PrismaPosSettingsRepository(paused), w.core) };
 }
 
 const addItem = (w: ReturnType<typeof integrationWorld>) => w.createItem.execute({ ...w.actor, name: `A ${newId()}`, unit: 'unit', price: '1' });
@@ -98,3 +110,23 @@ it('una carrera repetida sin barreras nunca deja una venta abierta ni un artícu
     expect((await db.sellableItem.findMany({ where: { locationId: w.t.locationId, deactivatedAt: null } })).every((s) => s.currency === currency)).toBe(true);
   }
 });
+
+it('con el pool agotado por altas esperando el candado compartido, el cambio de moneda igual termina (misma conexión)', async () => {
+  const small = posPrismaForTests({ max: 2 });
+  try {
+    const w = integrationWorld(small);
+    const { entered, release, update } = pausedUpdate(w, small);
+    const changing = update.execute({ ...w.actor, currency: 'USD' });
+    await entered.promise; // el cambio ya tiene el candado exclusivo y 1 de las 2 conexiones
+    const outcomes = [addItem(w), openSale(w), addItem(w), openSale(w)].map((p) => p.then(() => null, (e: unknown) => e));
+    await waitBlocked(); // las altas ocupan el resto del pool esperando el candado compartido
+    release.resolve();
+    expect(await changing).toEqual({ currency: 'USD' }); // antes: espera de pool de 15 s
+    for (const o of await Promise.all(outcomes)) expect(o).toBeInstanceOf(CurrencyMismatchError);
+    expect(await db.sale.count({ where: { locationId: w.t.locationId, status: 'open' } })).toBe(0);
+    expect(await db.sellableItem.count({ where: { locationId: w.t.locationId, deactivatedAt: null } })).toBe(0);
+    expect(await w.settings.findCurrency(w.t)).toBe('USD');
+  } finally {
+    await small.$disconnect();
+  }
+}, 10_000);

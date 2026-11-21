@@ -10,7 +10,7 @@ import { FakeCore, FakeReferenceValidator } from './in-memory.js';
 
 export const TEST_POS_DATABASE_URL = 'postgresql://pos_app:test@127.0.0.1:55432/modivara_test?schema=pos';
 
-export const posPrismaForTests = (): PosPrisma => createPosPrisma(TEST_POS_DATABASE_URL);
+export const posPrismaForTests = (pool?: { max?: number }): PosPrisma => createPosPrisma(TEST_POS_DATABASE_URL, pool);
 
 /** Deja el esquema pos vacío entre pruebas (las migraciones ya están aplicadas por el globalSetup). */
 export async function resetPos(prisma: PosPrisma): Promise<void> {
@@ -35,7 +35,7 @@ export function integrationWorld(db: PosPrisma, t: TestTenant = tenant()) {
   return {
     t, actor, core, items, sales, settings, validator,
     createItem: new CreateSellableItem(items, settings, core),
-    updateSettings: new UpdatePosSettings(settings, items, sales, core),
+    updateSettings: new UpdatePosSettings(settings, core),
     openSale: new OpenSale(sales, settings, core),
     openLinked: new OpenLinkedSale(sales, settings, [validator], core),
     getSale: new GetSale(sales, core),

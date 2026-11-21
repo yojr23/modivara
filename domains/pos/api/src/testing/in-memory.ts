@@ -2,6 +2,7 @@ import type { CoreAccessPort, DomainEvent, LocationRef } from '@modivara/core-co
 import type {
   ExternalLink, ExternalReferenceValidator, IdempotencyKey, LocationScope, PosSettingsRepository, SaleStore, ScopedId, SellableItemRepository,
 } from '../application/ports.js';
+import { DEFAULT_CURRENCY } from '../application/use-cases.js';
 import { ConflictError, IdempotencyKeyReusedError, NotFoundError } from '../domain/errors.js';
 import { Sale } from '../domain/sale.js';
 import { SellableItem } from '../domain/sellable-item.js';
@@ -32,9 +33,6 @@ export class InMemorySellableItems implements SellableItemRepository {
   }
   async findActiveBySku(q: LocationScope & { sku: string }) {
     return this.find((p) => inScope(p, q) && p.sku === q.sku);
-  }
-  async countActiveOutsideCurrency(q: LocationScope & { currency: string }) {
-    return [...this.rows.values()].filter((p) => inScope(p, q) && p.deactivatedAt === null && p.currency !== q.currency).length;
   }
   private find(match: (p: ReturnType<SellableItem['toProps']>) => boolean) {
     const p = [...this.rows.values()].find((r) => r.deactivatedAt === null && match(r));
@@ -90,10 +88,6 @@ export class InMemorySales implements SaleStore {
     return l ? this.findById({ id: l.saleId, organizationId: q.organizationId, locationId: q.locationId }) : null;
   }
 
-  async countOpen(q: LocationScope) {
-    return [...this.rows.values()].filter((p) => inScope(p, q) && p.status === 'open').length;
-  }
-
   async list(q: Parameters<SaleStore['list']>[0]) {
     const desc = (a: { openedAt: Date; id: string }, b: { openedAt: Date; id: string }) =>
       b.openedAt.getTime() - a.openedAt.getTime() || (b.id < a.id ? -1 : b.id > a.id ? 1 : 0);
@@ -123,14 +117,16 @@ export class InMemorySales implements SaleStore {
 
 export class InMemoryPosSettings implements PosSettingsRepository {
   readonly rows = new Map<string, string>();
+  constructor(private readonly items: InMemorySellableItems, private readonly sales: InMemorySales) {}
   async findCurrency(q: LocationScope) { return this.rows.get(`${q.organizationId}:${q.locationId}`) ?? null; }
-  async saveCurrency(q: LocationScope & { currency: string }) { this.rows.set(`${q.organizationId}:${q.locationId}`, q.currency); }
-  /** Cola por local: una sola sección a la vez, como el candado exclusivo (las altas en memoria no compiten, así que no lo toman). */
-  private readonly tails = new Map<string, Promise<unknown>>();
-  withCurrencyLock<T>(q: LocationScope, fn: () => Promise<T>): Promise<T> {
-    const run = (this.tails.get(q.locationId) ?? Promise.resolve()).then(fn, fn);
-    this.tails.set(q.locationId, run.catch(() => undefined));
-    return run;
+  /** Sin await entre el chequeo y la escritura, así que es atómico (las altas en memoria no necesitan candado). */
+  async changeCurrency(q: LocationScope & { currency: string }) {
+    const current = (await this.findCurrency(q)) ?? DEFAULT_CURRENCY;
+    if (current !== q.currency
+      && ([...this.items.rows.values()].some((p) => inScope(p, q) && p.deactivatedAt === null && p.currency !== q.currency)
+        || [...this.sales.rows.values()].some((p) => inScope(p, q) && p.status === 'open'))) return 'locked';
+    this.rows.set(`${q.organizationId}:${q.locationId}`, q.currency);
+    return 'ok';
   }
 }
 

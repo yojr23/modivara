@@ -44,7 +44,7 @@ const useCases = [
   [UpdateSellableItem, [ITEMS, CORE]],
   [DeactivateSellableItem, [ITEMS, CORE]],
   [GetPosSettings, [SETTINGS, CORE]],
-  [UpdatePosSettings, [SETTINGS, ITEMS, SALES, CORE]],
+  [UpdatePosSettings, [SETTINGS, CORE]],
   [OpenSale, [SALES, SETTINGS, CORE]],
   [GetSale, [SALES, CORE]],
   [ListSales, [SALES, CORE]],

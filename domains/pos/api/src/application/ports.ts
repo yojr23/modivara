@@ -24,7 +24,7 @@ export interface SellableItemRepository {
   /** Nombre o SKU repetido entre activos del local → `ConflictError` (lo garantiza la base, no una lectura previa). */
   save(item: SellableItem): Promise<void>;
   /**
-   * Alta de un artículo: como `save`, pero bajo el candado de moneda del local (ver `PosSettingsRepository.withCurrencyLock`);
+   * Alta de un artículo: como `save`, pero bajo el candado de moneda del local (ver `PosSettingsRepository.changeCurrency`);
    * si la moneda vigente del local ya no es la del artículo → `CurrencyMismatchError`.
    */
   add(item: SellableItem): Promise<void>;
@@ -34,8 +34,6 @@ export interface SellableItemRepository {
   /** Sin distinguir mayúsculas, solo activos. */
   findActiveByName(query: LocationScope & { name: string }): Promise<SellableItem | null>;
   findActiveBySku(query: LocationScope & { sku: string }): Promise<SellableItem | null>;
-  /** Artículos activos del local cuya moneda no es `currency` (bloquea cambiar la moneda del local). */
-  countActiveOutsideCurrency(query: LocationScope & { currency: string }): Promise<number>;
 }
 
 /** Clave de idempotencia de una mutación: `fingerprint` resume la petición para detectar reusos con otro cuerpo. */
@@ -82,8 +80,6 @@ export interface SaleStore {
   findReplay(query: LocationScope, idem: IdempotencyKey): Promise<SaleWrite | null>;
   findById(query: ScopedId): Promise<Sale | null>;
   findByActiveLink(query: LocationScope & ExternalLink): Promise<Sale | null>;
-  /** Ventas abiertas del local (bloquean cambiar la moneda). */
-  countOpen(query: LocationScope): Promise<number>;
   /** Más recientes primero por (opened_at desc, id desc); `after` = cursor de la última fila de la página anterior. */
   list(query: LocationScope & { status?: SaleStatus; limit: number; after?: { openedAt: Date; id: string } }): Promise<Sale[]>;
 }
@@ -91,13 +87,13 @@ export interface SaleStore {
 /** Moneda por local (POS-09); sin fila, el caso de uso aplica la moneda por defecto. */
 export interface PosSettingsRepository {
   findCurrency(query: LocationScope): Promise<string | null>;
-  saveCurrency(query: LocationScope & { currency: string; actorUserId: string }): Promise<void>;
   /**
-   * Ejecuta `fn` con el candado de moneda del local tomado en exclusiva. Quien crea una venta o un artículo (`SaleStore.open`,
-   * `SellableItemRepository.add`) toma el mismo candado en compartido y relee la moneda vigente dentro de su transacción, así que
-   * mientras `fn` cuenta artículos/ventas y escribe la moneda no puede entrar nada nuevo en otra moneda: uno gana y el otro falla.
+   * Cambia la moneda del local con el candado de moneda tomado en exclusiva y todo (moneda vigente, conteos, escritura) en la misma
+   * transacción. Quien crea una venta o un artículo (`SaleStore.open`, `SellableItemRepository.add`) toma el mismo candado en
+   * compartido y relee la moneda vigente, así que uno gana y el otro falla. Con artículos activos en otra moneda o ventas abiertas
+   * (y moneda distinta de la vigente) no escribe y devuelve `'locked'`.
    */
-  withCurrencyLock<T>(query: LocationScope, fn: () => Promise<T>): Promise<T>;
+  changeCurrency(query: LocationScope & { currency: string; actorUserId: string }): Promise<'ok' | 'locked'>;
 }
 
 /**

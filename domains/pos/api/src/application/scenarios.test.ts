@@ -32,7 +32,7 @@ function wire() {
     updateItem: new UpdateSellableItem(items, core),
     listItems: new ListSellableItems(items, core),
     getSettings: new GetPosSettings(settings, core),
-    updateSettings: new UpdatePosSettings(settings, items, sales, core),
+    updateSettings: new UpdatePosSettings(settings, core),
     openLinked: new OpenLinkedSale(sales, settings, [validator], core),
     listSales: new ListSales(sales, core),
     openSale, addLine, voidLine, complete, voidSale,
@@ -50,7 +50,7 @@ beforeEach(() => {
   core.add({ id: OTHER_LOC, organizationId: ORG });
   items = new InMemorySellableItems();
   sales = new InMemorySales();
-  settings = new InMemoryPosSettings();
+  settings = new InMemoryPosSettings(items, sales);
   validator = new FakeReferenceValidator();
   uc = wire();
 });

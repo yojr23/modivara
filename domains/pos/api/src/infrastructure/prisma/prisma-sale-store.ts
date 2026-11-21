@@ -152,10 +152,6 @@ export class PrismaSaleStore implements SaleStore {
     return link && load(this.db, { id: link.saleId, organizationId, locationId });
   }
 
-  countOpen({ organizationId, locationId }: LocationScope) {
-    return this.db.sale.count({ where: { organizationId, locationId, status: 'open' } });
-  }
-
   /** `opened_at` lo escribe la app con `new Date()` (precisión de ms, igual que el cursor): el keyset no pierde ni repite filas. */
   async list({ organizationId, locationId, status, limit, after }: Parameters<SaleStore['list']>[0]) {
     const rows = await this.db.sale.findMany({
