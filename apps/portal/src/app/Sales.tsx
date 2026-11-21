@@ -310,7 +310,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
         <div className="mb-2 flex shrink-0 items-baseline justify-between gap-2">
           <div>
             <h2 id="ticket-h" className="text-lg font-bold">Venta en curso</h2>
-            {sale && <p className="flex min-w-0 text-sm text-muted">{sale.context_label && <span title={sale.context_label} className="truncate font-semibold text-fg">{sale.context_label} · </span>}<span className="shrink-0">Abierta {fmtWhen(sale.opened_at, tz)}</span></p>}
+            {sale && <div className="min-w-0 text-sm text-muted">{sale.context_label && <p title={sale.context_label} className="truncate font-semibold text-fg">{sale.context_label}</p>}<p>Abierta {fmtWhen(sale.opened_at, tz)}</p></div>}
           </div>
           <Button size="sm" variant="ghost" disabled={busy || unresolved} onClick={() => void newSale()}><Plus aria-hidden className="size-4" />Nueva venta</Button>
         </div>

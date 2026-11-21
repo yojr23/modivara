@@ -182,7 +182,7 @@ it('Ventas «Por mesa»: con Hospitality lista las mesas sin plano publicado y t
   await waitFor(() => expect(router.state.location.search).toBe(`?venta=${SALE}`));
   expect(screen.getByRole('button', { name: 'Vender' }).getAttribute('aria-pressed')).toBe('true');
   expect(await screen.findByText('Toca un artículo para agregarlo.')).toBeTruthy(); // la venta de la mesa quedó en curso
-  expect(within(screen.getByRole('complementary', { name: 'Venta en curso' })).getByText('Mesa 3 ·')).toBeTruthy();
+  expect(within(screen.getByRole('complementary', { name: 'Venta en curso' })).getByText('Mesa 3')).toBeTruthy();
   const posts = reqs.filter((r) => r.method === 'POST');
   expect(posts.map((r) => [r.url, r.body])).toEqual([[`/api/v1/locations/${L}/pos/links`, { provider: 'hospitality', resource_type: 'table', resource_id: T }]]);
   expect(posts[0]!.key).toMatch(/^[0-9a-f-]{36}$/);
@@ -202,7 +202,7 @@ it('Caja sin «Por mesa»: la etiqueta de la venta dice de qué mesa es, en la v
     return json([]);
   });
   const ticket = await screen.findByRole('complementary', { name: 'Venta en curso' });
-  expect(await within(ticket).findByText('Mesa 3 ·')).toBeTruthy(); // encabezado de la venta en curso
+  expect(await within(ticket).findByText('Mesa 3')).toBeTruthy(); // encabezado de la venta en curso
   const openGroup = await within(ticket).findByRole('group', { name: 'Ventas abiertas' });
   expect(within(openGroup).getByRole('button', { name: /Mesa 7 · .* · 0 artículos/ })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Historial' }));
