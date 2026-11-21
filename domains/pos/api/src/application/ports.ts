@@ -1,3 +1,4 @@
+import type { RequestActor } from '@modivara/core-contracts';
 import type { SaleStatus } from '@modivara/pos-contracts';
 import type { Sale } from '../domain/sale.js';
 import type { SellableItem } from '../domain/sellable-item.js';
@@ -28,6 +29,8 @@ export interface SellableItemRepository {
   /** Sin distinguir mayúsculas, solo activos. */
   findActiveByName(query: LocationScope & { name: string }): Promise<SellableItem | null>;
   findActiveBySku(query: LocationScope & { sku: string }): Promise<SellableItem | null>;
+  /** Artículos activos del local cuya moneda no es `currency` (bloquea cambiar la moneda del local). */
+  countActiveOutsideCurrency(query: LocationScope & { currency: string }): Promise<number>;
 }
 
 /** Clave de idempotencia de una mutación: `fingerprint` resume la petición para detectar reusos con otro cuerpo. */
@@ -73,6 +76,8 @@ export interface SaleStore {
   findReplay(query: LocationScope, idem: IdempotencyKey): Promise<SaleWrite | null>;
   findById(query: ScopedId): Promise<Sale | null>;
   findByActiveLink(query: LocationScope & ExternalLink): Promise<Sale | null>;
+  /** Ventas abiertas del local (bloquean cambiar la moneda). */
+  countOpen(query: LocationScope): Promise<number>;
   /** Más recientes primero por (opened_at desc, id desc); `after` = cursor de la última fila de la página anterior. */
   list(query: LocationScope & { status?: SaleStatus; limit: number; after?: { openedAt: Date; id: string } }): Promise<Sale[]>;
 }
@@ -90,5 +95,5 @@ export interface PosSettingsRepository {
  */
 export interface ExternalReferenceValidator {
   readonly provider: string;
-  validate(ctx: PosContext, resourceType: string, resourceId: string): Promise<string | null>;
+  validate(ctx: PosContext, resourceType: string, resourceId: string, actor?: RequestActor): Promise<string | null>;
 }

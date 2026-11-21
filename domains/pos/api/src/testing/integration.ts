@@ -35,7 +35,7 @@ export function integrationWorld(db: PosPrisma, t: TestTenant = tenant()) {
   return {
     t, actor, core, items, sales, settings, validator,
     createItem: new CreateSellableItem(items, settings, core),
-    updateSettings: new UpdatePosSettings(settings, core),
+    updateSettings: new UpdatePosSettings(settings, items, sales, core),
     openSale: new OpenSale(sales, settings, core),
     openLinked: new OpenLinkedSale(sales, settings, [validator], core),
     getSale: new GetSale(sales, core),

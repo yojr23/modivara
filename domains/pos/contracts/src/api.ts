@@ -37,6 +37,7 @@ export const POS_ERROR_CODES = {
   saleNotOpen: 'sale_not_open',
   emptySale: 'empty_sale',
   currencyMismatch: 'currency_mismatch',
+  currencyLocked: 'currency_locked',
   invalidQuantity: 'invalid_quantity',
   invalidValue: 'invalid_value',
   inactiveEntity: 'inactive_entity',

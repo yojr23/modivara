@@ -1,7 +1,7 @@
 import { Catch, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
 import type { DomainError } from '@modivara/core-contracts';
 import {
-  ConflictError, CurrencyMismatchError, EmptySaleError, IdempotencyKeyReusedError, InactiveEntityError, InvalidQuantityError, InvalidValueError,
+  ConflictError, CurrencyLockedError, CurrencyMismatchError, EmptySaleError, IdempotencyKeyReusedError, InactiveEntityError, InvalidQuantityError, InvalidValueError,
   SaleNotOpenError,
 } from '../domain/errors.js';
 
@@ -15,12 +15,13 @@ const STATUS: Record<string, number> = {
   sale_not_open: 409,
   empty_sale: 409,
   currency_mismatch: 409,
+  currency_locked: 409,
   idempotency_key_reused: 409,
   conflict: 409,
 };
 
 @Catch(
-  InvalidValueError, InvalidQuantityError, InactiveEntityError, SaleNotOpenError, EmptySaleError, CurrencyMismatchError, IdempotencyKeyReusedError,
+  InvalidValueError, InvalidQuantityError, InactiveEntityError, SaleNotOpenError, EmptySaleError, CurrencyMismatchError, CurrencyLockedError, IdempotencyKeyReusedError,
   ConflictError,
 )
 export class PosErrorFilter implements ExceptionFilter {

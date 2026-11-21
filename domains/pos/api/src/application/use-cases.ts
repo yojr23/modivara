@@ -1,6 +1,6 @@
 import { CONTEXT_LABEL_MAX, type SaleStatus } from '@modivara/pos-contracts';
-import { type CoreAccessPort, findActiveLocation, newId } from '@modivara/core-contracts';
-import { ConflictError, InvalidValueError, LocationUnavailableError, NotFoundError } from '../domain/errors.js';
+import { type CoreAccessPort, findActiveLocation, newId, type RequestActor } from '@modivara/core-contracts';
+import { ConflictError, CurrencyLockedError, InvalidValueError, LocationUnavailableError, NotFoundError } from '../domain/errors.js';
 import { Sale } from '../domain/sale.js';
 import { type CreateSellableItemInput, SellableItem } from '../domain/sellable-item.js';
 import { requireCurrency } from '../domain/values.js';
@@ -114,11 +114,25 @@ export class GetPosSettings {
 
 /** Cambiar la moneda no toca artículos ni ventas ya creados: los nuevos toman la nueva y mezclarlas da `currency_mismatch`. */
 export class UpdatePosSettings {
-  constructor(private readonly settings: PosSettingsRepository, private readonly core: CoreAccessPort) {}
+  constructor(
+    private readonly settings: PosSettingsRepository,
+    private readonly items: SellableItemRepository,
+    private readonly sales: SaleStore,
+    private readonly core: CoreAccessPort,
+  ) {}
 
+  /**
+   * Una moneda por local, sin conversión: cambiarla con artículos activos en otra moneda o ventas abiertas → `currency_locked` (409).
+   * Solo monedas de 2 decimales (el dinero se guarda en centésimas); no se valida contra la lista ISO, solo el formato de 3 letras.
+   */
   async execute(cmd: PosContext & { currency: string }): Promise<{ currency: string }> {
     await requireLocation(this.core, cmd);
     const currency = requireCurrency(cmd.currency);
+    const scope = { organizationId: cmd.organizationId, locationId: cmd.locationId };
+    if ((await locationCurrency(this.settings, cmd)) !== currency
+      && ((await this.items.countActiveOutsideCurrency({ ...scope, currency })) > 0 || (await this.sales.countOpen(scope)) > 0)) {
+      throw new CurrencyLockedError('Currency cannot change while there are active items in another currency or open sales');
+    }
     await this.settings.saveCurrency({ organizationId: cmd.organizationId, locationId: cmd.locationId, currency, actorUserId: cmd.actorUserId });
     return { currency };
   }
@@ -154,7 +168,7 @@ export class OpenLinkedSale {
     private readonly core: CoreAccessPort,
   ) {}
 
-  async execute(cmd: PosContext & { provider: string; resourceType: string; resourceId: string; idempotencyKey: string }): Promise<SaleWrite> {
+  async execute(cmd: PosContext & { provider: string; resourceType: string; resourceId: string; idempotencyKey: string; actor?: RequestActor }): Promise<SaleWrite> {
     await requireLocation(this.core, cmd);
     const link = { provider: cmd.provider, resourceType: cmd.resourceType, resourceId: cmd.resourceId };
     const idem = idempotency(cmd.idempotencyKey, 'open_linked_sale', cmd, link);
@@ -162,7 +176,7 @@ export class OpenLinkedSale {
     const replay = await this.sales.findReplay(cmd, idem);
     if (replay) return replay;
     const validator = this.validators.find((v) => v.provider === cmd.provider);
-    const label = validator && UUID.test(cmd.resourceId) ? await validator.validate(cmd, cmd.resourceType, cmd.resourceId) : null;
+    const label = validator && UUID.test(cmd.resourceId) ? await validator.validate(cmd, cmd.resourceType, cmd.resourceId, cmd.actor) : null;
     if (label === null) throw new NotFoundError('External resource');
     const currency = await locationCurrency(this.settings, cmd);
     const contextLabel = label.trim().slice(0, CONTEXT_LABEL_MAX) || null;

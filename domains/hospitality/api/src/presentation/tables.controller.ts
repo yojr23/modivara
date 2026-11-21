@@ -21,9 +21,9 @@ export class TablesController {
     @Inject(DeactivateTable) private readonly deactivate: DeactivateTable,
   ) {}
 
-  // Leer mesas también con `calls.read`: el tablero del personal necesita sus nombres. Modificar sigue exigiendo tables.manage.
+  // Leer mesas también con `calls.read` o `link_sale` (la caja elige la mesa a vincular): el tablero del personal necesita sus nombres. Modificar sigue exigiendo tables.manage.
   @Get(P.tables)
-  @RequirePermission('hospitality.calls.read')
+  @RequirePermission('hospitality.calls.read', 'hospitality.tables.link_sale')
   async index(@CurrentActor() actor: RequestActor, @Param('locationId') locationId: string): Promise<TableDto[]> {
     return (await this.list.execute(contextOf(actor, locationId))).map(toDto);
   }

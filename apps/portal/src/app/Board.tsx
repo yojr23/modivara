@@ -115,7 +115,7 @@ function useBoard() {
     loading: layouts.isPending || tables.isPending || calls.isPending,
     layoutsError: layouts.error, callsError: calls.error,
     retry: () => { void layouts.refetch(); void calls.refetch(); void tables.refetch(); void zones.refetch(); },
-    canSell: me.modules.includes('pos') && can('pos.sales.operate'), sale,
+    canSell: me.modules.includes('pos') && can('pos.sales.operate') && can('hospitality.tables.link_sale'), sale,
     canAck: can('hospitality.calls.acknowledge'), canComplete: can('hospitality.calls.complete'), canEdit: can('hospitality.tables.manage'),
     pending: queue.filter((c) => c.status === 'pending'),
     attending: queue.filter((c) => c.status === 'in_progress'),

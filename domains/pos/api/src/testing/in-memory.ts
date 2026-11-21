@@ -32,6 +32,9 @@ export class InMemorySellableItems implements SellableItemRepository {
   async findActiveBySku(q: LocationScope & { sku: string }) {
     return this.find((p) => inScope(p, q) && p.sku === q.sku);
   }
+  async countActiveOutsideCurrency(q: LocationScope & { currency: string }) {
+    return [...this.rows.values()].filter((p) => inScope(p, q) && p.deactivatedAt === null && p.currency !== q.currency).length;
+  }
   private find(match: (p: ReturnType<SellableItem['toProps']>) => boolean) {
     const p = [...this.rows.values()].find((r) => r.deactivatedAt === null && match(r));
     return p ? SellableItem.restore(p) : null;
@@ -84,6 +87,10 @@ export class InMemorySales implements SaleStore {
   async findByActiveLink(q: LocationScope & ExternalLink) {
     const l = this.links.find((x) => x.active && inScope(x, q) && x.provider === q.provider && x.resourceType === q.resourceType && x.resourceId === q.resourceId);
     return l ? this.findById({ id: l.saleId, organizationId: q.organizationId, locationId: q.locationId }) : null;
+  }
+
+  async countOpen(q: LocationScope) {
+    return [...this.rows.values()].filter((p) => inScope(p, q) && p.status === 'open').length;
   }
 
   async list(q: Parameters<SaleStore['list']>[0]) {

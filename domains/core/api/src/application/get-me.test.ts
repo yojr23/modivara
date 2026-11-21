@@ -18,7 +18,7 @@ it('solo hospitality: sin permisos de commerce ni analytics', async () => {
   const me = await getMe.execute({ actor: w.actorOf(await w.addUser(w.sol, 'duena', { isOwner: true })) });
   expect(me.modules).toEqual(['hospitality']);
   expect(me.locations[0]!.permissions).toEqual([
-    'core.users.manage', 'hospitality.tables.manage', 'hospitality.calls.read', 'hospitality.calls.acknowledge',
+    'core.users.manage', 'hospitality.tables.manage', 'hospitality.tables.link_sale', 'hospitality.calls.read', 'hospitality.calls.acknowledge',
     'hospitality.calls.complete', 'hospitality.devices.status',
   ]);
 });
@@ -54,8 +54,8 @@ it('superadmin actuando sobre un negocio conserva platform.* y pierde los módul
 it('cajero: permisos de pos solo si el negocio tiene pos', async () => {
   const sin = await solWith(['hospitality', 'commerce', 'analytics']);
   const caja = await sin.getMe.execute({ actor: sin.w.actorOf(await sin.w.addUser(sin.w.sol, 'caja', { roles: ['cashier'], location: sin.w.solCenter })) });
-  expect(caja.locations[0]!.permissions).toEqual([]);
+  expect(caja.locations[0]!.permissions).toEqual(['hospitality.tables.link_sale']); // sin pos no vende; el permiso de mesa es de Hospitality
   const con = await solWith(['pos']);
   const caja2 = await con.getMe.execute({ actor: con.w.actorOf(await con.w.addUser(con.w.sol, 'caja', { roles: ['cashier'], location: con.w.solCenter })) });
-  expect(caja2.locations[0]!.permissions).toEqual(['pos.sales.operate', 'pos.sales.read']);
+  expect(caja2.locations[0]!.permissions).toEqual(['pos.sales.operate', 'pos.sales.read']); // sin Hospitality no hay link_sale (POS-only no vincula)
 });

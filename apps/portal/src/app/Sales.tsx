@@ -58,6 +58,7 @@ function useIntent() {
 function errorText(e: unknown): string {
   switch (posErrorState(e)) {
     case 'empty_sale': return 'La venta no tiene artículos vigentes.';
+    case 'currency_locked': return 'No se puede cambiar la moneda: hay artículos activos en otra moneda o ventas abiertas. Desactiva esos artículos o cierra las ventas y vuelve a intentar.';
     case 'currency_mismatch': return 'Ese artículo tiene otra moneda que la venta. Revisa la moneda del local en Catálogo.';
     case 'invalid_quantity': return 'La cantidad no vale para la unidad del artículo.';
     case 'inactive_entity': case 'not_found': return 'Ese artículo o la venta ya no están disponibles. Se actualizó la lista.';
@@ -486,7 +487,7 @@ function CurrencySetting({ toast }: { toast: Toast }) {
   return (
     <section aria-labelledby="currency-h" className="max-w-md">
       <h2 id="currency-h" className="mb-1 text-lg font-bold">Moneda del local</h2>
-      <p className="mb-3 text-sm text-muted">Los artículos y las ventas nuevas la usan. Los artículos ya creados conservan la suya y no se pueden vender en ventas de otra moneda.</p>
+      <p className="mb-3 text-sm text-muted">Una sola moneda por local, sin conversión. Solo cambia si no hay ventas abiertas ni artículos activos en otra moneda (solo monedas de 2 decimales).</p>
       {q.isPending ? <Bone className="h-11 w-48" /> : q.isError ? <ErrorState what="la moneda" error={q.error} onRetry={() => void q.refetch()} /> : (
         <form onSubmit={submit} className="flex gap-2" noValidate>
           <input aria-label="Moneda (código ISO 4217)" list="pos-currencies" value={current} maxLength={3} onChange={(e) => { setValue(e.target.value.toUpperCase()); setError(''); }} className={cn(input, 'w-28 uppercase')} />
@@ -618,10 +619,8 @@ export default function Sales() {
   const [, setParams] = useSearchParams();
   const views = ([
     ['vender', 'Vender', can('pos.sales.operate')],
-    // Composición: solo si el negocio también tiene Hospitality y el rol puede leer sus mesas. Caja (solo pos.sales.*) no la ve:
-    // reconoce la mesa de cada venta por `context_label`.
-    // OPEN: ¿dar «Por mesa» al rol Caja (p. ej. hospitality.calls.read o un permiso de solo lectura de mesas)?
-    ['mesas', 'Por mesa', can('pos.sales.operate') && me.modules.includes('hospitality') && can('hospitality.calls.read')],
+    // Composición: solo si el negocio tiene Hospitality (sin él /me no entrega hospitality.*) y el rol puede vincular ventas a mesas (caja y admin).
+    ['mesas', 'Por mesa', can('pos.sales.operate') && me.modules.includes('hospitality') && can('hospitality.tables.link_sale')],
     ['catalogo', 'Catálogo', can('pos.catalog.manage')],
     ['historial', 'Historial', true],
   ] as [View, string, boolean][]).filter((v) => v[2]).map(([v, text]) => [v, text] as const);

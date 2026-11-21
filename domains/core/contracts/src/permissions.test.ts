@@ -26,7 +26,8 @@ describe('permissionsFor', () => {
 
   it('cashier opera y consulta ventas pero no anula ni gestiona el catálogo', () => {
     const p = permissionsFor(['cashier'], plain);
-    expect([...p].sort()).toEqual(['pos.sales.operate', 'pos.sales.read']);
+    expect([...p].sort()).toEqual(['hospitality.tables.link_sale', 'pos.sales.operate', 'pos.sales.read']);
+    expect(p.has('hospitality.calls.read')).toBe(false);
   });
 
   it('staff e inventory no reciben permisos de POS', () => {

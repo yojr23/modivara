@@ -56,6 +56,16 @@ describe('F2-05 zonas y mesas', () => {
     expect((await t.as(adminNoModule).get(`${base}/tables`)).body).toMatchObject({ code: 'module_disabled' });
   });
 
+  it('la caja (solo hospitality.tables.link_sale) lee mesas y zonas; nada más de Hospitality', async () => {
+    const caja: TestCaller = { ...staff, permissions: { [locA1]: ['pos.sales.operate', 'hospitality.tables.link_sale'] } };
+    expect((await t.as(caja).get(`${base}/tables`)).status).toBe(200);
+    expect((await t.as(caja).get(`${base}/zones`)).status).toBe(200);
+    expect((await t.as(caja).post(`${base}/tables`, { label: '9' })).status).toBe(403);
+    expect((await t.as(caja).get(`${base}/layouts`)).status).toBe(403);
+    expect((await t.as(caja).get(`${base}/device-status`)).status).toBe(403);
+    expect((await t.as(caja).get(`${base}/service-calls`)).status).toBe(403);
+  });
+
   it('el mismo número en zonas distintas es válido; en la misma zona es 409', async () => {
     const a = zoneSchema.parse((await t.as(admin).post(`${base}/zones`, { name: 'Piso A' })).body);
     const b = zoneSchema.parse((await t.as(admin).post(`${base}/zones`, { name: 'Piso B' })).body);

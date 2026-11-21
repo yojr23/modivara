@@ -48,7 +48,7 @@ it('los 409 de la venta se tipifican por su code y no se confunden con el confli
   expect(e.name).toBe('ApiRequestError');
   expect(toPosErrorState(e)).toBe('sale_not_open');
   expect(toErrorState(e)).toBe('conflict');
-  for (const code of ['empty_sale', 'idempotency_key_reused', 'currency_mismatch']) {
+  for (const code of ['empty_sale', 'idempotency_key_reused', 'currency_mismatch', 'currency_locked']) {
     stub(json({ code }, 409));
     expect(toPosErrorState(await posApi.voidSale(L, S).catch((x) => x))).toBe(code);
   }

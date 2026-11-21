@@ -38,6 +38,10 @@ export class PrismaSellableItemRepository implements SellableItemRepository {
     return r && toDomain(r);
   }
 
+  countActiveOutsideCurrency({ organizationId, locationId, currency }: LocationScope & { currency: string }) {
+    return this.db.sellableItem.count({ where: { organizationId, locationId, deactivatedAt: null, currency: { not: currency } } });
+  }
+
   /** Los índices únicos parciales deciden: dos altas simultáneas con el mismo nombre dan una `ConflictError`. */
   async save(item: SellableItem) {
     const p = item.toProps();
