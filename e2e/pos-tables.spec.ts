@@ -83,9 +83,9 @@ test('la venta de la mesa: tablero, «Por mesa» en celular y Caja llegan a la m
   const cashier = await pageAs(browser, [...CAJA]);
   await cashier.goto(`/bar-demo/app/ventas?venta=${saleId}`);
   await expect(cashier.getByRole('navigation', { name: 'Módulos' }).first().getByRole('link')).toHaveText(['Ventas']);
-  await expect(cashier.getByRole('group', { name: 'Vista' }).getByRole('button')).toHaveText(['Vender', 'Historial']);
+  await expect(cashier.getByRole('group', { name: 'Vista' }).getByRole('button')).toHaveText(['Vender', 'Por mesa', 'Historial']); // Caja tiene hospitality.tables.link_sale (21/11)
   await expect(ticket(cashier).getByRole('listitem')).toHaveCount(2);
-  await expect(ticket(cashier).getByText(new RegExp(`${TABLE} ·`)).first()).toBeVisible(); // sin «Por mesa», Caja sabe de qué mesa es
+  await expect(ticket(cashier).getByText(new RegExp(`${TABLE} ·`)).first()).toBeVisible(); // la venta dice de qué mesa es
   await ticket(cashier).getByLabel('Medio de pago').selectOption({ label: 'Efectivo' });
   await ticket(cashier).getByRole('button', { name: /^Cobrar .*27\.000/ }).click();
   await expect(cashier.getByText('Venta registrada (cobro declarado): ')).toContainText('27.000 en efectivo');
