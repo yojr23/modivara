@@ -1,6 +1,6 @@
 import { Inject, Logger, Module, Optional, type DynamicModule, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import {
-  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, OutboxPoller, outboxOptionsFromEnv, readOutboxHistory, type EventHistoryReader, type IntegrationEventSubscriber, type OutboxPollerOptions,
+  CORE_ACCESS_PORT, INTEGRATION_EVENT_SUBSCRIBERS, type CoreAccessPort, OutboxPoller, outboxOptionsFromEnv, readOutboxHistory, type EventHistoryReader, type IntegrationEventSubscriber, type OutboxPollerOptions,
 } from '@modivara/core-contracts';
 import { COMMERCE_EVENT_HISTORY } from '@modivara/commerce-contracts';
 import {
@@ -16,7 +16,7 @@ import { CatalogController, LocationCreatedSubscriber, ReasonsController, StockC
 
 // Tokens de inyección de los puertos (strings: no dependen de identidad de clase ni de módulos duplicados).
 export const COMMERCE_PRISMA = 'COMMERCE_PRISMA';
-/** Suscriptor a `core.location.created`; el host lo registra bajo INTEGRATION_EVENT_SUBSCRIBERS. */
+/** Suscriptor a `core.location.created` y `core.module.enabled`; el host lo registra bajo INTEGRATION_EVENT_SUBSCRIBERS. */
 export const COMMERCE_EVENT_SUBSCRIBER = 'COMMERCE_EVENT_SUBSCRIBER';
 /** Poller del outbox propio (para `tick()` en pruebas y el comando de reintento). */
 export const COMMERCE_OUTBOX = 'COMMERCE_OUTBOX';
@@ -98,8 +98,8 @@ export class CommerceModule implements OnModuleInit, OnModuleDestroy {
         { provide: COMMERCE_EVENT_HISTORY, inject: [COMMERCE_PRISMA], useFactory: (p: CommercePrisma): EventHistoryReader => ({ read: () => readOutboxHistory(p) }) },
         {
           provide: COMMERCE_EVENT_SUBSCRIBER,
-          inject: [SeedMovementReasons, EnsureDefaultStockLocation],
-          useFactory: (s: SeedMovementReasons, e: EnsureDefaultStockLocation) => new LocationCreatedSubscriber(s, e),
+          inject: [SeedMovementReasons, EnsureDefaultStockLocation, CORE],
+          useFactory: (s: SeedMovementReasons, e: EnsureDefaultStockLocation, c: CoreAccessPort) => new LocationCreatedSubscriber(s, e, c),
         },
         ...useCases.map(([useCase, deps]) => ({
           provide: useCase,

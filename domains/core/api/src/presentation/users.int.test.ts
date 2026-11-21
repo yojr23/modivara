@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { userResponseSchema, usersResponseSchema } from '@modivara/core-contracts';
-import { CreateUser, SetLocationRoles, type ActorContext } from '../application/index.js';
+import { CreateUser, ProvisionOrganization, SetLocationRoles, type ActorContext } from '../application/index.js';
 import { corePrismaForTests, resetCore, seedLocation } from '../testing/integration.js';
 import { createTestApp, PASSWORD, seedScenario, type TestApp } from '../testing/http.js';
 
@@ -128,8 +128,11 @@ describe('ciclo de vida', () => {
     const ok = await put(id, s.demo.location.id, ['staff', 'inventory']);
     expect(ok.status).toBe(200);
     expect(ok.body.roles).toEqual(['staff', 'inventory']);
-    const me = await t.http().get('/api/v1/me').set('Cookie', mesero);
-    expect(me.body.locations[0].permissions).toContain('commerce.stock.write');
+    const me = () => t.http().get('/api/v1/me').set('Cookie', mesero).then((r) => r.body.locations[0].permissions as string[]);
+    // bar-demo no contrata commerce: /me no entrega sus permisos (MOD-25) hasta habilitarlo.
+    expect(await me()).not.toContain('commerce.stock.write');
+    await t.get(ProvisionOrganization).execute({ actor: s.root, slug: 'bar-demo', name: 'bar-demo', locations: [{ name: 'Barra' }], modules: ['commerce'] });
+    expect(await me()).toContain('commerce.stock.write');
     expect((await put(id, s.demo.location.id, ['superuser'])).status).toBe(400);
     expect((await put(id, s.demo.location.id, [])).status).toBe(400);
     expect((await put('no-es-uuid', s.demo.location.id, ['staff'])).status).toBe(400);

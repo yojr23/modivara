@@ -28,6 +28,8 @@ A mano: `docker compose up --build -d`, los seeds del README dentro del contened
 | `console.spec.ts` | F2-15 / F3-15: superadmin (`labs`) elige Bar Demo / Principal, crea un gateway «E2E consola …» (clave una vez), lo desactiva; asigna y desasigna el botón fijo `btn-e2e-consola` (no se puede borrar); pestaña de detectados; un admin no ve la consola |
 | `diagnostics.spec.ts` | MOD-05: el tablero nombra el gateway sin señal y qué revisar; al desactivarlo desaparece |
 | `screens.spec.ts` | Pantallazos de todas las vistas por usuario (admin, barra, mesero1, inventario1, pisos/admin, superadmin) la portada, el login, el historial de inventario y el tablero con 15 llamados en escritorio y celular 390×844, en `docs/pantallazos/` |
+| `inventory-only.spec.ts` | MOD-61 / MOD-74 (PLAN-003 T01): `zapateria-demo` (solo commerce) crea `ZAP-NEG-40` en unidades, 15 de entrada, 2 salidas de 1, saldo 13 en pantalla, historial y API; menú solo Inventario y Usuarios; `/tablero`, `/espacios`, `/metricas`… vuelven a Inventario; ninguna petición a mesas, llamados, métricas ni Socket.IO; la API responde 403 a mesas y métricas |
+| `hospitality-only.spec.ts` | MOD-74 (PLAN-003 T07): `restaurante-demo` (solo hospitality) ve Tablero, Historial, Espacios y Usuarios; `/inventario` y `/metricas` vuelven al tablero; ninguna petición a commerce ni analytics; 403 a productos |
 | `spaces.spec.ts` | L-05 / L-07: publicar un área mientras otro mira el tablero; conflicto de edición (409) sin pisar el borrador ajeno; desactivar una mesa (sale del borrador) y 409 si tiene botón |
 
 

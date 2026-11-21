@@ -6,7 +6,7 @@ import {
   type ModuleName, type Permission,
 } from '@modivara/core-contracts';
 import { AuthenticateSession, Authorize, Login, ResolveLocationAccess } from '../../application/index.js';
-import { ModuleDisabledError, PermissionDeniedError, SessionInvalidError } from '../../domain/index.js';
+import { Entitlement, ModuleDisabledError, PermissionDeniedError, SessionInvalidError } from '../../domain/index.js';
 import { TEST_PASSWORD, World } from '../../testing/index.js';
 import type { HttpRequest } from '../http.js';
 import { OriginGuard } from '../origin.guard.js';
@@ -128,6 +128,21 @@ describe('PermissionGuard', () => {
     await expect(permissionGuard.canActivate(withMeta(own, need('commerce.stock.write')))).rejects.toThrow(PermissionDeniedError);
     const foreign = await authenticated(staff, { locationId: w.lunaCenter.id });
     await expect(permissionGuard.canActivate(withMeta(foreign, need('hospitality.calls.read')))).rejects.toThrow(NotFoundError);
+  });
+
+  it('permiso efectivo (misma regla que /me): sin su módulo o su fuente -> ModuleDisabledError, con y sin local', async () => {
+    await w.entitlements.save(Entitlement.create({ organizationId: w.sol.id, module: 'analytics' }));
+    const token = await sessionOf('sol', 'bodega', { roles: ['inventory'], location: w.solCenter });
+    const atLocation = await authenticated(token, { locationId: w.solCenter.id });
+    const anywhere = await authenticated(token);
+    // commerce está deshabilitado en sol: ni su prefijo ni la métrica cuya fuente es commerce.
+    for (const req of [atLocation, anywhere]) {
+      for (const p of ['commerce.stock.read', 'analytics.inventory.read'] as const) {
+        await expect(permissionGuard.canActivate(withMeta(req, need(p)))).rejects.toThrow(ModuleDisabledError);
+      }
+    }
+    await w.entitlements.save(Entitlement.create({ organizationId: w.sol.id, module: 'commerce' }));
+    for (const req of [atLocation, anywhere]) expect(await permissionGuard.canActivate(withMeta(req, need('analytics.inventory.read')))).toBe(true);
   });
 });
 

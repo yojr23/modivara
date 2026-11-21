@@ -64,6 +64,10 @@ describe('seed:commerce', () => {
         expect(s.balances).toHaveLength(10);
         expect(s.movements).toBe(10);
       }
+      // La zapatería (solo commerce) recibe motivos y «Principal», no el surtido de bar.
+      const zap = await ctx('zapateria-demo');
+      expect(await app.get(ListProducts).execute(zap)).toEqual([]);
+      expect((await app.get(ListStockLocations).execute(zap)).map((s) => s.name)).toEqual(['Principal']);
     } finally {
       await app.close();
     }

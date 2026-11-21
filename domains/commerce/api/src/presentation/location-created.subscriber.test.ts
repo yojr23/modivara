@@ -16,12 +16,13 @@ describe('LocationCreatedSubscriber (commerce)', () => {
   const build = () => {
     const h = createHarness();
     h.core.add({ id: LOC, organizationId: ORG });
-    return { h, subscriber: new LocationCreatedSubscriber(h.seedMovementReasons, h.ensureDefaultStockLocation) };
+    return { h, subscriber: new LocationCreatedSubscriber(h.seedMovementReasons, h.ensureDefaultStockLocation, h.core) };
   };
 
-  it('solo maneja core.location.created', () => {
+  it('maneja core.location.created y core.module.enabled', () => {
     const { subscriber } = build();
-    expect([subscriber.handles('core.location.created'), subscriber.handles('hospitality.service_call.created')]).toEqual([true, false]);
+    expect(['core.location.created', 'core.module.enabled', 'core.module.disabled', 'hospitality.service_call.created'].map((t) => subscriber.handles(t)))
+      .toEqual([true, true, false, false]);
   });
 
   it('siembra los motivos y «Principal», y reentregar el mismo evento no duplica nada', async () => {
@@ -31,6 +32,34 @@ describe('LocationCreatedSubscriber (commerce)', () => {
     await subscriber.handle(e);
     expect(await h.reasons.list({ organizationId: ORG })).toHaveLength(SEEDED_MOVEMENT_REASONS.length);
     expect((await h.stockLocations.list({ organizationId: ORG, locationId: LOC })).map((s) => [s.name, s.isDefault])).toEqual([['Principal', true]]);
+  });
+
+  const seeded = async (h: ReturnType<typeof build>['h']) => [
+    (await h.reasons.list({ organizationId: ORG })).length,
+    (await h.stockLocations.list({ organizationId: ORG, locationId: LOC })).length,
+  ];
+  const moduleEnabled = (module: string): IntegrationEvent => event({
+    event_type: 'core.module.enabled', aggregate_id: ORG, payload: { module, organization_id: ORG, location_id: LOC, changed_by: USER },
+  });
+
+  it('MOD-14: sin commerce contratado no siembra nada; un local no disponible se ignora sin error (no agota reintentos)', async () => {
+    const { h, subscriber } = build();
+    h.core.moduleEnabled = false;
+    await subscriber.handle(event());
+    expect(await seeded(h)).toEqual([0, 0]);
+    h.core.moduleEnabled = true;
+    h.core.add({ id: LOC, organizationId: ORG, active: false });
+    await expect(subscriber.handle(event())).resolves.toBeUndefined();
+    expect(await seeded(h)).toEqual([0, 0]);
+  });
+
+  it('MOD-14: core.module.enabled de commerce inicializa el local una sola vez; el de otro módulo se ignora', async () => {
+    const { h, subscriber } = build();
+    await subscriber.handle(moduleEnabled('hospitality'));
+    expect(await seeded(h)).toEqual([0, 0]);
+    await subscriber.handle(moduleEnabled('commerce'));
+    await subscriber.handle(moduleEnabled('commerce'));
+    expect(await seeded(h)).toEqual([SEEDED_MOVEMENT_REASONS.length, 1]);
   });
 
   it('un payload inválido se rechaza (el poller lo reintenta)', async () => {

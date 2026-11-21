@@ -17,4 +17,5 @@ export * from './resolve-location-access.js';
 export * from './revoke-user-sessions.js';
 export * from './select-acting-organization.js';
 export * from './set-location-roles.js';
+export * from './set-module-enabled.js';
 export type { ActorContext } from './actor.js';

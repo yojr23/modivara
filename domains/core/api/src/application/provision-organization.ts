@@ -2,6 +2,7 @@ import { customerSlugSchema, newId, ValidationError, type LocationCreatedEvent, 
 import { Entitlement, Location, Organization, PermissionDeniedError } from '../domain/index.js';
 import type { ActorContext } from './actor.js';
 import type { AdminTransaction, AdminTransactions } from './ports/index.js';
+import { appendModuleEvents } from './set-module-enabled.js';
 
 export interface ProvisionOrganizationInput {
   actor: ActorContext;
@@ -68,6 +69,7 @@ export class ProvisionOrganization {
       locations.push(location);
     }
 
+    // Los locales nuevos se inicializan por `core.location.created`; los que ya existían, por `core.module.enabled` (activación tardía).
     for (const module of input.modules) {
       const current = await tx.entitlements.find({ organizationId: organization.id, module });
       if (current?.enabled) continue;
@@ -75,6 +77,7 @@ export class ProvisionOrganization {
       entitlement.setEnabled(true);
       await tx.entitlements.save(entitlement);
       await audit(organization.id, 'entitlement.enabled', 'entitlement', organization.id, { module });
+      await appendModuleEvents(tx, { organizationId: organization.id, module, enabled: true, actorUserId: input.actor.actorUserId, locations: existing, now: new Date() });
     }
     return { organization, locations };
   }

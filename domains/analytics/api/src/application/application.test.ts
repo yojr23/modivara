@@ -6,6 +6,7 @@ import {
   InMemoryStockMovementFactRepository,
 } from '../testing/index.js';
 import {
+  ANALYTICS_SOURCES,
   AnalyticsEventSubscriber,
   GetInventoryMetrics,
   GetServiceCallMetrics,
@@ -56,7 +57,11 @@ function setup() {
     .add({ id: OTHER_LOC, organizationId: OTHER_ORG, timezone: 'America/Bogota', active: true });
   const projectEvent = new ProjectEvent(buildEventRegistry(calls, stocks), processed);
   const projector = {
-    clear: async () => { await Promise.all([calls.clear(), stocks.clear(), processed.clear()]); },
+    clear: async (sources: readonly string[]) => {
+      if (sources.includes('hospitality')) await calls.clear();
+      if (sources.includes('commerce')) await stocks.clear();
+      await processed.clear(sources);
+    },
     project: (event: unknown) => projectEvent.execute(event),
   };
   // Simula el rollback de la transacción real: si el trabajo lanza, los reclamos de la corrida se descartan.
@@ -280,7 +285,7 @@ describe('RebuildProjections', () => {
     const at = (e: ReturnType<typeof env>, iso: string) => ({ ...e, occurred_at: iso });
     const hospitality = reader([at(acked(), '2026-10-19T15:01:00Z'), at(completed(), '2026-10-19T15:03:00Z')]);
     const other = reader([history[0], history[0], env('core.x', {})]);
-    const summary = await c.rebuild.execute([hospitality, other, reader([history[3]])]);
+    const summary = await c.rebuild.execute([hospitality, other, reader([history[3]])], ANALYTICS_SOURCES);
     expect(summary).toEqual({ total: 6, applied: 4, duplicates: 1, ignored: 1 });
     expect(c.calls.items.has(uuid(77))).toBe(false);
     expect(await c.callMetrics.execute({ organizationId: ORG, locationId: LOC, query: today })).toEqual(before);
@@ -290,6 +295,16 @@ describe('RebuildProjections', () => {
     const c = setup();
     const bad = created(undefined, uuid(88), 4);
     delete (bad.payload as Record<string, unknown>).table_id;
-    await expect(c.rebuild.execute([reader([created(), bad])])).rejects.toMatchObject({ eventId: bad.event_id });
+    await expect(c.rebuild.execute([reader([created(), bad])], ANALYTICS_SOURCES)).rejects.toMatchObject({ eventId: bad.event_id });
+  });
+
+  it('solo vacía y rehace las fuentes pedidas: los hechos y procesados de las demás quedan', async () => {
+    const c = setup();
+    await c.subscriber.handle(created());
+    await c.subscriber.handle(stock('received', '3', '3', '2026-10-19T14:00:00Z'));
+    expect(await c.rebuild.execute([], ['commerce'])).toMatchObject({ total: 0 });
+    expect(c.calls.items.size).toBe(1);
+    expect(c.stocks.items.size).toBe(0);
+    expect([...c.processed.ids.values()]).toEqual(['hospitality.service_call.created']);
   });
 });

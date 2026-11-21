@@ -96,6 +96,14 @@ describe('motivos', () => {
     expect(fresh).toHaveLength(SEEDED_MOVEMENT_REASONS.length);
   });
 
+  it('volver a sembrar (reactivar commerce) no recrea un motivo por defecto desactivado', async () => {
+    const { h, actor } = await setup();
+    const merma = (await h.reasons.findActiveByName({ organizationId: actor.organizationId, name: 'Merma' }))!;
+    await h.deactivateMovementReason.execute({ ...actor, reasonId: merma.id });
+    expect(await h.seedMovementReasons.execute(actor)).toHaveLength(0);
+    expect(await h.reasons.findActiveByName({ organizationId: actor.organizationId, name: 'Merma' })).toBeNull();
+  });
+
   it('crea y desactiva motivos; uno desactivado no se puede usar', async () => {
     const { h, actor, stockLocation, product, idem } = await setup();
     const reason = await h.createMovementReason.execute({ ...actor, name: 'Promoción', direction: 'out' });

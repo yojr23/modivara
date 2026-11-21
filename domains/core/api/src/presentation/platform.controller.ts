@@ -1,6 +1,9 @@
-import { Body, Controller, Get, Inject, Put } from '@nestjs/common';
-import { CORE_API_PATHS, actingOrganizationRequestSchema, type PlatformOrganizationsResponse } from '@modivara/core-contracts';
-import { ListOrganizations, SelectActingOrganization, type ActorContext } from '../application/index.js';
+import { Body, Controller, Get, Inject, Param, Put } from '@nestjs/common';
+import {
+  CORE_API_PATHS, actingOrganizationRequestSchema, idParamSchema, moduleEntitlementRequestSchema, moduleNameSchema, type ModuleEntitlementResponse,
+  type PlatformOrganizationsResponse,
+} from '@modivara/core-contracts';
+import { ListOrganizations, SelectActingOrganization, SetModuleEnabled, type ActorContext } from '../application/index.js';
 import { CurrentActor, RequirePermission } from './guards/decorators.js';
 import { parseWith } from './http.js';
 
@@ -10,6 +13,7 @@ export class PlatformController {
   constructor(
     @Inject(SelectActingOrganization) private readonly select: SelectActingOrganization,
     @Inject(ListOrganizations) private readonly listOrganizations: ListOrganizations,
+    @Inject(SetModuleEnabled) private readonly setModule: SetModuleEnabled,
   ) {}
 
   /** Para que la consola elija negocio y local (solo lectura, sin paginar). */
@@ -31,5 +35,18 @@ export class PlatformController {
     const input = parseWith(actingOrganizationRequestSchema, body);
     const updated = await this.select.execute({ actor, organizationId: input.organization_id });
     return { acting_organization_id: updated.actingOrganizationId };
+  }
+
+  /** Contratar o suspender un módulo (MOD-14/26). Mínimo de MOD-23: alta de negocios sigue por seed (TECH-001 §16.3). */
+  @Put(CORE_API_PATHS.platformOrganizationModule)
+  @RequirePermission('platform.entitlements.manage')
+  async setModuleEnabled(
+    @CurrentActor() actor: ActorContext, @Param('organizationId') organizationId: string, @Param('module') module: string, @Body() body: unknown,
+  ): Promise<ModuleEntitlementResponse> {
+    const { enabled } = parseWith(moduleEntitlementRequestSchema, body);
+    const updated = await this.setModule.execute({
+      actor, organizationId: parseWith(idParamSchema, organizationId), module: parseWith(moduleNameSchema, module), enabled,
+    });
+    return { module: updated.module, enabled: updated.enabled };
   }
 }
