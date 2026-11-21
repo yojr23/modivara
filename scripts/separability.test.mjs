@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { findDependencyViolations, findImportViolations, findLayerViolations } from './separability.mjs';
+import { findDependencyViolations, findImportViolations, findLayerViolations, findMigrationSchemaViolations } from './separability.mjs';
 
 const unitRoot = path.resolve('/repo/domains/hospitality');
 const file = path.join(unitRoot, 'api/src/application/x.ts');
@@ -14,6 +14,12 @@ describe('findDependencyViolations', () => {
   it('rechaza depender de la api o la web de otro dominio', () => {
     const v = findDependencyViolations([{ name: '@modivara/hospitality-api', deps: ['@modivara/core-api', '@modivara/commerce-web'] }]);
     expect(v).toHaveLength(2);
+  });
+
+  it('MOD-11: core no depende de ningún otro dominio, ni de sus contracts (regresión core-api → hospitality-contracts)', () => {
+    const pkg = { name: '@modivara/core-api', dependencies: { '@modivara/core-contracts': 'workspace:*', '@modivara/hospitality-contracts': 'workspace:*' } };
+    const v = findDependencyViolations([{ name: pkg.name, deps: Object.keys(pkg.dependencies) }]);
+    expect(v).toEqual(['@modivara/core-api depende de @modivara/hospitality-contracts: core no puede depender de otro dominio']);
   });
 });
 
@@ -31,6 +37,14 @@ describe('findImportViolations', () => {
     expect(check(`import { u } from '../../../../core/api/src/domain/user.js';`)).toHaveLength(1);
     expect(check(`export * from '../../../../commerce/contracts/src/index.js';`)).toHaveLength(1);
   });
+
+  it('un dominio solo importa contracts ajenos; core no importa ningún dominio (aunque no esté en package.json)', () => {
+    expect(check(`import { a } from '@modivara/commerce-contracts';\nimport { b } from '@modivara/commerce-api';\nimport { c } from '@modivara/hospitality-api';`)).toHaveLength(1);
+    const coreRoot = path.resolve('/repo/domains/core');
+    const core = (content) => findImportViolations([{ file: path.join(coreRoot, 'api/src/presentation/x.ts'), unitRoot: coreRoot, content }]);
+    expect(core(`import { platformActionRecordedEventSchema } from '@modivara/hospitality-contracts';`)).toHaveLength(1);
+    expect(core(`import { a } from '@modivara/core-contracts';`)).toEqual([]);
+  });
 });
 
 describe('findLayerViolations', () => {
@@ -46,5 +60,18 @@ describe('findLayerViolations', () => {
   it('apps/api no importa domain/ ni application/', () => {
     expect(layer('apps/api/src/x.ts', `import { U } from '@modivara/core-api/domain/user.js';`)).toHaveLength(1);
     expect(layer('apps/api/src/x.ts', `import { CoreModule } from '@modivara/core-api';`)).toEqual([]);
+  });
+});
+
+describe('findMigrationSchemaViolations', () => {
+  const domains = ['core', 'hospitality', 'commerce', 'analytics'];
+  const check = (content) => findMigrationSchemaViolations([{ file: 'commerce/0002/migration.sql', domain: 'commerce', content }], domains);
+  it('MOD-11: una migración de commerce no nombra el esquema de otro dominio', () => {
+    expect(check('ALTER TABLE "products" ADD CONSTRAINT fk FOREIGN KEY ("table_id") REFERENCES "hospitality"."dining_tables"("id");'))
+      .toEqual(['commerce/0002/migration.sql: referencia el esquema de hospitality']);
+    expect(check('SELECT 1 FROM "core" . "locations";')).toHaveLength(1);
+  });
+  it('acepta su propio esquema y tablas sin calificar', () => {
+    expect(check('CREATE TABLE "commerce"."products" ("id" UUID); CREATE INDEX ON "stock_movements" ("core_location_id");')).toEqual([]);
   });
 });

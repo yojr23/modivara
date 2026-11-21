@@ -20,7 +20,7 @@ const RANGE_OPTIONS = [['today', 'Hoy'], ['yesterday', 'Ayer'], ['last_7_days', 
 const LEAD: Record<RangePreset, string> = { today: 'Hoy', yesterday: 'Ayer', last_7_days: 'En los últimos 7 días', last_30_days: 'En los últimos 30 días', custom: 'En el período' };
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 const CALLS_NOTE = '«En atención» y «Atendida» son los momentos en que alguien del personal lo registró en el tablero; no miden la llegada a la mesa. Las áreas suman los llamados de las mesas que hoy están dentro de cada una.';
-const MIXED_UNITS_NOTE = 'Las cantidades se muestran por producto porque cada uno tiene su unidad (botellas, kg); para todo el local se cuentan movimientos.';
+const MIXED_UNITS_NOTE = 'Las cantidades se muestran por producto porque cada uno tiene su unidad (unidades, kg, litros…); para todo el local se cuentan movimientos.';
 const periodData = (by: { bucket_start: string; calls: number }[], g: 'hour' | 'day', tz: string) => by.map((p) => ({ label: bucketLabel(p.bucket_start, g, tz), value: p.calls }));
 
 function Section({ title, aside, children, className }: { title: string; aside?: ReactNode; children: ReactNode; className?: string }) {
@@ -228,21 +228,26 @@ function StockByProduct({ range }: { range: RangePreset }) {
   );
 }
 
+/** Cada pestaña exige su fuente contratada (de dónde salen los datos) y su permiso: sin fuente no hay consultas ni pestaña. */
+const SOURCES = [['calls', 'Llamados', 'hospitality', 'analytics.calls.read'], ['stock', 'Inventario', 'commerce', 'analytics.inventory.read']] as const;
+
 export default function Metrics() {
-  const { can } = useApp();
+  const { me, can } = useApp();
   const [params] = useSearchParams();
-  const tabs = ([['calls', 'Llamados'], ['stock', 'Inventario']] as const).filter(([t]) => can(t === 'calls' ? 'analytics.calls.read' : 'analytics.inventory.read'));
-  const [tab, setTab] = useState<Tab>(params.get('tab') === 'stock' || !can('analytics.calls.read') ? 'stock' : 'calls');
+  const tabs = SOURCES.filter(([, , m, p]) => me.modules.includes(m) && can(p)).map(([t, label]) => [t, label] as const);
+  const [chosen, setTab] = useState<Tab>(params.get('tab') === 'stock' ? 'stock' : 'calls');
+  const tab = tabs.find(([t]) => t === chosen)?.[0] ?? tabs[0]?.[0];
   const [range, setRange] = useState<RangePreset>('last_7_days');
   return (
     <Page
       id="metricas" title="Métricas"
-      actions={<div className="flex flex-wrap items-center gap-3 md:ml-auto">
+      actions={tab && <div className="flex flex-wrap items-center gap-3 md:ml-auto">
         {tabs.length > 1 && <Segmented label="Qué medir" options={tabs} value={tab} onChange={setTab} />}
         <Segmented label="Período" options={RANGE_OPTIONS} value={range as (typeof RANGE_OPTIONS)[number][0]} onChange={setRange} />
       </div>}
     >
-      {tab === 'calls' ? <CallsOnPlan range={range} /> : <StockByProduct range={range} />}
+      {/* Sin fuente habilitada no hay permisos `analytics.*` en /me y la ruta ni aparece (MOD-53). */}
+      {tab === 'calls' ? <CallsOnPlan range={range} /> : tab === 'stock' && <StockByProduct range={range} />}
     </Page>
   );
 }

@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { RebuildAbortedError, RebuildProjections } from '@modivara/analytics-api';
+import { ANALYTICS_SOURCES, RebuildAbortedError, RebuildProjections } from '@modivara/analytics-api';
 import { EVENT_HISTORY_READERS, type EventHistoryReader } from '@modivara/core-contracts';
 import { serviceCallPageSchema } from '@modivara/hospitality-contracts';
 import { startHost } from './testing.js';
 
 // F5-08 (Q-09) de punta a punta: historial real de los outbox de hospitality y commerce → rebuild → mismas tablas. Requiere db-test.
 let host: Awaited<ReturnType<typeof startHost>>;
-const rebuild = () => host.app.get(RebuildProjections).execute(host.app.get<EventHistoryReader[]>(EVENT_HISTORY_READERS));
+const rebuild = () => host.app.get(RebuildProjections).execute(host.app.get<EventHistoryReader[]>(EVENT_HISTORY_READERS), ANALYTICS_SOURCES);
 // processed_at es la hora del procesamiento: lo único que legítimamente cambia al reconstruir.
 const snapshot = async () => ({
   calls: await host.analyticsDb.$queryRawUnsafe<unknown[]>('SELECT * FROM service_call_facts ORDER BY service_call_id'),

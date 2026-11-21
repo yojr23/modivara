@@ -10,6 +10,7 @@ export * from './ids.js';
 export * from './integration.js';
 export * from './location.js';
 export * from './permissions.js';
+export * from './platform-events.js';
 export * from './rules.js';
 export * from './outbox-poller.js';
 export * from './seed-time.js';

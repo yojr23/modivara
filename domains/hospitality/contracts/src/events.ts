@@ -1,4 +1,4 @@
-import { defineEvent } from '@modivara/core-contracts';
+import { defineEvent, platformActionRecordedEventSchema } from '@modivara/core-contracts';
 import { z } from 'zod';
 import { CALL_TYPES } from './enums.js';
 
@@ -41,24 +41,8 @@ export const serviceCallCompletedEventSchema = defineEvent(
   }),
 );
 
-/** Acciones del superadmin sobre gateways y botones; core las vuelca en `core.audit_log` con este mismo `action` (ADR-002 D3). */
-export const PLATFORM_ACTIONS = ['gateway.created', 'gateway.deactivated', 'device.created', 'device.assigned', 'device.unassigned'] as const;
-
-export const platformActionRecordedEventSchema = defineEvent(
-  'hospitality.platform_action.recorded',
-  1,
-  z.object({
-    action: z.enum(PLATFORM_ACTIONS),
-    actor_user_id: z.uuid(),
-    target_type: z.enum(['gateway', 'device']),
-    target_id: z.uuid(),
-    /** Nunca claves ni hashes. */
-    details: z.record(z.string(), z.unknown()),
-  }),
-);
-
-export type PlatformAction = (typeof PLATFORM_ACTIONS)[number];
-export type PlatformActionRecordedEvent = z.infer<typeof platformActionRecordedEventSchema>;
+// El evento de auditoría de plataforma es un contrato neutro de core (MOD-10); se reexporta para que hospitality no cambie.
+export { PLATFORM_ACTIONS, platformActionRecordedEventSchema, type PlatformAction, type PlatformActionRecordedEvent } from '@modivara/core-contracts';
 
 export type ServiceCallCreatedEvent = z.infer<typeof serviceCallCreatedEventSchema>;
 export type ServiceCallAcknowledgedEvent = z.infer<typeof serviceCallAcknowledgedEventSchema>;

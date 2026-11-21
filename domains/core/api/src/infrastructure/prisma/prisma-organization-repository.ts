@@ -16,6 +16,10 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
     return r && toDomain(r);
   }
 
+  async lockById({ id }: { id: string }) {
+    await this.db.$queryRaw`SELECT id FROM organizations WHERE id = ${id}::uuid FOR UPDATE`;
+  }
+
   async findBySlug({ slug }: { slug: string }) {
     const r = await this.db.organization.findUnique({ where: { slug } });
     return r && toDomain(r);

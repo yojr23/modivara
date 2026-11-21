@@ -1,6 +1,7 @@
 import { NotFoundError, permissionsFor, type ModuleName, type Permission } from '@modivara/core-contracts';
 import { SessionInvalidError } from '../domain/index.js';
 import { effectiveOrganizationId, type ActorContext } from './actor.js';
+import { effectivePermissions } from './effective-permissions.js';
 import type { EntitlementRepository, LocationRepository, MembershipRepository, OrganizationRepository, UserRepository } from './ports/index.js';
 
 export interface MeOutput {
@@ -35,19 +36,21 @@ export class GetMe {
     const org = await this.organizations.findById({ id: organizationId });
     if (!org?.isActive) throw new NotFoundError('Organization');
 
+    const modules = await this.entitlements.listEnabledModules({ organizationId });
     const active = await this.locations.listActive({ organizationId });
     // Superadmin y dueño ven todos los locales; el resto, los de sus membresías.
     const own = actor.isPlatform || actor.isOwner ? null : await this.memberships.listActiveByUser({ organizationId, userId: actor.actorUserId });
     const locations = active.flatMap((l) => {
       const roles = own?.find((m) => m.locationId === l.id)?.roles;
       if (own && !roles) return [];
-      return [{ id: l.id, name: l.name, timezone: l.timezone, permissions: [...permissionsFor(roles ?? [], actor)] }];
+      return [{ id: l.id, name: l.name, timezone: l.timezone, permissions: [...effectivePermissions(permissionsFor(roles ?? [], actor), modules)] }];
     });
     return {
       ...base,
       organization: { id: org.id, slug: org.slug, name: org.name },
-      modules: await this.entitlements.listEnabledModules({ organizationId }),
+      modules,
       locations,
     };
   }
 }
+

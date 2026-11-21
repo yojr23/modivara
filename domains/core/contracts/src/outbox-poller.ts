@@ -198,6 +198,12 @@ export class OutboxPoller {
     );
   }
 
+  /**
+   * ponytail (MOD-15): todos los suscriptores del evento se recorren en la misma entrega (y transacción de la fila); si uno falla, el evento se
+   * reintenta para todos, así que los que ya lo procesaron lo reciben de nuevo y deduplican por `event_id`. El hecho original nunca se revierte
+   * (ya está confirmado en su dominio). Techo: un consumidor roto agota los intentos del evento para todos (failed_at → `outbox:retry`);
+   * si hiciera falta aislarlos, un estado de entrega por (evento, suscriptor).
+   */
   private async deliver(row: OutboxRow): Promise<void> {
     const event = rowToEvent(row);
     for (const subscriber of this.subscribers) {
