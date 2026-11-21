@@ -1,3 +1,5 @@
+import type { ModuleName } from './identity.js';
+
 /** Roles por local (DATA-001 §2). Una persona puede tener varios. */
 export const LOCATION_ROLES = ['admin', 'staff', 'inventory', 'cashier'] as const;
 export type LocationRole = (typeof LOCATION_ROLES)[number];
@@ -31,7 +33,16 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 
 /**
- * Traducción rol → permisos. Dividir `staff` (p. ej. waiter) es agregar una entrada aquí,
+ * Permisos que además necesitan el módulo que produce sus datos (fuente). Sin la fuente, `/me` no los entrega
+ * y el portal no muestra esa vista. El módulo del propio prefijo (`analytics.`) se exige aparte.
+ */
+export const PERMISSION_SOURCES: Readonly<Partial<Record<Permission, ModuleName>>> = {
+  'analytics.calls.read': 'hospitality',
+  'analytics.inventory.read': 'commerce',
+};
+
+/**
+ * Traducción rol → permisos. Dividir `staff` (p. ej. waiter, cashier) es agregar una entrada aquí,
  * sin tocar rutas ni guards.
  */
 export const ROLE_PERMISSIONS: Readonly<Record<LocationRole, readonly Permission[]>> = {

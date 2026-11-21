@@ -56,6 +56,7 @@ services:
     build: { context: ., target: api }
     environment:
       API_PORT: 3000
+      MODIVARA_DOMAINS: ${MODIVARA_DOMAINS:-}
       MQTT_URL: mqtt://mqtt:1883
       MQTT_USERNAME: api
       MQTT_PASSWORD: ${MQTT_PASSWORD:-}

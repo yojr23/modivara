@@ -1,10 +1,10 @@
-import { Controller, Get, Inject, Logger, Module, Optional, ServiceUnavailableException } from '@nestjs/common';
-import { AnalyticsModule } from '@modivara/analytics-api';
-import { COMMERCE_OUTBOX, CommerceModule } from '@modivara/commerce-api';
+import { Controller, Get, Inject, Logger, Module, Optional, ServiceUnavailableException, type DynamicModule, type ModuleMetadata } from '@nestjs/common';
+import { COMMERCE_OUTBOX } from '@modivara/commerce-api';
 import { CORE_OUTBOX, CORE_PRISMA, CoreModule, coreGlobalProviders, Public } from '@modivara/core-api';
 import type { OutboxPoller } from '@modivara/core-contracts';
-import { HOSPITALITY_OUTBOX, HospitalityModule } from '@modivara/hospitality-api';
-import { POS_OUTBOX, PosModule } from '@modivara/pos-api';
+import { HOSPITALITY_OUTBOX } from '@modivara/hospitality-api';
+import { POS_OUTBOX } from '@modivara/pos-api';
+import { domainModules, selectedDomains } from './domains.js';
 import { IntegrationSubscribersModule } from './integration-subscribers.module.js';
 
 @Controller('health')
@@ -55,17 +55,20 @@ export class HealthController {
   }
 }
 
-const hospitality = HospitalityModule.forRoot();
-const commerce = CommerceModule.forRoot();
-const analytics = AnalyticsModule.forRoot();
-
-// El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio.
-@Module({
-  imports: [
-    CoreModule.forRoot(), hospitality, commerce, analytics, PosModule.forRoot(), IntegrationSubscribersModule.forDomains({ hospitality, commerce, analytics }),
-  ],
+/**
+ * Composición del host (MOD-13): core, los módulos de dominio dados y sus suscriptores. Los hosts parciales de prueba (Core + Commerce)
+ * usan la misma; un dominio ausente no aporta providers ni consumidores, y no se piden sus variables de entorno.
+ */
+export const hostMetadata = (core: DynamicModule, domains: DynamicModule[]): ModuleMetadata => ({
+  imports: [core, ...domains, IntegrationSubscribersModule.forDomains(domains)],
   controllers: [HealthController],
   // Guards (Origin, sesión, permiso, módulo) y filtro de errores de core: valen para las rutas de todos los dominios.
   providers: [...coreGlobalProviders],
-})
+});
+
+/** Host desplegable: core + los dominios de `MODIVARA_DOMAINS` (por defecto, todos). Se evalúa al importar este archivo. */
+export const appMetadata = () => hostMetadata(CoreModule.forRoot(), domainModules(selectedDomains()));
+
+// El host solo compone los módulos de dominio (TECH-001 §5); no contiene reglas de negocio. Sumar un dominio = una entrada en domains.ts.
+@Module(appMetadata())
 export class AppModule {}

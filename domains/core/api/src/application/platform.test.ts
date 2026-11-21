@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { locationCreatedEventSchema, toEventEnvelope, ValidationError } from '@modivara/core-contracts';
+import { locationCreatedEventSchema, moduleDisabledEventSchema, moduleEnabledEventSchema, NotFoundError, toEventEnvelope, ValidationError } from '@modivara/core-contracts';
 import { PermissionDeniedError } from '../domain/index.js';
 import { TEST_PASSWORD, World } from '../testing/index.js';
 import { BootstrapPlatform } from './bootstrap-platform.js';
 import { ProvisionOrganization } from './provision-organization.js';
+import { SetModuleEnabled } from './set-module-enabled.js';
 
 describe('casos de uso de plataforma (seed)', () => {
   let w: World;
@@ -52,6 +53,18 @@ describe('casos de uso de plataforma (seed)', () => {
     expect(events.every((e) => e.aggregate_id === e.location_id)).toBe(true);
   });
 
+  it('reprovisionar con un módulo nuevo publica core.module.enabled para los locales que ya existían', async () => {
+    const root = await bootstrap.execute(input);
+    const req = { actor: root, slug: 'zapateria', name: 'Zapatería', locations: [{ name: 'Centro' }], modules: [] as ('commerce')[] };
+    const { locations } = await provision.execute(req);
+    const since = w.outbox.events.length;
+    await provision.execute({ ...req, modules: ['commerce'] });
+    const enabled = w.outbox.events.slice(since).map((e) => moduleEnabledEventSchema.parse(toEventEnvelope(e)));
+    expect(enabled.map((e) => [e.location_id, e.payload.module])).toEqual([[locations[0]!.id, 'commerce']]);
+    await provision.execute({ ...req, modules: ['commerce'] });
+    expect(w.outbox.events).toHaveLength(since + 1);
+  });
+
   it('slugs reservados o inválidos se rechazan; un negocio cliente no puede provisionar', async () => {
     const root = await bootstrap.execute(input);
     for (const slug of ['labs', 'api', 'sim', 'assets', 'login', 'static', 'Mal Slug']) {
@@ -59,5 +72,31 @@ describe('casos de uso de plataforma (seed)', () => {
     }
     const client = w.actorOf(await w.addUser(w.sol, 'duena', { isOwner: true }));
     await expect(provision.execute({ actor: client, slug: 'otro', name: 'X', locations: [], modules: [] })).rejects.toThrow(PermissionDeniedError);
+  });
+
+  it('SetModuleEnabled (MOD-14/26): auditado, un evento por local activo, re-habilitar re-publica sin auditar, re-suspender no hace nada; solo superadmin y solo negocios cliente', async () => {
+    const root = await bootstrap.execute(input);
+    const { organization, locations } = await provision.execute({ actor: root, slug: 'zapateria', name: 'Z', locations: [{ name: 'A' }, { name: 'B' }], modules: [] });
+    const set = new SetModuleEnabled(w.admin);
+    const run = (enabled: boolean) => set.execute({ actor: root, organizationId: organization.id, module: 'commerce', enabled });
+    const since = w.outbox.events.length;
+
+    expect((await run(true)).enabled).toBe(true);
+    await run(true); // recuperación: mismos eventos otra vez, sin otra fila de auditoría
+    expect(await w.entitlements.listEnabledModules({ organizationId: organization.id })).toEqual(['commerce']);
+    const enabled = w.outbox.events.slice(since).map((e) => moduleEnabledEventSchema.parse(toEventEnvelope(e)));
+    const perLocation = locations.map((l) => [l.id, 'commerce', organization.id]);
+    expect(enabled.map((e) => [e.location_id, e.payload.module, e.aggregate_id])).toEqual([...perLocation, ...perLocation]);
+
+    expect((await run(false)).enabled).toBe(false);
+    await run(false);
+    expect(w.outbox.events.slice(since + 4).map((e) => moduleDisabledEventSchema.parse(toEventEnvelope(e)).location_id)).toEqual(locations.map((l) => l.id));
+    expect(w.audit.entries.filter((e) => e.action.startsWith('entitlement.')).map((e) => [e.action, e.details])).toEqual([
+      ['entitlement.enabled', { module: 'commerce' }], ['entitlement.disabled', { module: 'commerce' }],
+    ]);
+
+    const client = w.actorOf(await w.addUser(w.sol, 'duena2', { isOwner: true }));
+    await expect(set.execute({ actor: client, organizationId: organization.id, module: 'commerce', enabled: true })).rejects.toThrow(PermissionDeniedError);
+    await expect(set.execute({ actor: root, organizationId: root.organizationId, module: 'commerce', enabled: true })).rejects.toThrow(NotFoundError);
   });
 });

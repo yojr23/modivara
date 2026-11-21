@@ -63,5 +63,5 @@ describe('F5-10 seed histórico', () => {
     expect(await seedHistory(app, PASSWORD)).toEqual({ 'bar-demo': { calls: 0, movements: 0 }, 'bar-demo-pisos': { calls: 0, movements: 0 } });
     await drain();
     expect([await count(hospitalityDb, 'service_calls'), await count(hospitalityDb, 'device_events'), await count(hospitalityDb, 'outbox_events'), await count(analyticsDb, 'service_call_facts'), await count(analyticsDb, 'stock_movement_facts')]).toEqual(before);
-  }, 120_000);
+  }, 300_000); // ponytail: siembra cinco negocios y 14 días de historial; con la máquina cargada pasa de 2 min
 });

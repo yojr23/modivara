@@ -5,6 +5,9 @@ import type { Unit } from '@modivara/commerce-contracts';
 /** Cantidad NUMERIC(12,3) del contrato («12.000», «-1.500»). */
 export const dec = (n: number) => n.toFixed(3);
 
+/** Cantidad escrita con coma o punto («0,5», «1.5», «,5») → número; NaN si no es un decimal válido (hasta 3 decimales, como el contrato). */
+export const parseDecimal = (text: string) => (/^(\d+([.,]\d{1,3})?|[.,]\d{1,3})$/.test(text.trim()) ? Number(text.trim().replace(',', '.')) : NaN);
+
 const UNIT: Record<Unit, [string, string]> = { unit: ['unidad', 'unidades'], bottle: ['botella', 'botellas'], kg: ['kg', 'kg'], g: ['g', 'g'], l: ['l', 'l'], ml: ['ml', 'ml'] };
 const qtyFmt = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 3 });
 export const unitWord = (unit: Unit, n: number) => UNIT[unit][Math.abs(n) === 1 ? 0 : 1];

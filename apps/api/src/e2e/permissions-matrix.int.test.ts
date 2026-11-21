@@ -34,6 +34,7 @@ const ROUTES: Route[] = [
   r('put', CO.userLocationRoles, 'core.users.manage'),
   r('get', CO.platformOrganizations, 'platform.organizations.manage'),
   r('put', CO.actingOrganization, 'platform.organizations.manage'),
+  r('put', CO.platformOrganizationModule, 'platform.entitlements.manage'),
   r('get', CA.serviceCalls, 'hospitality.calls.read'),
   r('get', CA.serviceCall, 'hospitality.calls.read'),
   r('post', CA.acknowledge, 'hospitality.calls.acknowledge'),
@@ -89,8 +90,11 @@ const ROUTES: Route[] = [
   r('post', PO.saleVoid, 'pos.sales.void'),
   r('post', PO.links, 'pos.sales.operate'),
 ];
-// Rutas sin sesión de usuario. Las del gateway se autentican con su clave; /health vive en AppModule y lo cubre health.int.test.ts.
-const PUBLIC_ROUTES = new Set(['post /auth/login', 'post /auth/logout', `post ${GATEWAY_API_PATHS.deviceEvents}`, `post ${GATEWAY_API_PATHS.heartbeat}`]);
+// Rutas sin sesión de usuario. Las del gateway se autentican con su clave; /health (sondas) lo cubre health.int.test.ts.
+const PUBLIC_ROUTES = new Set([
+  'post /auth/login', 'post /auth/logout', `post ${GATEWAY_API_PATHS.deviceEvents}`, `post ${GATEWAY_API_PATHS.heartbeat}`,
+  'get /health', 'get /health/live', 'get /health/ready',
+]);
 
 const ZERO = '00000000-0000-4000-8000-000000000000';
 const ROLES = ['admin', 'staff', 'inventory', 'cashier'] as const satisfies readonly LocationRole[];

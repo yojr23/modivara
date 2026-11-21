@@ -20,7 +20,7 @@ const hospitality = HospitalityModule.forRoot({ databaseUrl: HOSPITALITY_URL, mq
 const commerce = CommerceModule.forRoot({ databaseUrl: COMMERCE_URL, ...MANUAL });
 const analytics = AnalyticsModule.forRoot({ databaseUrl: ANALYTICS_URL });
 
-@Module({ imports: [CoreModule.forRoot({ databaseUrl: CORE_URL, ...MANUAL }), hospitality, commerce, analytics, IntegrationSubscribersModule.forDomains({ hospitality, commerce, analytics })] })
+@Module({ imports: [CoreModule.forRoot({ databaseUrl: CORE_URL, ...MANUAL }), hospitality, commerce, analytics, IntegrationSubscribersModule.forDomains([hospitality, commerce, analytics])] })
 class HostModule {}
 
 type Raw = { $executeRawUnsafe(sql: string): Promise<unknown>; $queryRawUnsafe<T>(sql: string): Promise<T> };

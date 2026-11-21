@@ -16,6 +16,7 @@ export interface BusinessSeed {
 // DATA-001 §7. OPEN: el documento no fija el username del superadmin, el nombre del local ni los usuarios de bar-demo-pisos
 // (se crea `admin` para poder probar el aislamiento H1); tampoco qué módulos contrata cada demo.
 // POS-001 §7: Bar Demo con los cuatro productos, Pisos sin POS (regresión Hospitality-only) y Tienda Demo solo con POS.
+// PLAN-003 T01/T07: Zapatería solo con inventario y Restaurante solo con mesas y llamados.
 export const SUPERADMIN = { username: 'superadmin', displayName: 'Superadmin' };
 export const BUSINESSES: BusinessSeed[] = [
   {
@@ -34,6 +35,18 @@ export const BUSINESSES: BusinessSeed[] = [
   },
   {
     slug: 'tienda-demo', name: 'Tienda Demo', location: 'Principal', modules: ['pos'],
+    users: [{ username: 'admin', displayName: 'Administrador', role: 'admin' }],
+  },
+  // MOD-61/74: misma instalación, paquetes aislados. Zapatería solo con inventario; restaurante solo con mesas y llamados.
+  {
+    slug: 'zapateria-demo', name: 'Zapatería Demo', location: 'Principal', modules: ['commerce'],
+    users: [
+      { username: 'admin', displayName: 'Administrador', role: 'admin' },
+      { username: 'inventario1', displayName: 'Inventario 1', role: 'inventory' },
+    ],
+  },
+  {
+    slug: 'restaurante-demo', name: 'Restaurante Demo', location: 'Principal', modules: ['hospitality'],
     users: [{ username: 'admin', displayName: 'Administrador', role: 'admin' }],
   },
 ];
