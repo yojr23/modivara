@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { addDays, agoLabel, bucketLabel, dayKey, dayStart, fmtWhen, parseDecimal } from './format';
+import { addDays, agoLabel, bucketLabel, dayKey, dayStart, fmtMoney, fmtWhen, parseDecimal } from './format';
 
 // Zona del local distinta a la del sistema: Bogotá (UTC−5, sin horario de verano) y Tokio (UTC+9).
 afterEach(() => vi.useRealTimers());
@@ -42,6 +42,16 @@ describe('fechas en la zona del local', () => {
 
 describe('agoLabel', () => {
   it.each([[40_000, 'hace 40 s'], [5 * 60_000, 'hace 5 min'], [3 * 3600_000, 'hace 3 h'], [2 * 86_400_000, 'hace 2 d'], [-5, 'hace 0 s']])('%i ms', (d, out) => expect(agoLabel(0, d)).toBe(out));
+});
+
+describe('fmtMoney', () => {
+  const plain = (s: string) => s.replace(/\s/g, ' ');
+  it('formatea el decimal del contrato sin perder centavos y oculta los ,00', () => {
+    expect(plain(fmtMoney('12000.00', 'COP'))).toBe('$ 12.000');
+    expect(plain(fmtMoney('12000.5', 'COP'))).toBe('$ 12.000,50');
+    expect(plain(fmtMoney('999999999999.99', 'COP'))).toBe('$ 999.999.999.999,99'); // máximo del contrato, exacto
+    expect(plain(fmtMoney('0.01', 'USD'))).toBe('US$ 0,01');
+  });
 });
 
 it('parseDecimal acepta coma o punto, sin cero inicial, hasta 3 decimales', () => {

@@ -5,19 +5,21 @@ import { CommerceModule } from '@modivara/commerce-api';
 import { CoreModule } from '@modivara/core-api';
 import { retryFailed, type OutboxSql } from '@modivara/core-contracts';
 import { HospitalityModule } from '@modivara/hospitality-api';
+import { PosModule } from '@modivara/pos-api';
 
-// Reintento manual (tope de 10 intentos del poller): libera los eventos con `failed_at` de un outbox. Uso: pnpm outbox:retry <core|hospitality|commerce> [event_id]
+// Reintento manual (tope de 10 intentos del poller): libera los eventos con `failed_at` de un outbox. Uso: pnpm outbox:retry <core|hospitality|commerce|pos> [event_id]
 // Contexto standalone sin pollers ni HTTP; requiere la URL de base de datos del dominio (y la de core para los demás dominios).
 const DOMAINS: Record<string, { prisma: string; modules: DynamicModule[] }> = {
   core: { prisma: 'CORE_PRISMA', modules: [CoreModule.forRoot({ outbox: false })] },
   hospitality: { prisma: 'HOSPITALITY_PRISMA', modules: [CoreModule.forRoot({ outbox: false }), HospitalityModule.forRoot({ outbox: false, mqtt: null })] },
   commerce: { prisma: 'COMMERCE_PRISMA', modules: [CoreModule.forRoot({ outbox: false }), CommerceModule.forRoot({ outbox: false })] },
+  pos: { prisma: 'POS_PRISMA', modules: [CoreModule.forRoot({ outbox: false }), PosModule.forRoot({ outbox: false })] },
 };
 
 const [domain, eventId] = process.argv.slice(2);
 const target = domain ? DOMAINS[domain] : undefined;
 if (!target || (eventId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId))) {
-  console.error('Uso: pnpm outbox:retry <core|hospitality|commerce> [event_id]');
+  console.error('Uso: pnpm outbox:retry <core|hospitality|commerce|pos> [event_id]');
   process.exit(1);
 }
 

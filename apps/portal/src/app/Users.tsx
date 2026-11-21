@@ -10,7 +10,7 @@ import { Bone, EmptyState, ErrorState, Modal, Page, useApp, useToast } from './u
 // F1-15 — usuarios del negocio. Permiso: `core.users.manage` en el local (sin módulo: es de core).
 // El listado trae los roles por local (solo de los locales que el actor gestiona); se fijan con «Guardar roles».
 
-const ROLE_LABEL: Record<LocationRole, string> = { admin: 'Administrador', staff: 'Personal', inventory: 'Inventario' };
+const ROLE_LABEL: Record<LocationRole, string> = { admin: 'Administrador', staff: 'Personal', inventory: 'Inventario', cashier: 'Caja' };
 const rolesIn = (u: UserResponse, locationId: string) => (u.locations.find((l) => l.location_id === locationId)?.roles ?? []) as LocationRole[];
 const PASSWORD_RULES = `Entre 8 y 128 caracteres, con al menos una mayúscula y un número.`;
 const USERNAME_RULES = `De ${USERNAME_MIN} a ${USERNAME_MAX} caracteres: minúsculas, números, punto, guion y guion bajo.`;

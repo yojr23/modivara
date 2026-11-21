@@ -16,6 +16,7 @@ enum LocationRole {
   admin
   staff
   inventory
+  cashier
 
   @@map("location_role")
 }
@@ -24,6 +25,7 @@ enum Module {
   hospitality
   commerce
   analytics
+  pos
 
   @@map("module")
 }

@@ -1,4 +1,5 @@
 import { expect, request, type APIRequestContext } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { BASE_URL, authFile, gatewayFile, type User } from './env';
 
@@ -15,6 +16,13 @@ export async function json<T = any>(ctx: APIRequestContext, method: 'GET' | 'POS
   expect(res.ok(), `${method} ${path} → ${res.status()} ${await res.text()}`).toBeTruthy();
   const text = await res.text();
   return (text ? JSON.parse(text) : null) as T;
+}
+
+/** Mutación de POS: abrir, agregar, cerrar, anular y vincular exigen `Idempotency-Key` (uuid); una clave nueva por llamada. */
+export async function posPost<T = any>(ctx: APIRequestContext, path: string, data?: unknown): Promise<T> {
+  const res = await ctx.post(`${API}${path}`, { data, headers: { 'idempotency-key': randomUUID() } });
+  expect(res.ok(), `POST ${path} → ${res.status()} ${await res.text()}`).toBeTruthy();
+  return (await res.json()) as T;
 }
 
 export const locationOf = async (ctx: APIRequestContext): Promise<string> => (await json(ctx, 'GET', '/me')).locations[0].id;

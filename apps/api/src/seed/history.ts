@@ -3,7 +3,7 @@ import { addDays, civilDateIn, localTimeToUtc, seededRandom, CORE_ACCESS_PORT, t
 import { BootstrapPlatform, ProvisionOrganization } from '@modivara/core-api';
 import { DEMO_CALL_PROFILE, SeedCallHistory } from '@modivara/hospitality-api';
 import { GetBalances, ListMovementReasons, ListMovements, ListProducts, EnsureDefaultStockLocation, RegisterMovement, type StockContext } from '@modivara/commerce-api';
-import { BUSINESSES, MODULES, SUPERADMIN } from './core.js';
+import { BUSINESSES, SUPERADMIN } from './core.js';
 import { BAR_PRODUCTS, seedKey } from './commerce.js';
 
 // F5-10: historial de 14 días que terminan ayer para Bar Demo y Bar Demo Pisos. Cada dominio escribe lo suyo con fechas pasadas y outbox v1;
@@ -41,7 +41,7 @@ export async function seedHistory(app: INestApplicationContext, password: string
   const created: Record<string, { calls: number; movements: number }> = {};
   for (const { slug, callProfile, stockProfile } of HISTORY_BUSINESSES) {
     const b = BUSINESSES.find((x) => x.slug === slug)!;
-    const { organization, locations } = await app.get(ProvisionOrganization).execute({ actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: MODULES });
+    const { organization, locations } = await app.get(ProvisionOrganization).execute({ actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: b.modules });
     const ctx: StockContext = { organizationId: organization.id, locationId: locations[0]!.id, actorUserId: root.actorUserId };
     const tz = (await app.get<CoreAccessPort>(CORE_ACCESS_PORT).getLocation(ctx.locationId))!.timezone;
     const calls = await app.get(SeedCallHistory).execute(ctx, { days: DAYS, profile: callProfile });
@@ -102,7 +102,8 @@ async function seedStockHistory(app: INestApplicationContext, ctx: StockContext,
       if (Number(row!.quantity.toString()) !== balance) throw new Error(`Saldo de ${p.name} (${row!.quantity}) no coincide con el historial (${balance})`);
     }
   } catch (e) {
-    if (e !== ALREADY_SEEDED) throw e;
+    // Sembrado otro día: la misma clave llega con otros datos y commerce responde idempotency_key_reused (409), también = ya sembrado.
+    if (e !== ALREADY_SEEDED && (e as { code?: string }).code !== 'idempotency_key_reused') throw e;
   }
   return count;
 }

@@ -10,10 +10,11 @@ import { CoreModule } from '@modivara/core-api';
 import { SESSION_COOKIE, type MeResponse } from '@modivara/core-contracts';
 import { HOSPITALITY_OUTBOX, HospitalityModule } from '@modivara/hospitality-api';
 import { GATEWAY_API_PATHS, GATEWAY_KEY_HEADER } from '@modivara/hospitality-contracts';
+import { POS_OUTBOX, PosModule } from '@modivara/pos-api';
 import { hostMetadata } from '../app.module.js';
 import { seedCommerce } from '../seed/commerce.js';
 import { seedCore } from '../seed/core.js';
-import { resetBoth, resetCommerceDb } from '../seed/testing.js';
+import { resetBoth, resetCommerceDb, resetPosDb } from '../seed/testing.js';
 
 // Host real (los mismos módulos y el mismo registro de suscriptores que app.module.ts) con los pollers en manual: la prueba llama a `tick()`.
 export const PASSWORD = 'Secret123';
@@ -24,13 +25,14 @@ const MANUAL = { outbox: { intervalMs: 3_600_000 } };
   HospitalityModule.forRoot({ databaseUrl: url('hospitality', 'hospitality'), mqtt: null, ...MANUAL }),
   CommerceModule.forRoot({ databaseUrl: url('commerce', 'commerce'), ...MANUAL }),
   AnalyticsModule.forRoot({ databaseUrl: url('analytics', 'analytics') }),
+  PosModule.forRoot({ databaseUrl: url('pos', 'pos'), ...MANUAL }),
 ]))
 class HostModule {}
 
 type Raw = { $executeRawUnsafe(sql: string): Promise<unknown>; $queryRawUnsafe<T>(sql: string): Promise<T> };
 const cookies = new Map<string, string>();
 
-/** Arranca el host, limpia las cuatro bases, siembra core y commerce, y deja un botón asignado a una mesa de `bar-demo`. */
+/** Arranca el host, limpia las bases, siembra core y commerce, y deja un botón asignado a una mesa de `bar-demo`. */
 export async function startHost() {
   const app: INestApplication = (await Test.createTestingModule({ imports: [HostModule] }).compile()).createNestApplication();
   app.use(cookieParser());
@@ -43,6 +45,7 @@ export async function startHost() {
 
   await resetBoth({ get });
   await resetCommerceDb({ get });
+  await resetPosDb({ get });
   await get<Raw>('ANALYTICS_PRISMA').$executeRawUnsafe('TRUNCATE processed_events, service_call_facts, stock_movement_facts');
   await seedCore(app, PASSWORD);
   await seedCommerce(app, PASSWORD);
@@ -56,7 +59,7 @@ export async function startHost() {
     post: (path: string, body?: object, headers: Record<string, string> = {}) => http().post(`/api/v1${path}`).set('Cookie', cookies.get(who)!).set(headers).send(body),
     put: (path: string, body: object) => http().put(`/api/v1${path}`).set('Cookie', cookies.get(who)!).send(body),
   });
-  for (const [slug, user] of [['labs', 'superadmin'], ['bar-demo', 'admin'], ['bar-demo', 'barra'], ['bar-demo', 'inventario1'], ['bar-demo-pisos', 'admin']] as const) await login(slug, user);
+  for (const [slug, user] of [['labs', 'superadmin'], ['bar-demo', 'admin'], ['bar-demo', 'barra'], ['bar-demo', 'inventario1'], ['bar-demo', 'caja1'], ['bar-demo-pisos', 'admin']] as const) await login(slug, user);
 
   const me = (await as('bar-demo/admin').get('/me')).body as MeResponse;
   const locationId = me.locations[0]!.id;
@@ -73,6 +76,7 @@ export async function startHost() {
     press: () => http().post(`/api/v1${GATEWAY_API_PATHS.deviceEvents}`).set(GATEWAY_KEY_HEADER, gateway.key).send({ device_code: 'btn-01' }),
     tickHospitality: () => tick(HOSPITALITY_OUTBOX),
     tickCommerce: () => tick(COMMERCE_OUTBOX),
+    tickPos: () => tick(POS_OUTBOX),
     analyticsDb: get<Raw>('ANALYTICS_PRISMA'),
     hospitalityDb: get<Raw>('HOSPITALITY_PRISMA'),
   };

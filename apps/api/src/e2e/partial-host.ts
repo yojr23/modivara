@@ -12,7 +12,7 @@ import { hostMetadata } from '../app.module.js';
 
 // MOD-12/13: host parcial (misma composición que AppModule) sobre una base propia con SOLO los esquemas de core y de los dominios dados
 // migrados, y sin las variables de entorno de los ausentes. Requiere db-test (usa su superusuario de pruebas para crear la base).
-export type Domain = 'hospitality' | 'commerce' | 'analytics';
+export type Domain = 'hospitality' | 'commerce' | 'analytics' | 'pos';
 export const PASSWORD = 'Secret123';
 export const MANUAL = { outbox: { intervalMs: 3_600_000 } };
 /** Para el `beforeAll`: crear la base y migrar lanza varios `prisma` (más de 60 s con la máquina cargada). */
@@ -32,7 +32,7 @@ const prisma = (domain: string, databaseUrl: string, args: string[], input?: str
 /** Arranca el host. `modules(url)` devuelve los DynamicModule de `domains`, con `url(domain)` como su base. */
 export async function startPartialHost(db: string, domains: Domain[], modules: (url: (domain: Domain) => string) => DynamicModule[]) {
   const url = (domain: string) => `postgresql://${domain}_app:test@127.0.0.1:55432/${db}?schema=${domain}`;
-  const absent = (['hospitality', 'commerce', 'analytics'] as const).filter((d) => !domains.includes(d));
+  const absent = (['hospitality', 'commerce', 'analytics', 'pos'] as const).filter((d) => !domains.includes(d));
   const saved = absent.map((d) => [envOf(d), process.env[envOf(d)]] as const);
   for (const [name] of saved) delete process.env[name];
 

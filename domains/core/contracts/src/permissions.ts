@@ -1,13 +1,14 @@
 import type { ModuleName } from './identity.js';
 
 /** Roles por local (DATA-001 §2). Una persona puede tener varios. */
-export const LOCATION_ROLES = ['admin', 'staff', 'inventory'] as const;
+export const LOCATION_ROLES = ['admin', 'staff', 'inventory', 'cashier'] as const;
 export type LocationRole = (typeof LOCATION_ROLES)[number];
 
 /** Permisos que verifican los guards. Las rutas nunca preguntan por roles (ADR-002 §3). */
 export const PERMISSIONS = [
   'core.users.manage',
   'hospitality.tables.manage',
+  'hospitality.tables.link_sale',
   'hospitality.calls.read',
   'hospitality.calls.acknowledge',
   'hospitality.calls.complete',
@@ -18,6 +19,10 @@ export const PERMISSIONS = [
   'commerce.stock.write',
   'analytics.calls.read',
   'analytics.inventory.read',
+  'pos.catalog.manage',
+  'pos.sales.operate',
+  'pos.sales.void',
+  'pos.sales.read',
   // OPEN: DATA-001 §2 solo dice "platform.*"; estos nombres concretos están pendientes de revisión.
   'platform.organizations.manage',
   'platform.locations.manage',
@@ -45,6 +50,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<LocationRole, readonly Permission
   admin: [
     'core.users.manage',
     'hospitality.tables.manage',
+    'hospitality.tables.link_sale',
     'hospitality.calls.read',
     'hospitality.calls.acknowledge',
     'hospitality.calls.complete',
@@ -55,9 +61,14 @@ export const ROLE_PERMISSIONS: Readonly<Record<LocationRole, readonly Permission
     'commerce.stock.write',
     'analytics.calls.read',
     'analytics.inventory.read',
+    'pos.catalog.manage',
+    'pos.sales.operate',
+    'pos.sales.void',
+    'pos.sales.read',
   ],
   staff: ['hospitality.calls.read', 'hospitality.calls.acknowledge', 'hospitality.calls.complete', 'hospitality.devices.status'],
   inventory: ['commerce.catalog.manage', 'commerce.stock.read', 'commerce.stock.write', 'analytics.inventory.read'],
+  cashier: ['pos.sales.operate', 'pos.sales.read', 'hospitality.tables.link_sale'],
 };
 
 export interface PermissionContext {

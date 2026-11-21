@@ -3,6 +3,7 @@ import { COMMERCE_OUTBOX } from '@modivara/commerce-api';
 import { CORE_OUTBOX, CORE_PRISMA, CoreModule, coreGlobalProviders, Public } from '@modivara/core-api';
 import type { OutboxPoller } from '@modivara/core-contracts';
 import { HOSPITALITY_OUTBOX } from '@modivara/hospitality-api';
+import { POS_OUTBOX } from '@modivara/pos-api';
 import { domainModules, selectedDomains } from './domains.js';
 import { IntegrationSubscribersModule } from './integration-subscribers.module.js';
 
@@ -15,6 +16,7 @@ export class HealthController {
     @Optional() @Inject(CORE_OUTBOX) private readonly coreOutbox?: OutboxPoller,
     @Optional() @Inject(HOSPITALITY_OUTBOX) private readonly hospitalityOutbox?: OutboxPoller,
     @Optional() @Inject(COMMERCE_OUTBOX) private readonly commerceOutbox?: OutboxPoller,
+    @Optional() @Inject(POS_OUTBOX) private readonly posOutbox?: OutboxPoller,
   ) {}
 
   /** Vivo: el proceso responde. `/health` queda como alias (demo, E2E). */
@@ -24,7 +26,7 @@ export class HealthController {
     return { status: 'ok' };
   }
 
-  /** Listo: además la base responde. ponytail: solo PostgreSQL (los 4 esquemas viven en la misma); sumar MQTT/outbox si el piloto lo pide. */
+  /** Listo: además la base responde. ponytail: solo PostgreSQL (todos los esquemas viven en la misma); sumar MQTT/outbox si el piloto lo pide. */
   @Public()
   @Get('ready')
   async ready() {
@@ -45,7 +47,7 @@ export class HealthController {
    * es pública (Caddy expone /api/*) y el estado interno no se publica. Si el recuento falla devuelve null (no tumba la sonda).
    */
   private async failedEvents(): Promise<Record<string, number | null>> {
-    const pollers = { core: this.coreOutbox, hospitality: this.hospitalityOutbox, commerce: this.commerceOutbox };
+    const pollers = { core: this.coreOutbox, hospitality: this.hospitalityOutbox, commerce: this.commerceOutbox, pos: this.posOutbox };
     const entries = await Promise.all(
       Object.entries(pollers).flatMap(([name, p]) => (p ? [p.countFailed().catch(() => null).then((n) => [name, n] as const)] : [])),
     );

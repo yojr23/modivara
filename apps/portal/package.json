@@ -20,6 +20,8 @@
     "@modivara/core-web": "workspace:*",
     "@modivara/hospitality-contracts": "workspace:*",
     "@modivara/hospitality-web": "workspace:*",
+    "@modivara/pos-contracts": "workspace:*",
+    "@modivara/pos-web": "workspace:*",
     "@radix-ui/react-slot": "1.5.0",
     "@tanstack/react-query": "5.107.1",
     "class-variance-authority": "0.7.1",

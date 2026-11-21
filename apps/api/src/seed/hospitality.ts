@@ -5,7 +5,7 @@ import {
   type ActorContext,
 } from '@modivara/hospitality-api';
 import type { LayoutElement } from '@modivara/hospitality-contracts';
-import { BUSINESSES, MODULES, SUPERADMIN } from './core.js';
+import { BUSINESSES, SUPERADMIN } from './core.js';
 
 // DATA-001 §7. OPEN: el documento no fija el formato de las etiquetas de mesa ("Mesa 1" como en el simulador) ni qué mesas hay en cada zona de
 // "Bar Demo Pisos" (3 por zona, con los mismos números repetidos); tampoco el nombre del gateway.
@@ -34,7 +34,7 @@ export async function seedHospitality(app: INestApplicationContext, password: st
 
   async function contextOf(slug: string): Promise<ActorContext> {
     const b = BUSINESSES.find((x) => x.slug === slug)!;
-    const { organization, locations } = await provision.execute({ actor: root, slug, name: b.name, locations: [{ name: b.location }], modules: MODULES });
+    const { organization, locations } = await provision.execute({ actor: root, slug, name: b.name, locations: [{ name: b.location }], modules: b.modules });
     return { organizationId: organization.id, locationId: locations[0]!.id, actorUserId: root.actorUserId };
   }
 
@@ -44,7 +44,9 @@ export async function seedHospitality(app: INestApplicationContext, password: st
   }
 
   async function ensureTable(ctx: ActorContext, label: string, zoneId: string | null): Promise<string> {
-    const existing = (await app.get(ListTables).execute(ctx)).find((v) => v.table.label === label && v.table.zoneId === zoneId);
+    // Sin zona (Bar Demo, etiquetas únicas) se busca en cualquier espacio: `seed:planos-demo` mueve sus mesas a pisos y
+    // repetir el seed no debe crearlas de nuevo en el espacio por defecto.
+    const existing = (await app.get(ListTables).execute(ctx)).find((v) => v.table.label === label && (zoneId === null || v.table.zoneId === zoneId));
     return (existing?.table ?? (await app.get(CreateTable).execute({ ...ctx, label, zoneId }))).id;
   }
 

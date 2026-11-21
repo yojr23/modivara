@@ -14,14 +14,7 @@ out="$dir/modivara-$(date -u +%Y%m%dT%H%M%SZ).dump.enc"
 
 # Conteos de control (los compara scripts/restore-check.sh). Mismas tablas que verifica la restauración.
 counts() {
-  $DC exec -T db sh -c 'psql -qAt -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
-SELECT 'cuentas='||count(*) FROM core.app_users;
-SELECT 'negocios='||count(*) FROM core.organizations;
-SELECT 'planos_publicados='||count(*) FROM hospitality.space_layouts WHERE status='published';
-SELECT 'llamados='||count(*) FROM hospitality.service_calls;
-SELECT 'movimientos_stock='||count(*) FROM commerce.stock_movements;
-SELECT 'audit_log='||count(*) FROM core.audit_log;
-SQL
+  $DC exec -T db sh -c 'psql -qAt -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$(dirname "$0")/counts.sql"
 }
 
 # ponytail: sin snapshot compartido; si los conteos cambian durante el dump se repite (3 intentos). Con escritura muy alta, usar pg_dump --snapshot.

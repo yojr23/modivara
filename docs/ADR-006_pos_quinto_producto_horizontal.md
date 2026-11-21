@@ -11,7 +11,7 @@
 
 ## Decisión
 
-1. La plataforma tiene **cinco productos**: `core` (infraestructura compartida), `pos`, `inventory` (técnicamente `commerce`, sin renombrar en esta rama), `analytics` y `hospitality`. Cada uno se habilita por su entitlement (`core.module`) y tiene permisos propios.
+1. La plataforma tiene **cinco dominios técnicos y cuatro productos contratables**. `core` es la plataforma compartida (identidad, negocios, permisos, entitlements): no se vende ni se habilita aparte. Los productos son `pos`, `inventory` (técnicamente `commerce`, sin renombrar), `analytics` y `hospitality`; cada uno se habilita por su entitlement (`core.module`) y tiene permisos propios. *(Redacción corregida el 21/11/2026 con la aceptación del responsable; antes decía «cinco productos».)*
 2. **POS es sectorialmente agnóstico**: su núcleo solo conoce artículo vendible, venta, línea, cantidad, precio, moneda, estado y cobro declarado. No conoce mesas, cartas, meseros ni tipos de negocio.
 3. **POS depende solo de Core** (`core-contracts`, `CoreAccessPort`). No importa `hospitality`, `commerce` ni `analytics`, ni consulta sus esquemas.
 4. **Integraciones por eventos y por adaptadores compuestos en el host**: POS emite `pos.sale.completed.v1` (ningún consumidor es obligatorio) y vincula una venta a un recurso externo (p. ej. una mesa) con referencias externas validadas por un adaptador registrado en el host (`sale_external_links`, POS-15/27).
@@ -21,6 +21,7 @@
 
 - Core suma el módulo `pos`, los permisos `pos.*` y el rol de local `cashier` (migración incremental de enums, sin tocar tablas de otros dominios).
 - Un negocio puede contratar solo POS; Hospitality, Inventario y Analytics siguen funcionando sin POS.
+- La independencia de POS se exige en runtime y en base de datos: un host con `MODIVARA_DOMAINS=pos` arranca con solo los esquemas `core` y `pos` (prueba `test:composition:core-pos-isolated`). La imagen del host sigue incluyendo el código de los otros dominios; empaquetarlos por separado es capacidad futura, no probada.
 - El destino de repositorios pasa de cuatro a cinco; `check:separability` y la prueba de agnosticismo de `domains/pos` vigilan la independencia.
 - **Stock nunca negativo** (decisión del responsable, 21/11/2026): cuando POS descuente inventario (POS-32…35), ningún movimiento puede dejar el saldo por debajo de cero; se mantiene la regla actual de commerce (`insufficient_stock`).
 - ADR-001/002/003 conservan su texto; los documentos derivados (`README.md`, `STATUS-001`) apuntan a este ADR.

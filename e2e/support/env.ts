@@ -17,6 +17,7 @@ export function seedPassword(): string {
 /** Sesiones que prepara global-setup (una por usuario, para no gastar el límite de 30 logins por IP cada 15 min). */
 export const USERS = [
   ['bar-demo', 'admin'], ['bar-demo', 'barra'], ['bar-demo', 'mesero1'], ['bar-demo', 'inventario1'], ['bar-demo-pisos', 'admin'], ['labs', 'superadmin'],
+  ['bar-demo', 'caja1'], ['tienda-demo', 'admin'],
   ['zapateria-demo', 'admin'], ['zapateria-demo', 'inventario1'], ['restaurante-demo', 'admin'],
 ] as const;
 export type User = (typeof USERS)[number];

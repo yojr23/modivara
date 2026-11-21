@@ -5,7 +5,7 @@ import {
 } from './rules.js';
 
 /** Módulos habilitables por negocio (DATA-001 §2, core.module). */
-export const MODULES = ['hospitality', 'commerce', 'analytics'] as const;
+export const MODULES = ['hospitality', 'commerce', 'analytics', 'pos'] as const;
 export type ModuleName = (typeof MODULES)[number];
 
 /** Formato de slug; sirve para identificar el negocio en el login (incluye `labs`). */

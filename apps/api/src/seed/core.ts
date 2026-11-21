@@ -2,33 +2,39 @@ import type { INestApplicationContext } from '@nestjs/common';
 import {
   BootstrapPlatform, CreateUser, ListUsers, ProvisionOrganization, SetLocationRoles, type ActorContext,
 } from '@modivara/core-api';
+import type { LocationRole, ModuleName } from '@modivara/core-contracts';
 
-type Role = 'admin' | 'staff' | 'inventory';
 export interface BusinessSeed {
   slug: string;
   name: string;
   location: string;
-  /** Módulos que contrata; sin el campo, los tres (`MODULES`). */
-  modules?: readonly (typeof MODULES)[number][];
-  users: Array<{ username: string; displayName: string; role: Role }>;
+  /** Productos contratados; los demás seeds solo siembran en negocios con su módulo. */
+  modules: readonly ModuleName[];
+  users: Array<{ username: string; displayName: string; role: LocationRole }>;
 }
 
 // DATA-001 §7. OPEN: el documento no fija el username del superadmin, el nombre del local ni los usuarios de bar-demo-pisos
-// (se crea `admin` para poder probar el aislamiento H1); tampoco qué módulos contrata cada demo (los bares, los tres; zapatería y restaurante, los de PLAN-003 T01/T07).
+// (se crea `admin` para poder probar el aislamiento H1); tampoco qué módulos contrata cada demo.
+// POS-001 §7: Bar Demo con los cuatro productos, Pisos sin POS (regresión Hospitality-only) y Tienda Demo solo con POS.
+// PLAN-003 T01/T07: Zapatería solo con inventario y Restaurante solo con mesas y llamados.
 export const SUPERADMIN = { username: 'superadmin', displayName: 'Superadmin' };
-export const MODULES = ['hospitality', 'commerce', 'analytics'] as const;
 export const BUSINESSES: BusinessSeed[] = [
   {
-    slug: 'bar-demo', name: 'Bar Demo', location: 'Principal',
+    slug: 'bar-demo', name: 'Bar Demo', location: 'Principal', modules: ['hospitality', 'commerce', 'analytics', 'pos'],
     users: [
       { username: 'admin', displayName: 'Administrador', role: 'admin' },
       { username: 'barra', displayName: 'Barra', role: 'staff' },
       { username: 'mesero1', displayName: 'Mesero 1', role: 'staff' },
       { username: 'inventario1', displayName: 'Inventario 1', role: 'inventory' },
+      { username: 'caja1', displayName: 'Caja 1', role: 'cashier' },
     ],
   },
   {
-    slug: 'bar-demo-pisos', name: 'Bar Demo Pisos', location: 'Principal',
+    slug: 'bar-demo-pisos', name: 'Bar Demo Pisos', location: 'Principal', modules: ['hospitality', 'commerce', 'analytics'],
+    users: [{ username: 'admin', displayName: 'Administrador', role: 'admin' }],
+  },
+  {
+    slug: 'tienda-demo', name: 'Tienda Demo', location: 'Principal', modules: ['pos'],
     users: [{ username: 'admin', displayName: 'Administrador', role: 'admin' }],
   },
   // MOD-61/74: misma instalación, paquetes aislados. Zapatería solo con inventario; restaurante solo con mesas y llamados.
@@ -62,7 +68,7 @@ export async function seedCore(app: INestApplicationContext, password: string): 
 
   for (const b of BUSINESSES) {
     const { organization, locations } = await provision.execute({
-      actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: b.modules ?? MODULES,
+      actor: root, slug: b.slug, name: b.name, locations: [{ name: b.location }], modules: b.modules,
     });
     const actor: ActorContext = { ...root, actingOrganizationId: organization.id };
     const existing = await listUsers.execute({ actor, includeInactive: true });

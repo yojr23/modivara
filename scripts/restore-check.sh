@@ -14,19 +14,11 @@ docker run -d --rm --name "$name" -e POSTGRES_PASSWORD=restore-check "${RESTORE_
 until docker exec "$name" pg_isready -q -U postgres -h 127.0.0.1; do sleep 1; done  # 127.0.0.1: el socket ya acepta durante el init, el TCP no
 db() { docker exec -i "$name" psql -q -v ON_ERROR_STOP=1 -U postgres "$@"; }
 db -d postgres -c 'CREATE DATABASE restored' -c 'CREATE ROLE modivara SUPERUSER'
-for d in core hospitality commerce analytics; do db -d restored -c "CREATE ROLE ${d}_app"; done
+for d in core hospitality commerce analytics pos; do db -d restored -c "CREATE ROLE ${d}_app"; done
 
 openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE -in "$file" \
   | docker exec -i "$name" pg_restore -U postgres -d restored --exit-on-error --no-password
 
-got=$(db -d restored -At <<'SQL'
-SELECT 'cuentas='||count(*) FROM core.app_users;
-SELECT 'negocios='||count(*) FROM core.organizations;
-SELECT 'planos_publicados='||count(*) FROM hospitality.space_layouts WHERE status='published';
-SELECT 'llamados='||count(*) FROM hospitality.service_calls;
-SELECT 'movimientos_stock='||count(*) FROM commerce.stock_movements;
-SELECT 'audit_log='||count(*) FROM core.audit_log;
-SQL
-)
+got=$(db -d restored -At < "$(dirname "$0")/counts.sql")
 echo "origen:"; sed 's/^/  /' "$file.counts"; echo "restaurado:"; echo "$got" | sed 's/^/  /'
 if [ "$got" = "$(cat "$file.counts")" ]; then echo "restore-check: OK"; else echo "restore-check: NO CUADRA" >&2; exit 1; fi
