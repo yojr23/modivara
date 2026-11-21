@@ -10,7 +10,11 @@ FROM (VALUES
   (6, 'ventas_pos', 'pos.sales', ''),
   (7, 'lineas_venta_pos', 'pos.sale_lines', ''),
   (8, 'outbox_pos', 'pos.outbox_events', ''),
-  (9, 'audit_log', 'core.audit_log', '')
+  (9, 'audit_log', 'core.audit_log', ''),
+  (10, 'articulos_pos', 'pos.sellable_items', ''),
+  (11, 'ajustes_local_pos', 'pos.location_settings', ''),
+  (12, 'vinculos_venta_pos', 'pos.sale_external_links', ''),
+  (13, 'claves_idempotencia_pos', 'pos.idempotency_keys', '')
 ) v(n, name, tbl, where_)
 WHERE to_regclass(tbl) IS NOT NULL
 ORDER BY n;
