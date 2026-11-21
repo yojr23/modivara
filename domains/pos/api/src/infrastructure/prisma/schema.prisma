@@ -129,7 +129,7 @@ model SaleExternalLink {
   resourceType   String    @map("resource_type")
   resourceId     String    @map("resource_id") @db.Uuid
   /// Nombre del recurso al vincular (copia para mostrar); CONTEXT_LABEL_MAX en contracts.
-  label          String?   @db.VarChar(60)
+  label          String?   @db.VarChar(93)
   active         Boolean   @default(true)
   createdAt      DateTime  @map("created_at") @db.Timestamptz
   createdBy      String    @map("created_by") @db.Uuid

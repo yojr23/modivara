@@ -1,11 +1,10 @@
 import { CORE_ACCESS_PORT, type CoreAccessPort, type RequestActor } from '@modivara/core-contracts';
 import { ListTables } from '@modivara/hospitality-api';
 import { POS_REFERENCE_VALIDATORS, type ExternalReferenceValidator, type PosContext } from '@modivara/pos-api';
-import { CONTEXT_LABEL_MAX } from '@modivara/pos-contracts';
 
-/** «Zona · mesa», como el tablero: dos zonas pueden repetir el número de mesa. Si no cabe, se acorta la zona, nunca la mesa. */
+/** «Zona · mesa», como el tablero: dos zonas pueden repetir el número de mesa. Íntegra (≤93 = CONTEXT_LABEL_MAX); solo la vista la trunca. */
 export const tableContextLabel = (label: string, zoneName: string | null): string =>
-  zoneName ? `${zoneName.slice(0, Math.max(0, CONTEXT_LABEL_MAX - label.length - 3))} · ${label}` : label;
+  zoneName ? `${zoneName} · ${label}` : label;
 
 /**
  * Adaptador Hospitality → POS (POS-27, POS-28): una venta se ata a una mesa activa del local del actor, solo si el negocio tiene

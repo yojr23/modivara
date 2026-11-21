@@ -1,4 +1,4 @@
-import { CONTEXT_LABEL_MAX, type SaleStatus } from '@modivara/pos-contracts';
+import type { SaleStatus } from '@modivara/pos-contracts';
 import { type CoreAccessPort, findActiveLocation, newId, type RequestActor } from '@modivara/core-contracts';
 import { ConflictError, CurrencyLockedError, InvalidValueError, LocationUnavailableError, NotFoundError } from '../domain/errors.js';
 import { Sale } from '../domain/sale.js';
@@ -179,7 +179,7 @@ export class OpenLinkedSale {
     const label = validator && UUID.test(cmd.resourceId) ? await validator.validate(cmd, cmd.resourceType, cmd.resourceId, cmd.actor) : null;
     if (label === null) throw new NotFoundError('External resource');
     const currency = await locationCurrency(this.settings, cmd);
-    const contextLabel = label.trim().slice(0, CONTEXT_LABEL_MAX) || null;
+    const contextLabel = label.trim() || null;
     return this.sales.open(Sale.open({ ...cmd, currency, id: newId(), now: new Date(), contextLabel }), idem, link);
   }
 }

@@ -96,7 +96,7 @@ export const saleLineSchema = z.object({
 export type SaleLineDto = z.infer<typeof saleLineSchema>;
 
 /** Largo máximo de la etiqueta de un recurso externo vinculado (`sale_external_links.label`). */
-export const CONTEXT_LABEL_MAX = 60;
+export const CONTEXT_LABEL_MAX = 93;
 
 export const saleSchema = z.object({
   id: z.uuid(),

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { newId } from '@modivara/core-contracts';
 import { createPosPrisma } from './client.js';
 
-// INV-07 / F4-07: 0002 y 0003 se aplican sobre una base POBLADA con 0001 (no solo sobre una vacía).
+// INV-07 / F4-07: 0002, 0003 y 0004 se aplican sobre una base POBLADA con 0001 (no solo sobre una vacía).
 // Base propia y desechable; solo se ejecuta el SQL de las migraciones existentes, en orden.
 const DB = 'modivara_mig_populated_pos';
 const ADMIN = 'postgresql://modivara:test@127.0.0.1:55432';
@@ -32,7 +32,7 @@ afterAll(async () => {
   exec(`${ADMIN}/modivara_test`, `DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`);
 });
 
-describe('pos: 0001 con datos, luego 0002 y 0003', () => {
+describe('pos: 0001 con datos, luego 0002, 0003 y 0004', () => {
   it('conserva ventas, líneas, vínculo, clave y evento; aplica los CHECK/FK nuevos y la etiqueta', async () => {
     migrate('0001_init');
     const [org, loc, actor, item, sale, line, link, resource, orgB, saleB] = Array.from({ length: 10 }, () => newId());
@@ -50,12 +50,13 @@ describe('pos: 0001 con datos, luego 0002 y 0003', () => {
       VALUES ('pos.sale.completed', 1, '${org}', '${loc}', '${sale}', '${sale}', '{}'::jsonb)`);
     await run(`INSERT INTO sales (id, organization_id, location_id, currency, status, opened_at, opened_by) VALUES ('${saleB}', '${orgB}', '${newId()}', 'COP', 'open', now(), '${actor}')`);
 
-    migrate('0002_idempotency_scope', '0003_external_link_label');
+    migrate('0002_idempotency_scope', '0003_external_link_label', '0004_link_label_93');
 
     for (const t of ['sellable_items', 'sale_lines', 'sale_external_links', 'idempotency_keys', 'outbox_events', 'location_settings']) expect(await count(t)).toBe(1);
     expect(await count('sales')).toBe(2);
     expect((await db.$queryRawUnsafe<{ q: string }[]>('SELECT quantity::text AS q FROM sale_lines'))[0]!.q).toBe('0.335');
     expect((await db.$queryRawUnsafe<{ label: string | null }[]>('SELECT label FROM sale_external_links'))[0]!.label).toBeNull();
+    await run(`UPDATE sale_external_links SET label = '${'z'.repeat(93)}'`); // 0004: «zona · mesa» íntegra (60 + 3 + 30)
     await run(`UPDATE sale_external_links SET label = 'mesa 4'`);
     // 0002: la clave ya no puede apuntar a una venta de otro negocio; 0002: `unit` solo admite enteros.
     await expect(run(`INSERT INTO idempotency_keys (organization_id, key, operation, fingerprint, sale_id) VALUES ('${newId()}', '${newId()}', 'x', '{}', '${saleB}')`)).rejects.toThrow();

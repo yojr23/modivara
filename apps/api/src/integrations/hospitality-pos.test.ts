@@ -5,12 +5,19 @@ import { describe, expect, it } from 'vitest';
 import { HospitalityTableValidator, tableContextLabel } from './hospitality-pos.js';
 
 describe('tableContextLabel', () => {
-  it('antepone la zona y acorta la zona, nunca la mesa, si no cabe', () => {
+  it('antepone la zona y conserva la etiqueta íntegra (zona 60 + mesa 30 = máximo del contrato)', () => {
     expect(tableContextLabel('Mesa 3', null)).toBe('Mesa 3');
     expect(tableContextLabel('5', 'Terraza')).toBe('Terraza · 5');
-    const long = tableContextLabel('Mesa 30 junto a la ventana grande', 'Z'.repeat(60));
-    expect(long).toHaveLength(CONTEXT_LABEL_MAX);
-    expect(long.endsWith(' · Mesa 30 junto a la ventana grande')).toBe(true);
+    const zone = 'Z'.repeat(60);
+    const table = 'M'.repeat(30);
+    const full = tableContextLabel(table, zone);
+    expect(full).toBe(`${zone} · ${table}`);
+    expect(full).toHaveLength(CONTEXT_LABEL_MAX);
+  });
+
+  it('dos zonas con el mismo prefijo largo y la misma mesa no colisionan', () => {
+    const prefix = 'P'.repeat(55);
+    expect(tableContextLabel('5', `${prefix}A`)).not.toBe(tableContextLabel('5', `${prefix}B`));
   });
 });
 

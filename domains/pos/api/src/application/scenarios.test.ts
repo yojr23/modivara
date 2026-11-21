@@ -290,9 +290,9 @@ describe('ventas vinculadas a un recurso externo (POS-15)', () => {
     await expect(uc.openLinked.execute({ ...linked, idempotencyKey: '01900000-0000-7000-8000-0000000000d2' })).rejects.toThrow(NotFoundError);
   });
 
-  it('etiqueta del proveedor: sin espacios sobrantes, recortada al máximo; vacía → sin etiqueta', async () => {
+  it('etiqueta del proveedor: sin espacios sobrantes (la validación del contrato acota el largo); vacía → sin etiqueta', async () => {
     validator.known.add(`spot:${resourceId}`);
-    validator.label = `  ${'x'.repeat(CONTEXT_LABEL_MAX + 5)} `;
+    validator.label = `  ${'x'.repeat(CONTEXT_LABEL_MAX)} `;
     const long = await uc.openLinked.execute({ ...linked, idempotencyKey: '01900000-0000-7000-8000-0000000000e1' });
     expect(long.sale.toProps().contextLabel).toBe('x'.repeat(CONTEXT_LABEL_MAX));
     await uc.cancel({ ...ctx, saleId: long.sale.id });
