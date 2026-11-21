@@ -23,6 +23,11 @@ export interface ScopedId extends LocationScope {
 export interface SellableItemRepository {
   /** Nombre o SKU repetido entre activos del local → `ConflictError` (lo garantiza la base, no una lectura previa). */
   save(item: SellableItem): Promise<void>;
+  /**
+   * Alta de un artículo: como `save`, pero bajo el candado de moneda del local (ver `PosSettingsRepository.withCurrencyLock`);
+   * si la moneda vigente del local ya no es la del artículo → `CurrencyMismatchError`.
+   */
+  add(item: SellableItem): Promise<void>;
   findById(query: ScopedId): Promise<SellableItem | null>;
   /** Activos e inactivos (para resolver nombres en el historial), por nombre. */
   list(query: LocationScope): Promise<SellableItem[]>;
@@ -62,6 +67,7 @@ export interface SaleStore {
    * Inserta la venta nueva (+ vínculo activo opcional) y su clave. Misma clave y misma petición → la venta original (`replayed`);
    * misma clave con otra operación o petición → `IdempotencyKeyReusedError`; recurso ya vinculado → la venta vinculada (`replayed`),
    * y la clave queda atada a ella. La venta de una clave se busca siempre dentro del negocio y local de la petición.
+   * Se inserta bajo el candado de moneda del local: si la moneda vigente ya no es la de la venta → `CurrencyMismatchError`.
    */
   open(sale: Sale, idem: IdempotencyKey | null, link?: ExternalLink): Promise<SaleWrite>;
   /**
@@ -86,6 +92,12 @@ export interface SaleStore {
 export interface PosSettingsRepository {
   findCurrency(query: LocationScope): Promise<string | null>;
   saveCurrency(query: LocationScope & { currency: string; actorUserId: string }): Promise<void>;
+  /**
+   * Ejecuta `fn` con el candado de moneda del local tomado en exclusiva. Quien crea una venta o un artículo (`SaleStore.open`,
+   * `SellableItemRepository.add`) toma el mismo candado en compartido y relee la moneda vigente dentro de su transacción, así que
+   * mientras `fn` cuenta artículos/ventas y escribe la moneda no puede entrar nada nuevo en otra moneda: uno gana y el otro falla.
+   */
+  withCurrencyLock<T>(query: LocationScope, fn: () => Promise<T>): Promise<T>;
 }
 
 /**

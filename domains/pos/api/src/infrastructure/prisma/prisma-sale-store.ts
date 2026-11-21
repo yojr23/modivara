@@ -4,7 +4,7 @@ import type { ExternalLink, IdempotencyKey, LocationScope, SaleStore, SaleWrite,
 import { IdempotencyKeyReusedError, NotFoundError } from '../../domain/errors.js';
 import { Sale, type SaleLine, type SaleProps } from '../../domain/sale.js';
 import type { PosPrisma } from './client.js';
-import { isUniqueViolation, type Db } from './db.js';
+import { assertCurrentCurrency, isUniqueViolation, lockCurrency, type Db } from './db.js';
 import type { Prisma } from './generated/client.js';
 
 // Etiqueta del vínculo más reciente: sigue visible en el historial aunque el vínculo ya no esté activo.
@@ -54,6 +54,8 @@ export class PrismaSaleStore implements SaleStore {
     const p = sale.toProps();
     try {
       await this.db.$transaction(async (tx) => {
+        await lockCurrency(tx, p.locationId, 'shared');
+        await assertCurrentCurrency(tx, p, p.currency);
         await tx.sale.create({
           data: {
             id: p.id, organizationId: p.organizationId, locationId: p.locationId, currency: p.currency, status: p.status,

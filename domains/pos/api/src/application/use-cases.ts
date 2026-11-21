@@ -65,7 +65,7 @@ export class CreateSellableItem {
     const currency = await locationCurrency(this.settings, cmd);
     const item = SellableItem.create({ ...cmd, currency, id: newId(), now: new Date() });
     await assertUnique(this.items, item);
-    await this.items.save(item);
+    await this.items.add(item);
     return item;
   }
 }
@@ -129,12 +129,15 @@ export class UpdatePosSettings {
     await requireLocation(this.core, cmd);
     const currency = requireCurrency(cmd.currency);
     const scope = { organizationId: cmd.organizationId, locationId: cmd.locationId };
-    if ((await locationCurrency(this.settings, cmd)) !== currency
-      && ((await this.items.countActiveOutsideCurrency({ ...scope, currency })) > 0 || (await this.sales.countOpen(scope)) > 0)) {
-      throw new CurrencyLockedError('Currency cannot change while there are active items in another currency or open sales');
-    }
-    await this.settings.saveCurrency({ organizationId: cmd.organizationId, locationId: cmd.locationId, currency, actorUserId: cmd.actorUserId });
-    return { currency };
+    // Conteos y escritura bajo el candado de moneda: sin él, una venta o artículo en la moneda vieja podría entrar entre ambos.
+    return this.settings.withCurrencyLock(scope, async () => {
+      if ((await locationCurrency(this.settings, cmd)) !== currency
+        && ((await this.items.countActiveOutsideCurrency({ ...scope, currency })) > 0 || (await this.sales.countOpen(scope)) > 0)) {
+        throw new CurrencyLockedError('Currency cannot change while there are active items in another currency or open sales');
+      }
+      await this.settings.saveCurrency({ ...scope, currency, actorUserId: cmd.actorUserId });
+      return { currency };
+    });
   }
 }
 

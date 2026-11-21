@@ -19,6 +19,7 @@ export class InMemorySellableItems implements SellableItemRepository {
     if (clash) throw new ConflictError('Unique violation');
     this.rows.set(item.id, p);
   }
+  add(item: SellableItem) { return this.save(item); }
   async findById(q: ScopedId) {
     const p = this.rows.get(q.id);
     return p && inScope(p, q) ? SellableItem.restore(p) : null;
@@ -124,6 +125,13 @@ export class InMemoryPosSettings implements PosSettingsRepository {
   readonly rows = new Map<string, string>();
   async findCurrency(q: LocationScope) { return this.rows.get(`${q.organizationId}:${q.locationId}`) ?? null; }
   async saveCurrency(q: LocationScope & { currency: string }) { this.rows.set(`${q.organizationId}:${q.locationId}`, q.currency); }
+  /** Cola por local: una sola sección a la vez, como el candado exclusivo (las altas en memoria no compiten, así que no lo toman). */
+  private readonly tails = new Map<string, Promise<unknown>>();
+  withCurrencyLock<T>(q: LocationScope, fn: () => Promise<T>): Promise<T> {
+    const run = (this.tails.get(q.locationId) ?? Promise.resolve()).then(fn, fn);
+    this.tails.set(q.locationId, run.catch(() => undefined));
+    return run;
+  }
 }
 
 /** Proveedor externo de prueba: solo conoce los recursos de `known`; su etiqueta es `label` o `<tipo> <últimos 4 del id>`. */
