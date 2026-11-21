@@ -1,4 +1,6 @@
+import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SESSION_COOKIE } from '@modivara/core-contracts';
 import { IDEMPOTENCY_KEY_HEADER, saleResultSchema, saleSchema } from '@modivara/pos-contracts';
 import { startHost } from './testing.js';
 
@@ -10,6 +12,7 @@ const pos = () => `/locations/${h.locationId}/pos`;
 const link = (resourceId: string, who = 'bar-demo/caja1', headers = key(), resourceType = 'table') =>
   h.as(who).post(`${pos()}/links`, { provider: 'hospitality', resource_type: resourceType, resource_id: resourceId }, headers);
 const coreDb = () => h.get<{ $executeRawUnsafe(sql: string): Promise<unknown> }>('CORE_PRISMA');
+const openSales = async (who = 'bar-demo/admin') => saleSchema.array().parse((await h.as(who).get(`${pos()}/sales?status=open`)).body);
 
 beforeAll(async () => {
   h = await startHost();
@@ -104,5 +107,54 @@ describe('vincular una venta a una mesa (adaptador hospitality)', () => {
     const next = await link(table);
     expect(next.status).toBe(201);
     expect(saleResultSchema.parse(next.body).sale.id).not.toBe(saleId);
+  });
+});
+
+describe('H-03: aislamiento de la mesa por negocio y por local', () => {
+  it('mesa de otra organización enviada por un actor con local propio, con hospitality y pos contratados: 404, sin venta ni vínculo', async () => {
+    const tienda = 'tienda-demo';
+    const res = await request(h.app.getHttpServer()).post('/api/v1/auth/login').send({ slug: tienda, username: 'admin', password: 'Secret123' });
+    const cookie = (res.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith(`${SESSION_COOKIE}=`))!.split(';')[0]!;
+    const ownLocation = ((await request(h.app.getHttpServer()).get('/api/v1/me').set('Cookie', cookie)).body as { locations: Array<{ id: string }> }).locations[0]!.id;
+    const orgId = ((await request(h.app.getHttpServer()).get('/api/v1/me').set('Cookie', cookie)).body as { organization: { id: string } }).organization.id;
+    const before = (await openSales()).length;
+    // Con el módulo contratado, el rechazo es por pertenencia de la mesa y no por module_disabled.
+    await coreDb().$executeRawUnsafe(`INSERT INTO entitlements (organization_id, module) VALUES ('${orgId}', 'hospitality') ON CONFLICT DO NOTHING`);
+    try {
+      const sent = await request(h.app.getHttpServer()).post(`/api/v1/locations/${ownLocation}/pos/links`).set('Cookie', cookie).set(key())
+        .send({ provider: 'hospitality', resource_type: 'table', resource_id: table });
+      expect([sent.status, sent.body.code]).toEqual([404, 'not_found']);
+    } finally {
+      await coreDb().$executeRawUnsafe(`DELETE FROM entitlements WHERE organization_id = '${orgId}' AND module = 'hospitality'`);
+    }
+    expect((await openSales()).length).toBe(before);
+    expect((await request(h.app.getHttpServer()).get(`/api/v1/locations/${ownLocation}/pos/sales`).set('Cookie', cookie)).body).toEqual([]);
+  });
+
+  it('mesa de un segundo local del mismo negocio: 404 desde el primero; en el suyo sí se vincula', async () => {
+    const [{ id: second }] = await (coreDb() as unknown as { $queryRawUnsafe<T>(sql: string): Promise<T> }).$queryRawUnsafe<[{ id: string }]>(
+      `INSERT INTO locations (organization_id, name) VALUES ('${h.organizationId}', 'Segundo') RETURNING id::text`);
+    await coreDb().$executeRawUnsafe(`INSERT INTO location_memberships (organization_id, user_id, location_id, roles)
+      SELECT organization_id, id, '${second}', ARRAY['admin']::location_role[] FROM app_users WHERE organization_id = '${h.organizationId}' AND username = 'admin'`);
+    const foreign = (await h.as('bar-demo/admin').post(`/locations/${second}/tables`, { label: 'Otro-local' })).body as { id: string };
+    expect(foreign.id).toBeTruthy();
+    const before = (await openSales()).length;
+    for (const who of ['bar-demo/caja1', 'bar-demo/admin']) expect((await link(foreign.id, who)).status).toBe(404);
+    expect((await openSales()).length).toBe(before);
+    const own = await h.as('bar-demo/admin').post(`/locations/${second}/pos/links`, { provider: 'hospitality', resource_type: 'table', resource_id: foreign.id }, key());
+    expect(own.status).toBe(201);
+  });
+});
+
+describe('F4-05: dos operadores abren la misma mesa a la vez', () => {
+  it('misma venta y un solo vínculo activo; el que llega después recibe 200', async () => {
+    for (let i = 0; i < 3; i++) {
+      const spare = (await h.as('bar-demo/admin').post(`/locations/${h.locationId}/tables`, { label: `POS-par-${i}` })).body as { id: string };
+      const [a, b] = await Promise.all([link(spare.id, 'bar-demo/caja1'), link(spare.id, 'bar-demo/admin')]);
+      expect([a.status, b.status].sort()).toEqual([200, 201]);
+      const saleId = saleResultSchema.parse(a.body).sale.id;
+      expect(saleResultSchema.parse(b.body).sale.id).toBe(saleId);
+      expect((await openSales()).filter((s) => s.context_label === `POS-par-${i}`).map((s) => s.id)).toEqual([saleId]);
+    }
   });
 });

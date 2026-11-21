@@ -19,14 +19,6 @@ for d in core hospitality commerce analytics pos; do db -d restored -c "CREATE R
 openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE -in "$file" \
   | docker exec -i "$name" pg_restore -U postgres -d restored --exit-on-error --no-password
 
-got=$(db -d restored -At <<'SQL'
-SELECT 'cuentas='||count(*) FROM core.app_users;
-SELECT 'negocios='||count(*) FROM core.organizations;
-SELECT 'planos_publicados='||count(*) FROM hospitality.space_layouts WHERE status='published';
-SELECT 'llamados='||count(*) FROM hospitality.service_calls;
-SELECT 'movimientos_stock='||count(*) FROM commerce.stock_movements;
-SELECT 'audit_log='||count(*) FROM core.audit_log;
-SQL
-)
+got=$(db -d restored -At < "$(dirname "$0")/counts.sql")
 echo "origen:"; sed 's/^/  /' "$file.counts"; echo "restaurado:"; echo "$got" | sed 's/^/  /'
 if [ "$got" = "$(cat "$file.counts")" ]; then echo "restore-check: OK"; else echo "restore-check: NO CUADRA" >&2; exit 1; fi
