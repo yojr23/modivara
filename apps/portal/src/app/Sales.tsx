@@ -81,8 +81,8 @@ function Field({ label, hint, children, className }: { label: string; hint?: Rea
   );
 }
 
-function Problem({ text }: { text: string }) {
-  return <p role="alert" className="anim-rise flex gap-2 rounded-md border border-danger/40 bg-danger/6 px-3 py-2.5 text-sm"><CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-danger" />{text}</p>;
+function Problem({ text, id }: { text: string; id?: string }) {
+  return <p id={id} role="alert" className="anim-rise flex gap-2 rounded-md border border-danger/40 bg-danger/6 px-3 py-2.5 text-sm"><CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-danger" />{text}</p>;
 }
 
 const RowBones = ({ n = 6 }: { n?: number }) => (
@@ -188,10 +188,13 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
   const [qty, setQty] = useState('1');
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [problem, setProblem] = useState<string | null>(null);
+  const [qtyBad, setQtyBad] = useState(false);
+  const qtyRef = useRef<HTMLInputElement>(null);
   const [confirmVoid, setConfirmVoid] = useState(false);
 
   const select = (id: string | null) => {
     setProblem(null);
+    setQtyBad(false);
     setParams((p) => { const n = new URLSearchParams(p); if (id) n.set('venta', id); else n.delete('venta'); return n; }, { replace: true });
   };
   // Cerrada, anulada (aquí o en otro equipo) o inexistente: deja de ser la venta en curso.
@@ -201,6 +204,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
   /** Ejecuta una mutación con su clave por intención; un error queda en palabras del usuario (409 `sale_not_open` → aviso). */
   async function run<T>(name: string, fn: (key: string) => Promise<T>): Promise<T | undefined> {
     setProblem(null);
+    setQtyBad(false);
     try {
       return await intent(name, fn);
     } catch (e) {
@@ -220,6 +224,8 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
   async function add(item: SellableItemDto) {
     const quantity = parseQty(qty, item.unit);
     if (!quantity) {
+      setQtyBad(true);
+      qtyRef.current?.focus();
       return setProblem(item.unit === 'unit'
         ? `${item.name} se vende por unidad: escribe una cantidad entera mayor que cero.`
         : 'Escribe una cantidad mayor que cero, con hasta 3 decimales.');
@@ -243,7 +249,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
     if (!r) return;
     select(null);
     setMethod('cash');
-    toast.show(`Venta cobrada: ${fmtMoney(r.sale.total, r.sale.currency)} en ${PAY[method].toLowerCase()}.`);
+    toast.show(`Venta registrada (cobro declarado): ${fmtMoney(r.sale.total, r.sale.currency)} en ${PAY[method].toLowerCase()}.`);
   }
 
   if (itemsQ.isPending || openQ.isPending) {
@@ -276,7 +282,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
                 <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre o SKU" className={input} />
               </Field>
               <Field label="Cantidad" className="w-28">
-                <input inputMode="decimal" value={qty} onChange={(e) => { setQty(e.target.value); setProblem(null); }} className={cn(input, 'text-center font-semibold tabular-nums')} />
+                <input ref={qtyRef} inputMode="decimal" value={qty} aria-invalid={qtyBad && !!problem} aria-describedby={qtyBad && problem ? 'sell-problem' : undefined} onChange={(e) => { setQty(e.target.value); setProblem(null); }} className={cn(input, 'text-center font-semibold tabular-nums')} />
               </Field>
             </div>
             {!shown.length && <p className="py-6 text-center text-muted">Nada coincide con «{search.trim()}».</p>}
@@ -304,7 +310,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
         <div className="mb-2 flex shrink-0 items-baseline justify-between gap-2">
           <div>
             <h2 id="ticket-h" className="text-lg font-bold">Venta en curso</h2>
-            {sale && <p className="text-sm text-muted">{sale.context_label && <span className="font-semibold text-fg">{sale.context_label} · </span>}Abierta {fmtWhen(sale.opened_at, tz)}</p>}
+            {sale && <p className="flex min-w-0 text-sm text-muted">{sale.context_label && <span title={sale.context_label} className="truncate font-semibold text-fg">{sale.context_label} · </span>}<span className="shrink-0">Abierta {fmtWhen(sale.opened_at, tz)}</span></p>}
           </div>
           <Button size="sm" variant="ghost" disabled={busy || unresolved} onClick={() => void newSale()}><Plus aria-hidden className="size-4" />Nueva venta</Button>
         </div>
@@ -314,7 +320,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
               <button key={s.id} type="button" aria-pressed={s.id === sale?.id} onClick={() => select(s.id)}
                 className={cn('shrink-0 rounded-md border px-3 py-1.5 text-left text-sm', s.id === sale?.id ? 'border-ink ring-1 ring-ink' : 'border-line hover:border-line-strong')}>
                 <span className="block font-semibold tabular-nums">{fmtMoney(s.total, s.currency)}</span>
-                <span className="block text-xs text-muted">{s.context_label && `${s.context_label} · `}{fmtWhen(s.opened_at, tz)} · {countLabel(activeCount(s))}</span>
+                <span title={s.context_label ?? undefined} className="block max-w-56 truncate text-xs text-muted">{s.context_label && `${s.context_label} · `}{fmtWhen(s.opened_at, tz)} · {countLabel(activeCount(s))}</span>
               </button>
             ))}
           </div>
@@ -325,7 +331,7 @@ function Sell({ toast, goCatalog }: { toast: Toast; goCatalog?: () => void }) {
             : saleId ? <RowBones n={3} />
             : <p className="py-8 text-center text-sm text-muted">Toca un artículo para empezar una venta.</p>}
         </div>
-        {problem && <div className="mt-3 shrink-0"><Problem text={problem} /></div>}
+        {problem && <div className="mt-3 shrink-0"><Problem id="sell-problem" text={problem} /></div>}
         {sale && (
           <div className="mt-4 shrink-0 space-y-3 border-t border-line pt-4">
             <p className="flex items-baseline justify-between">
@@ -389,7 +395,7 @@ function ByTable({ toast, onSale }: { toast: Toast; onSale: (saleId: string) => 
           <p className="mb-1.5 text-xs text-muted">{name(z)}</p>
           <div role="group" aria-label={name(z)} className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
             {tables.filter((t) => t.zone_id === z).map((t) => (
-              <button key={t.id} type="button" disabled={sale.busy} onClick={() => void sale.open(t.id)}
+              <button key={t.id} type="button" aria-label={`${name(z)} · ${t.label}`} disabled={sale.busy} onClick={() => void sale.open(t.id)}
                 className="rounded-lg border border-line bg-surface px-3 py-3 text-left font-semibold transition-colors hover:border-line-strong active:bg-sunken disabled:opacity-50">
                 {t.label}
               </button>
@@ -413,14 +419,19 @@ function ItemDialog({ item, currency, categories, toast, onClose }: { item: Sell
   const [unit, setUnit] = useState<Unit>(item?.unit ?? 'unit');
   const [price, setPrice] = useState(item?.price.replace(/\.00$/, '') ?? '');
   const [error, setError] = useState('');
+  const [bad, setBad] = useState<'name' | 'price' | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
   const title = useId();
+  const errId = useId();
   const busy = createM.isPending || updateM.isPending;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     const p = price.trim().replace(',', '.');
-    if (!name.trim()) return setError('Escribe el nombre del artículo.');
-    if (!MONEY_PATTERN.test(p)) return setError('Escribe el precio sin separador de miles, con hasta 2 decimales (p. ej. 12000 o 12000,50).');
+    const fail = (field: 'name' | 'price', ref: typeof nameRef, msg: string) => { setBad(field); setError(msg); ref.current?.focus(); };
+    if (!name.trim()) return fail('name', nameRef, 'Escribe el nombre del artículo.');
+    if (!MONEY_PATTERN.test(p)) return fail('price', priceRef, 'Escribe el precio sin separador de miles, con hasta 2 decimales (p. ej. 12000 o 12000,50).');
     try {
       const saved = item
         ? await updateM.mutateAsync({ itemId: item.id, input: { name: name.trim(), sku: sku.trim() || null, category: category.trim() || null, price: p } })
@@ -428,6 +439,7 @@ function ItemDialog({ item, currency, categories, toast, onClose }: { item: Sell
       toast.show(item ? `Artículo actualizado: ${saved.name}.` : `Artículo creado: ${saved.name}.`);
       onClose();
     } catch (err) {
+      setBad(null);
       setError(errorText(err));
     }
   }
@@ -436,25 +448,25 @@ function ItemDialog({ item, currency, categories, toast, onClose }: { item: Sell
     <Modal labelledBy={title} onClose={onClose}>
       <form onSubmit={submit} className="space-y-5" noValidate>
         <h2 id={title} className="text-xl font-bold">{item ? 'Editar artículo' : 'Nuevo artículo'}</h2>
-        <Field label="Nombre"><input value={name} onChange={(e) => { setName(e.target.value); setError(''); }} maxLength={120} className={input} /></Field>
-        <div className="grid grid-cols-2 gap-4">
+        <Field label="Nombre"><input ref={nameRef} value={name} onChange={(e) => { setName(e.target.value); setError(''); }} maxLength={120} aria-invalid={error !== '' && bad === 'name'} aria-describedby={error && bad === 'name' ? errId : undefined} className={input} /></Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Categoría (opcional)">
             <input list="pos-categories" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={120} className={input} />
             <datalist id="pos-categories">{categories.map((c) => <option key={c} value={c} />)}</datalist>
           </Field>
           <Field label="SKU (opcional)"><input value={sku} onChange={(e) => setSku(e.target.value)} maxLength={64} className={input} /></Field>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Unidad" hint={item ? 'No se cambia después de crear.' : 'Solo «Unidad» exige cantidades enteras.'}>
             <select value={unit} disabled={!!item} onChange={(e) => setUnit(e.target.value as Unit)} className={cn(input, 'disabled:bg-sunken')}>
               {UNITS.map((u) => <option key={u} value={u}>{UNIT_LABEL[u]}</option>)}
             </select>
           </Field>
           <Field label={`Precio${(item?.currency ?? currency) ? ` (${item?.currency ?? currency})` : ''}`}>
-            <input inputMode="decimal" value={price} onChange={(e) => { setPrice(e.target.value); setError(''); }} className={cn(input, 'tabular-nums')} />
+            <input ref={priceRef} inputMode="decimal" value={price} onChange={(e) => { setPrice(e.target.value); setError(''); }} aria-invalid={error !== '' && bad === 'price'} aria-describedby={error && bad === 'price' ? errId : undefined} className={cn(input, 'tabular-nums')} />
           </Field>
         </div>
-        {error && <Problem text={error} />}
+        {error && <Problem id={errId} text={error} />}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button type="submit" disabled={busy}>{busy ? 'Guardando…' : item ? 'Guardar cambios' : 'Crear artículo'}</Button>
@@ -471,10 +483,12 @@ function CurrencySetting({ toast }: { toast: Toast }) {
   const [value, setValue] = useState<string | null>(null);
   const [error, setError] = useState('');
   const current = value ?? q.data?.currency ?? '';
+  const inputRef = useRef<HTMLInputElement>(null);
+  const errId = useId();
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!currencySchema.safeParse(current).success) return setError('Escribe el código de 3 letras de la moneda, p. ej. COP o USD.');
+    if (!currencySchema.safeParse(current).success) { setError('Escribe el código de 3 letras de la moneda, p. ej. COP o USD.'); return inputRef.current?.focus(); }
     try {
       await m.mutateAsync({ currency: current });
       setValue(null);
@@ -490,12 +504,12 @@ function CurrencySetting({ toast }: { toast: Toast }) {
       <p className="mb-3 text-sm text-muted">Una sola moneda por local, sin conversión. Solo cambia si no hay ventas abiertas ni artículos activos en otra moneda (solo monedas de 2 decimales).</p>
       {q.isPending ? <Bone className="h-11 w-48" /> : q.isError ? <ErrorState what="la moneda" error={q.error} onRetry={() => void q.refetch()} /> : (
         <form onSubmit={submit} className="flex gap-2" noValidate>
-          <input aria-label="Moneda (código ISO 4217)" list="pos-currencies" value={current} maxLength={3} onChange={(e) => { setValue(e.target.value.toUpperCase()); setError(''); }} className={cn(input, 'w-28 uppercase')} />
+          <input ref={inputRef} aria-invalid={error !== ''} aria-describedby={error ? errId : undefined} aria-label="Moneda (código ISO 4217)" list="pos-currencies" value={current} maxLength={3} onChange={(e) => { setValue(e.target.value.toUpperCase()); setError(''); }} className={cn(input, 'w-28 uppercase')} />
           <datalist id="pos-currencies">{['COP', 'USD', 'EUR', 'MXN', 'PEN'].map((c) => <option key={c} value={c} />)}</datalist>
           <Button type="submit" variant="secondary" disabled={m.isPending || current === q.data.currency}>Guardar moneda</Button>
         </form>
       )}
-      {error && <div className="mt-3"><Problem text={error} /></div>}
+      {error && <div className="mt-3"><Problem id={errId} text={error} /></div>}
     </section>
   );
 }
@@ -569,7 +583,7 @@ function SaleDetail({ sale, onClose }: { sale: SaleDto; onClose: () => void }) {
   return (
     <Modal labelledBy={id} onClose={onClose}>
       <h2 id={id} className="text-xl font-bold">Venta {fmtWhen(sale.closed_at ?? sale.opened_at, location.timezone)}</h2>
-      <p className="mb-3 text-sm text-muted">{sale.status === 'voided' ? 'Anulada' : `Cobrada · ${sale.payment_method ? PAY[sale.payment_method] : ''}`}</p>
+      <p className="mb-3 text-sm text-muted">{sale.status === 'voided' ? 'Anulada' : `Registrada · ${sale.payment_method ? PAY[sale.payment_method] : ''}`}</p>
       <div className="max-h-[50dvh] overflow-y-auto"><Lines sale={sale} /></div>
       <p className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
         <span className="font-semibold">Total</span>
@@ -589,9 +603,9 @@ function SalesHistory() {
   const rows = q.data?.pages.flat() ?? [];
   return (
     <div className="anim-rise mx-auto max-w-4xl space-y-4 p-4 md:p-8">
-      <Segmented label="Estado" options={[['completed', 'Cobradas'], ['voided', 'Anuladas']] as const} value={status} onChange={setStatus} />
+      <Segmented label="Estado" options={[['completed', 'Registradas'], ['voided', 'Anuladas']] as const} value={status} onChange={setStatus} />
       {q.isPending ? <RowBones /> : q.isError ? <ErrorState what="el historial" error={q.error} onRetry={() => void q.refetch()} /> : !rows.length ? (
-        <EmptyState Icon={Receipt} title={status === 'completed' ? 'Aún no hay ventas cobradas' : 'No hay ventas anuladas'} text="Aquí aparecen las ventas cerradas de este local, de la más reciente a la más antigua." />
+        <EmptyState Icon={Receipt} title={status === 'completed' ? 'Aún no hay ventas registradas' : 'No hay ventas anuladas'} text="Aquí aparecen las ventas cerradas de este local, de la más reciente a la más antigua." />
       ) : (
         <>
           <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
@@ -600,7 +614,7 @@ function SalesHistory() {
                 <button type="button" onClick={() => setDetail(s)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-4 px-4 py-3 text-left hover:bg-sunken">
                   <span className="font-semibold">{fmtWhen(s.closed_at ?? s.opened_at, location.timezone)}</span>
                   <span className="text-right font-semibold tabular-nums">{fmtMoney(s.total, s.currency)}</span>
-                  <span className="text-sm text-muted">{s.context_label && `${s.context_label} · `}{countLabel(activeCount(s))}{s.payment_method && ` · ${PAY[s.payment_method]}`}</span>
+                  <span title={s.context_label ?? undefined} className="truncate text-sm text-muted">{s.context_label && `${s.context_label} · `}{countLabel(activeCount(s))}{s.payment_method && ` · ${PAY[s.payment_method]}`}</span>
                 </button>
               </li>
             ))}

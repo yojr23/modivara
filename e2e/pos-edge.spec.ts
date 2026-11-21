@@ -5,7 +5,7 @@ import { apiAs, json, locationOf, posPost } from './support/api';
 import { authFile, type User } from './support/env';
 
 // Casos borde de Ventas (POS) que no cubren pos.spec ni pos-tables.spec: cantidades por unidad, venta vacía, anular una línea,
-// venta cobrada de solo lectura, catálogo duplicado o desactivado, permisos de Caja y del personal sin POS, idempotencia,
+// venta registrada de solo lectura, catálogo duplicado o desactivado, permisos de Caja y del personal sin POS, idempotencia,
 // aislamiento entre negocios, historial por estado y páginas, y cambio de moneda del local (se restaura al final).
 
 const TIENDA: User = ['tienda-demo', 'admin'];
@@ -80,7 +80,7 @@ test('cantidades: «Unidad» rechaza 0, negativas y decimales; kg acepta hasta 3
   await posPost(tienda, `${sales()}/${saleId}/void`);
 });
 
-test('celular 390×844: venta vacía no se cobra; anular una línea recalcula el total; la cobrada queda de solo lectura', async ({ browser }) => {
+test('celular 390×844: venta vacía no se cobra; anular una línea recalcula el total; la registrada queda de solo lectura', async ({ browser }) => {
   const ctx = await browser.newContext({ storageState: authFile(TIENDA), viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   await page.goto('/tienda-demo/app/ventas');
@@ -99,10 +99,10 @@ test('celular 390×844: venta vacía no se cobra; anular una línea recalcula el
   await expect(ticket(page).getByRole('listitem').filter({ hasText: UNIT.name })).toContainText('Anulada');
   await ticket(page).getByLabel('Medio de pago').selectOption({ label: 'Efectivo' });
   await ticket(page).getByRole('button', { name: /^Cobrar .*5\.000/ }).click();
-  await expect(page.getByText('Venta cobrada: ')).toContainText('5.000 en efectivo');
+  await expect(page.getByText('Venta registrada (cobro declarado): ')).toContainText('5.000 en efectivo');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
-  // Cobrada: ni agregar, ni anular líneas, ni anularla, ni cobrarla otra vez.
+  // Registrada: ni agregar, ni anular líneas, ni anularla, ni cobrarla otra vez.
   const sale = await json(tienda, 'GET', `${sales()}/${saleId}`);
   expect([sale.status, sale.total, sale.lines.filter((l: any) => l.voided_at).length]).toEqual(['completed', '5000.00', 1]);
   const live = sale.lines.find((l: any) => !l.voided_at).id;
@@ -156,6 +156,28 @@ test('catálogo: nombre o SKU de un artículo activo no se repite; desactivado n
 
   // Desactivado, el nombre y el SKU quedan libres.
   await json(tienda, 'POST', `/locations/${loc}/pos/items`, { name, sku, unit: 'unit', price: '1000' });
+});
+
+test('teclado en «Nuevo artículo»: Tab llega al campo, Enter con error enfoca el campo inválido; Escape cierra y devuelve el foco', async ({ browser }) => {
+  const page = await pageAs(browser, TIENDA);
+  await page.goto('/tienda-demo/app/ventas');
+  await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Catálogo' }).click();
+  const open = page.getByRole('button', { name: 'Nuevo artículo' });
+  await open.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Nuevo artículo' });
+  const nameField = dialog.getByLabel('Nombre');
+  for (let i = 0; i < 6 && !(await nameField.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press('Tab');
+  await expect(nameField).toBeFocused();
+  await page.keyboard.press('Enter'); // nombre vacío
+  const alert = dialog.getByRole('alert');
+  await expect(alert).toHaveText('Escribe el nombre del artículo.');
+  await expect(nameField).toBeFocused();
+  await expect(nameField).toHaveAttribute('aria-invalid', 'true');
+  await expect(nameField).toHaveAttribute('aria-describedby', (await alert.getAttribute('id'))!);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(open).toBeFocused();
 });
 
 test('Caja (caja1) vende pero no gestiona el catálogo ni anula ventas: sin botón y 403 en la API', async ({ browser }) => {

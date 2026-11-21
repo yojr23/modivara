@@ -64,7 +64,7 @@ it('Ventas aparece con el módulo pos y pos.sales.read; sin el módulo, no', asy
   await waitFor(() => expect(router.state.location.pathname).toBe('/demo/app/ventas'));
   const [nav] = await screen.findAllByRole('navigation', { name: 'Módulos' });
   expect(within(nav!).getByText('Ventas')).toBeTruthy();
-  expect(await screen.findByText('Aún no hay ventas cobradas')).toBeTruthy(); // solo lectura: abre el historial
+  expect(await screen.findByText('Aún no hay ventas registradas')).toBeTruthy(); // solo lectura: abre el historial
   expect(screen.queryByRole('button', { name: 'Vender' })).toBeNull();
   cleanup();
 
@@ -111,7 +111,7 @@ it('Vender: tocar un artículo abre la venta y agrega la línea con Idempotency-
 
   fireEvent.change(screen.getByLabelText('Medio de pago'), { target: { value: 'card' } });
   fireEvent.click(screen.getByRole('button', { name: /^Cobrar/ }));
-  expect(await screen.findByText(/Venta cobrada: \$\s10\.000 en tarjeta/)).toBeTruthy();
+  expect(await screen.findByText(/Venta registrada \(cobro declarado\): \$\s10\.000 en tarjeta/)).toBeTruthy();
   expect(calls[2]).toMatchObject({ method: 'POST', url: `${base}/sales/${S}/complete`, body: { payment_method: 'card' } });
   await waitFor(() => expect(router.state.location.search).toBe(''));
   expect(screen.getByText('Toca un artículo para empezar una venta.')).toBeTruthy();
@@ -178,7 +178,7 @@ it('Ventas «Por mesa»: con Hospitality lista las mesas sin plano publicado y t
   const { router } = mount('/demo/app/ventas', barApi(me(['hospitality', 'pos'], ['hospitality.tables.link_sale', 'pos.sales.read', 'pos.sales.operate']), reqs, { layouts: [] }));
   fireEvent.click(await screen.findByRole('button', { name: 'Por mesa' }));
   const group = await screen.findByRole('group', { name: 'Salón principal' });
-  fireEvent.click(within(group).getByRole('button', { name: 'Mesa 3' }));
+  fireEvent.click(within(group).getByRole('button', { name: 'Salón principal · Mesa 3' }));
   await waitFor(() => expect(router.state.location.search).toBe(`?venta=${SALE}`));
   expect(screen.getByRole('button', { name: 'Vender' }).getAttribute('aria-pressed')).toBe('true');
   expect(await screen.findByText('Toca un artículo para agregarlo.')).toBeTruthy(); // la venta de la mesa quedó en curso

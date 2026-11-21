@@ -60,7 +60,7 @@ async function sell(page: Page, c: Case): Promise<string> {
   const saleId = new URL(page.url()).searchParams.get('venta')!;
   await ticket.getByLabel('Medio de pago').selectOption({ label: c.pay });
   await ticket.getByRole('button', { name: new RegExp(`^Cobrar .*${c.total.replace('.', '\\.')}`) }).click();
-  await expect(page.getByText(`Venta cobrada: `)).toContainText(`${c.total} en ${c.pay.toLowerCase()}`);
+  await expect(page.getByText(`Venta registrada (cobro declarado): `)).toContainText(`${c.total} en ${c.pay.toLowerCase()}`);
   await expect(page).not.toHaveURL(/venta=/);
   return saleId;
 }
@@ -77,7 +77,7 @@ async function checkSold(page: Page, sales: [Case, string][]) {
   await rows.first().getByRole('button').click();
   const detail = page.getByRole('dialog');
   await expect(detail).toContainText(last.name);
-  await expect(detail).toContainText(`Cobrada · ${last.pay}`);
+  await expect(detail).toContainText(`Registrada · ${last.pay}`);
   await expect(detail).toContainText(last.total);
   await detail.getByRole('button', { name: 'Cerrar' }).click();
 
@@ -113,6 +113,20 @@ test('escritorio: solo Ventas en el menú; zapato por SKU, bebida y hora de serv
   const sold: [Case, string][] = [];
   for (const c of cs) sold.push([c, await sell(page, c)]);
   await checkSold(page, sold);
+});
+
+test('solo POS: no hay «Por mesa» ni la SPA pide URLs de hospitality o de mesas', async ({ browser }) => {
+  const page = await pageAs(browser, ADMIN);
+  const hits: string[] = [];
+  page.on('request', (r) => { if (/\/(hospitality|tables)(\/|\?|$)/.test(new URL(r.url()).pathname)) hits.push(r.url()); });
+  await page.goto('/tienda-demo/app/ventas');
+  const views = page.getByRole('group', { name: 'Vista' });
+  await expect(views.getByRole('button', { name: 'Vender' })).toBeVisible();
+  await expect(views.getByRole('button', { name: 'Por mesa' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Por mesa' })).toHaveCount(0);
+  for (const v of ['Catálogo', 'Historial', 'Vender']) await views.getByRole('button', { name: v }).click();
+  await page.waitForLoadState('networkidle');
+  expect(hits).toEqual([]);
 });
 
 test('celular 390×844: el mismo flujo de venta', async ({ browser }) => {

@@ -88,7 +88,7 @@ test('la venta de la mesa: tablero, «Por mesa» en celular y Caja llegan a la m
   await expect(ticket(cashier).getByText(new RegExp(`${TABLE} ·`)).first()).toBeVisible(); // sin «Por mesa», Caja sabe de qué mesa es
   await ticket(cashier).getByLabel('Medio de pago').selectOption({ label: 'Efectivo' });
   await ticket(cashier).getByRole('button', { name: /^Cobrar .*27\.000/ }).click();
-  await expect(cashier.getByText('Venta cobrada: ')).toContainText('27.000 en efectivo');
+  await expect(cashier.getByText('Venta registrada (cobro declarado): ')).toContainText('27.000 en efectivo');
   await view(cashier, 'Historial').click();
   await expect(cashier.getByRole('button', { name: new RegExp(`${TABLE} · 2 artículos · Efectivo`) }).first()).toBeVisible();
 
